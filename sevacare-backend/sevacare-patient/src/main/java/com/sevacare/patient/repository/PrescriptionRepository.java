@@ -1,0 +1,31 @@
+package com.sevacare.patient.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.sevacare.patient.entity.Prescription;
+
+public interface PrescriptionRepository extends JpaRepository<Prescription, String> {
+
+    List<Prescription> findByTenantPublicIdAndPatientPublicIdOrderByPrescriptionPublicIdAsc(String tenantPublicId, String patientPublicId);
+
+    Optional<Prescription> findByTenantPublicIdAndPrescriptionPublicId(String tenantPublicId, String prescriptionPublicId);
+
+    List<Prescription> findByTenantPublicIdAndDoctorPublicId(String tenantPublicId, String doctorPublicId);
+
+    Optional<Prescription> findByTenantPublicIdAndDoctorPublicIdAndAppointmentPublicId(
+            String tenantPublicId,
+            String doctorPublicId,
+            String appointmentPublicId
+    );
+
+    List<Prescription> findByTenantPublicIdAndDoctorPublicIdAndPatientPublicIdOrderByCreatedAtDesc(
+            String tenantPublicId,
+            String doctorPublicId,
+            String patientPublicId
+    );
+
+    long countByTenantPublicId(String tenantPublicId);
+}

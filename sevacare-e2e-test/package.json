@@ -1,0 +1,27 @@
+{
+  "name": "sevacare-e2e-test",
+  "version": "1.0.0",
+  "description": "Reserved for end-to-end and regression testing.",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "smoke": "playwright test tests/smoke.spec.ts",
+    "smoke:headed": "playwright test tests/smoke.spec.ts --headed",
+    "test:onboarding": "playwright test tests/onboarding.spec.ts",
+    "test:patient": "playwright test tests/patient.spec.ts",
+    "test:doctor": "playwright test tests/doctor.spec.ts",
+    "test:admin": "playwright test tests/admin.spec.ts",
+    "test:api": "playwright test tests/api.spec.ts",
+    "test:lifecycle": "playwright test tests/lifecycle.spec.ts",
+    "test:all": "playwright test tests/onboarding.spec.ts tests/patient.spec.ts tests/doctor.spec.ts tests/admin.spec.ts tests/api.spec.ts tests/lifecycle.spec.ts",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

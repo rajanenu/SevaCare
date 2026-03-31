@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  backend:
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SEVACARE_JWT_SECRET: ${SEVACARE_JWT_SECRET}
+      SERVER_PORT: ${SERVER_PORT:-8081}
+      JAVA_OPTS: ${JAVA_OPTS:-"-Xms512m -Xmx1024m"}
+    restart: unless-stopped
+
+  frontend:
+    environment:
+      EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL}
+    restart: unless-stopped
+
+  postgres:
+    # In production, prefer managed PostgreSQL and disable local DB service if not needed.
+    restart: unless-stopped

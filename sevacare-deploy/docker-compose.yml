@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sevacare-db
+    environment:
+      POSTGRES_DB: seva_care
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ../sevacare-backend
+      dockerfile: ../sevacare-deploy/Dockerfile.backend
+    container_name: sevacare-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seva_care
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SEVACARE_JWT_SECRET: dev-sevacare-secret
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/api/v1/public/tenants || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ../sevacare-frontend
+      dockerfile: ../sevacare-deploy/Dockerfile.frontend
+    container_name: sevacare-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      EXPO_PUBLIC_API_BASE_URL: http://backend:8081/api/v1
+    ports:
+      - "8087:8087"
+
+volumes:
+  pgdata:
