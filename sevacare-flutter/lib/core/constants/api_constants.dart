@@ -38,6 +38,7 @@ class ApiConstants {
   static String doctorPatients(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/patients';
   static String doctorPrescriptions(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/prescriptions/list';
   static String uploadPrescription(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/prescriptions';
+  static String completeAppointment(String tenantId, String doctorId, String apptId) => '/doctors/$tenantId/$doctorId/appointments/$apptId/complete';
 
   // Prescription
   static String prescriptionDetail(String tenantId, String rxId) => '/prescriptions/$tenantId/$rxId/detail';

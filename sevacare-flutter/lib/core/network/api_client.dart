@@ -115,6 +115,21 @@ class ApiClient {
     return fromJson != null ? fromJson(data) : data as T;
   }
 
+  Future<T> patch<T>(String path, {
+    dynamic body,
+    T Function(dynamic)? fromJson,
+    Map<String, String>? extraHeaders,
+  }) async {
+    final response = await _dio.patch(
+      path,
+      data: body,
+      options: Options(headers: extraHeaders),
+    );
+    final envelope = response.data as Map<String, dynamic>;
+    final data = envelope['data'];
+    return fromJson != null ? fromJson(data) : data as T;
+  }
+
   Future<T> delete<T>(String path, {
     T Function(dynamic)? fromJson,
     Map<String, String>? extraHeaders,

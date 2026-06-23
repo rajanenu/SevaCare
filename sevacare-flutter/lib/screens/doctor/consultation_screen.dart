@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -31,6 +32,17 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   bool _submitting = false;
   String? _error;
 
+  // Patient history
+  List<PrescriptionDetailView> _prevPrescriptions = [];
+  bool _historyLoading = false;
+  bool _historyExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPatientHistory());
+  }
+
   @override
   void dispose() {
     _medNameCtrl.dispose();
@@ -40,6 +52,112 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     _medInstructionsCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPatientHistory() async {
+    final patientId = ref.read(doctorSelectedPatientIdProvider);
+    if (patientId == null || patientId.isEmpty) return;
+    setState(() => _historyLoading = true);
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final repo = ref.read(repositoryProvider);
+      final result = await repo.getPatientPrescriptions(
+        hospital.tenantPublicId, patientId, auth.token ?? '');
+      if (mounted) {
+        setState(() {
+          _prevPrescriptions = result.prescriptions.take(3).toList();
+          _historyLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _historyLoading = false);
+    }
+  }
+
+  void _showPrevPrescriptionDialog(PrescriptionDetailView rx) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: const BoxDecoration(color: SevaCareColors.primarySoft, shape: BoxShape.circle),
+              child: const Icon(Icons.medication_outlined, size: 16, color: SevaCareColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(rx.prescriptionPublicId, style: AppTextStyles.body(size: 13, weight: FontWeight.w700, color: SevaCareColors.text)),
+                  Text('Issued: ${rx.issuedOn}', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: () => Navigator.of(ctx).pop(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 400),
+          child: rx.medicines.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No medicines recorded for this prescription.',
+                      style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      for (int i = 0; i < rx.medicines.length; i++) ...[
+                        if (i > 0)
+                          const Divider(height: 1, color: SevaCareColors.border),
+                        _MedicineDetailTile(medicine: rx.medicines[i], index: i),
+                      ],
+                    ],
+                  ),
+                ),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: SecondaryButton(
+              label: 'Close',
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _completeConsultation(String appointmentId) async {
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final repo = ref.read(repositoryProvider);
+      await repo.completeConsultation(
+        hospital.tenantPublicId,
+        auth.subjectPublicId ?? '',
+        appointmentId,
+        auth.token ?? '',
+      );
+    } catch (_) {
+      // Completion is best-effort; prescription already saved
+    }
   }
 
   void _addMedicine() {
@@ -100,12 +218,15 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       final repo = ref.read(repositoryProvider);
       final doctorId = auth.subjectPublicId ?? '';
 
+      final doctorName = auth.subjectName.isNotEmpty ? auth.subjectName : 'Doctor';
       final result = await repo.uploadPrescription(
         hospital.tenantPublicId,
         doctorId,
         auth.token ?? '',
         PrescriptionUploadRequest(
           patientPublicId: patientId,
+          doctorPublicId: doctorId,
+          doctorName: doctorName,
           appointmentPublicId: appointmentId,
           medicines: List.unmodifiable(_medicines),
           notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
@@ -117,6 +238,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
         final rxId = result['prescriptionPublicId'] as String? ??
             result['id'] as String? ??
             'RX-issued';
+        final apptId = appointmentId;
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
@@ -134,7 +256,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                   child: const Icon(Icons.check, color: SevaCareColors.success, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text('Prescription Issued', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Flexible(child: Text('Prescription Issued', style: AppTextStyles.sectionTitle(SevaCareColors.text))),
               ],
             ),
             content: Column(
@@ -159,11 +281,29 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                       Expanded(
                         child: Text(
                           rxId,
-                          style: AppTextStyles.body(
-                            size: 13,
-                            weight: FontWeight.w600,
-                            color: SevaCareColors.primary,
-                          ),
+                          style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Complete consultation prompt
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: SevaCareColors.mintSoft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: SevaCareColors.mint),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Mark this consultation as complete?',
+                          style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
                         ),
                       ),
                     ],
@@ -172,11 +312,22 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
               ],
             ),
             actions: [
-              PrimaryButton(
-                label: 'Done',
+              SecondaryButton(
+                label: 'Close',
                 onPressed: () {
                   Navigator.of(ctx).pop();
                   context.go('/doctor');
+                },
+              ),
+              PrimaryButton(
+                label: 'Complete & Close',
+                icon: Icons.check_circle_outline,
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+                  if (apptId != null && apptId.isNotEmpty) {
+                    await _completeConsultation(apptId);
+                  }
+                  if (mounted) context.go('/doctor');
                 },
               ),
             ],
@@ -187,7 +338,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       if (mounted) {
         setState(() {
           _submitting = false;
-          _error = e.toString();
+          _error = extractErrorMessage(e, fallback: 'Failed to issue prescription. Please try again.');
         });
       }
     }
@@ -215,6 +366,58 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                 ? 'Patient: $patientId'
                 : 'No patient selected',
           ),
+          const SizedBox(height: 16),
+
+          // ── Patient History Panel ──────────────────────────────────────────
+          GestureDetector(
+            onTap: () => setState(() => _historyExpanded = !_historyExpanded),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _historyExpanded ? SevaCareColors.primarySoft : SevaCareColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SevaCareColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_outlined, size: 18, color: SevaCareColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _historyLoading
+                          ? 'Loading patient history…'
+                          : _prevPrescriptions.isEmpty
+                              ? 'No previous prescriptions on record'
+                              : 'Previous Prescriptions (${_prevPrescriptions.length})',
+                      style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
+                    ),
+                  ),
+                  Icon(
+                    _historyExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: SevaCareColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_historyExpanded && _prevPrescriptions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < _prevPrescriptions.length; i++) ...[
+                    if (i > 0) const SectionDivider(),
+                    _PrevPrescriptionRow(
+                      prescription: _prevPrescriptions[i],
+                      onTap: () => _showPrevPrescriptionDialog(_prevPrescriptions[i]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // ── Write Prescription section ─────────────────────────────────────
@@ -398,6 +601,133 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
             fullWidth: true,
           ),
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Previous prescription summary row ────────────────────────────────────────
+
+class _PrevPrescriptionRow extends StatelessWidget {
+  final PrescriptionDetailView prescription;
+  final VoidCallback? onTap;
+  const _PrevPrescriptionRow({required this.prescription, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final meds = prescription.medicines;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(color: SevaCareColors.primarySoft, shape: BoxShape.circle),
+              child: const Icon(Icons.medication_outlined, size: 14, color: SevaCareColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        prescription.prescriptionPublicId,
+                        style: AppTextStyles.body(size: 12, weight: FontWeight.w600, color: SevaCareColors.primary),
+                      ),
+                      const Spacer(),
+                      Text(
+                        prescription.issuedOn,
+                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  if (meds.isEmpty)
+                    Text('No medicines listed', style: AppTextStyles.label(SevaCareColors.textMuted))
+                  else
+                    Text(
+                      meds.map((m) => m.name).join(', '),
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, size: 16, color: SevaCareColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Medicine detail tile inside the history popup ─────────────────────────────
+
+class _MedicineDetailTile extends StatelessWidget {
+  final MedicineView medicine;
+  final int index;
+  const _MedicineDetailTile({required this.medicine, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(color: SevaCareColors.primarySoft, shape: BoxShape.circle),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: AppTextStyles.label(SevaCareColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  medicine.name.isNotEmpty ? medicine.name : '(unnamed)',
+                  style: AppTextStyles.body(size: 13, weight: FontWeight.w700, color: SevaCareColors.text),
+                ),
+                if (medicine.strength.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(medicine.strength, style: AppTextStyles.label(SevaCareColors.primary)),
+                ],
+                if (medicine.frequency.isNotEmpty || medicine.duration.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (medicine.frequency.isNotEmpty) medicine.frequency,
+                      if (medicine.duration.isNotEmpty) medicine.duration,
+                    ].join(' · '),
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                ],
+                if (medicine.instructions != null && medicine.instructions!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    medicine.instructions!,
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

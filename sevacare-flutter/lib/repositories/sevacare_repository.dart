@@ -275,6 +275,15 @@ class SevaCareRepository {
     );
   }
 
+  Future<void> completeConsultation(
+      String tenantId, String doctorId, String appointmentId, String token) async {
+    await _client.patch<Map<String, dynamic>>(
+      ApiConstants.completeAppointment(tenantId, doctorId, appointmentId),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   // ── Admin ───────────────────────────────────────────────────────────────────
 
   Future<AdminOverview> getAdminOverview(String tenantId, String token) async {

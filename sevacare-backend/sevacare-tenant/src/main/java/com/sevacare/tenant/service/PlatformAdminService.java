@@ -86,6 +86,22 @@ public class PlatformAdminService {
     }
 
     @Transactional(readOnly = true)
+    public String findPlatformAdminNameByMobile(String mobileNumber) {
+        String name = jdbcTemplate.query(
+                """
+                SELECT full_name
+                FROM public.platform_admin_user
+                WHERE active = true AND mobile_number = ?
+                ORDER BY created_at ASC, platform_admin_public_id ASC
+                LIMIT 1
+                """,
+                rs -> rs.next() ? rs.getString("full_name") : null,
+                mobileNumber
+        );
+        return name != null ? name : "Platform Admin";
+    }
+
+    @Transactional(readOnly = true)
     public PlatformAdminDtos.PlatformAdminOverview overview() {
         long activeTenants = tenantRegistryRepository.findByTenantStatus("active").size();
         long onboardingRequests = queryCount("SELECT COUNT(*) FROM public.tenant_onboarding_request WHERE request_status = 'submitted'");

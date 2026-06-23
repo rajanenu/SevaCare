@@ -357,17 +357,36 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                           ],
 
                           const SizedBox(height: 12),
-                          SecondaryButton(
-                            label: 'Consult',
-                            icon: Icons.healing,
-                            onPressed: () {
-                              ref.read(doctorSelectedPatientIdProvider.notifier).state =
-                                  facet.patientPublicId;
-                              ref.read(doctorSelectedAppointmentIdProvider.notifier).state =
-                                  facet.appointmentPublicId;
-                              context.go('/doctor/consult');
-                            },
-                          ),
+                          if (facet.status.toLowerCase() == 'completed')
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: SevaCareColors.successSurface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: SevaCareColors.success.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.check_circle_outline, size: 16, color: SevaCareColors.success),
+                                  const SizedBox(width: 6),
+                                  Text('Consultation Completed', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.success)),
+                                ],
+                              ),
+                            )
+                          else
+                            SecondaryButton(
+                              label: 'Start Consult',
+                              icon: Icons.healing,
+                              onPressed: () {
+                                ref.read(doctorSelectedPatientIdProvider.notifier).state =
+                                    facet.patientPublicId;
+                                ref.read(doctorSelectedAppointmentIdProvider.notifier).state =
+                                    facet.appointmentPublicId;
+                                context.go('/doctor/consult');
+                              },
+                            ),
                         ],
                       ),
                     ),

@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_utils.dart';
+import '../../core/utils/prescription_pdf.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -23,6 +24,7 @@ class _PrescriptionDetailScreenState
     extends ConsumerState<PrescriptionDetailScreen> {
   PrescriptionDetailView? _detail;
   bool _loading = true;
+  bool _downloading = false;
   String? _error;
 
   @override
@@ -49,6 +51,27 @@ class _PrescriptionDetailScreenState
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    final rx = _detail;
+    if (rx == null) return;
+    final hospital = ref.read(hospitalProvider);
+    setState(() => _downloading = true);
+    try {
+      await PrescriptionPdfService.download(
+        hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
+        rx: rx,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate PDF: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
     }
   }
 
@@ -212,12 +235,12 @@ class _PrescriptionDetailScreenState
               const SizedBox(height: 16),
             ],
 
-            // ── Download button (placeholder)
+            // ── Download as PDF
             SecondaryButton(
-              label: 'Download Prescription',
-              icon: Icons.download_outlined,
+              label: _downloading ? 'Generating PDF…' : 'Download Prescription (PDF)',
+              icon: _downloading ? Icons.hourglass_empty : Icons.picture_as_pdf_outlined,
               fullWidth: true,
-              onPressed: null, // placeholder — not yet implemented
+              onPressed: _downloading ? null : _downloadPdf,
             ),
             const SizedBox(height: 32),
           ],

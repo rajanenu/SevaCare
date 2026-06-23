@@ -98,8 +98,9 @@ public class AuthController {
                 throw new IllegalArgumentException("Invalid OTP");
             }
             String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
+            String subjectName = platformAdminService.findPlatformAdminNameByMobile(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName));
         }
 
         if (!LOCAL_OTP.equals(request.otp())) {
@@ -109,16 +110,26 @@ public class AuthController {
         String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());
         try {
             TenantContext.set(request.tenantPublicId(), schema);
-            String subjectPublicId = switch (request.role()) {
-                case "patient" -> patientDomainService.findOrCreatePatientForLogin(request.tenantPublicId(), request.mobileNumber()).getPatientPublicId();
-                case "doctor" -> doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber()).getDoctorPublicId();
-                case "admin" -> adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber()).getAdminPublicId();
+            record SubjectInfo(String publicId, String name) {}
+            SubjectInfo subject = switch (request.role()) {
+                case "patient" -> {
+                    var p = patientDomainService.findOrCreatePatientForLogin(request.tenantPublicId(), request.mobileNumber());
+                    yield new SubjectInfo(p.getPatientPublicId(), p.getFullName() != null ? p.getFullName() : "Patient");
+                }
+                case "doctor" -> {
+                    var d = doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber());
+                    yield new SubjectInfo(d.getDoctorPublicId(), d.getFullName() != null ? d.getFullName() : "Doctor");
+                }
+                case "admin" -> {
+                    var a = adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
+                    yield new SubjectInfo(a.getAdminPublicId(), a.getFullName() != null ? a.getFullName() : "Admin");
+                }
                 default -> throw new IllegalArgumentException("Unsupported role");
             };
             boolean isGenericAdmin = "admin".equals(request.role())
                     && AdminDomainService.GENERIC_ADMIN_MOBILE.equals(request.mobileNumber());
-            String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), request.role(), subjectPublicId, token, isGenericAdmin));
+            String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), request.role(), subject.publicId()));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), request.role(), subject.publicId(), token, isGenericAdmin, subject.name()));
         } finally {
             TenantContext.clear();
         }

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -147,6 +148,21 @@ public class DoctorController {
             throw new IllegalArgumentException("Doctor mismatch");
         }
         return ContractResponse.of(patientDomainService.uploadPrescription(tenantPublicId, request.patientPublicId(), request));
+    }
+
+    // Complete a consultation (marks appointment as completed)
+    @PatchMapping("/{tenantPublicId}/{doctorPublicId}/appointments/{appointmentPublicId}/complete")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ContractResponse<String> completeAppointment(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId,
+            @PathVariable String appointmentPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        patientDomainService.completeAppointment(tenantPublicId, doctorPublicId, appointmentPublicId);
+        return ContractResponse.of("completed");
     }
 
     // Doctor's patient list (derived from appointments)

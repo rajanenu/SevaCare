@@ -12,6 +12,7 @@ const _kTenantId = 'seva_tenant_id';
 const _kSubjectId = 'seva_subject_id';
 const _kRole = 'seva_role';
 const _kIsGeneric = 'seva_is_generic';
+const _kSubjectName = 'seva_subject_name';
 const _kHospitalId = 'seva_hospital_id';
 const _kTheme = 'seva_theme';
 
@@ -47,6 +48,7 @@ class AuthState {
   final String? subjectPublicId;
   final UserRole? role;
   final bool isGenericAdmin;
+  final String subjectName;
 
   const AuthState({
     this.token,
@@ -54,6 +56,7 @@ class AuthState {
     this.subjectPublicId,
     this.role,
     this.isGenericAdmin = false,
+    this.subjectName = '',
   });
 
   bool get isAuthenticated =>
@@ -164,12 +167,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       subjectPublicId: session.subjectPublicId,
       role: role,
       isGenericAdmin: session.isGeneric,
+      subjectName: session.subjectName,
     );
     await _storage.write(key: _kToken, value: session.token);
     await _storage.write(key: _kTenantId, value: session.tenantPublicId);
     await _storage.write(key: _kSubjectId, value: session.subjectPublicId);
     await _storage.write(key: _kRole, value: session.role);
     await _storage.write(key: _kIsGeneric, value: session.isGeneric ? '1' : '0');
+    await _storage.write(key: _kSubjectName, value: session.subjectName);
   }
 
   Future<void> clearSession() async {
@@ -179,6 +184,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _storage.delete(key: _kSubjectId);
     await _storage.delete(key: _kRole);
     await _storage.delete(key: _kIsGeneric);
+    await _storage.delete(key: _kSubjectName);
   }
 
   Future<bool> restore() async {
@@ -187,6 +193,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final subjectId = await _storage.read(key: _kSubjectId);
     final roleStr = await _storage.read(key: _kRole);
     final isGeneric = await _storage.read(key: _kIsGeneric);
+    final subjectName = await _storage.read(key: _kSubjectName);
     if (token != null && token.isNotEmpty) {
       state = AuthState(
         token: token,
@@ -194,6 +201,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         subjectPublicId: subjectId,
         role: roleStr != null ? UserRoleX.fromApi(roleStr) : null,
         isGenericAdmin: isGeneric == '1',
+        subjectName: subjectName ?? '',
       );
       return true;
     }

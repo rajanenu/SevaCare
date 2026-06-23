@@ -246,12 +246,14 @@ public class TenantRegistryService {
             );
             
             CREATE TABLE IF NOT EXISTS %s.prescription_medicine (
-                medicine_id VARCHAR(24) PRIMARY KEY,
+                id BIGSERIAL PRIMARY KEY,
                 prescription_public_id VARCHAR(24) NOT NULL,
-                medicine_name VARCHAR(160),
-                dosage VARCHAR(60),
-                frequency VARCHAR(60),
-                duration VARCHAR(60),
+                medicine_name VARCHAR(255),
+                strength VARCHAR(100),
+                frequency VARCHAR(255),
+                duration VARCHAR(100),
+                instructions TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 FOREIGN KEY (prescription_public_id) REFERENCES %s.prescription(prescription_public_id)
             );
             

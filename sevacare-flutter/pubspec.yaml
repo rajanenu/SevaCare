@@ -41,6 +41,10 @@ dependencies:
   # Shimmer skeleton loading
   shimmer: ^3.0.0
 
+  # PDF generation and download
+  pdf: ^3.10.8
+  printing: ^5.13.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

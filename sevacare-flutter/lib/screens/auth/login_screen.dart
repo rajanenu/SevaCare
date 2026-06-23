@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -53,29 +54,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _emailCtrl;
   late final TextEditingController _otpCtrl;
 
-  bool _roleSelected = false; // user must tap a role tab to enable Send OTP
-  int _resendCountdown = 0;   // counts down from 120 after OTP is sent
+  bool _roleSelected = false;
+  int _resendCountdown = 0;
 
   @override
   void initState() {
     super.initState();
-    // Initialise with defaults for the starting role
-    final startRole = widget.platformAdminMode
-        ? UserRole.platformAdmin
-        : ref.read(activeRoleProvider);
+    // Always reset to patient on entry (clears stale role from previous hospital visit)
+    final startRole = widget.platformAdminMode ? UserRole.platformAdmin : UserRole.patient;
     _mobileCtrl = TextEditingController(text: _defaultMobile(startRole));
     _emailCtrl = TextEditingController();
     _otpCtrl = TextEditingController(text: '0000');
+    // Send OTP is enabled from the start — patient tab is pre-selected by default
+    _roleSelected = true;
 
-    // platformAdminMode starts with role pre-selected
-    _roleSelected = widget.platformAdminMode;
-
-    // If platformAdminMode, lock to platformAdmin role
-    if (widget.platformAdminMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(activeRoleProvider.notifier).state = UserRole.platformAdmin;
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(activeRoleProvider.notifier).state = startRole;
+      ref.read(loginFormProvider.notifier).reset();
+    });
   }
 
   @override
@@ -188,15 +185,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _friendlyError(Object e) {
+    // Try to extract the actual backend error message first
+    final backendMsg = extractErrorMessage(e, fallback: '');
+    if (backendMsg.isNotEmpty) return backendMsg;
+    // Fall back to network-level overrides
     final msg = e.toString();
     if (msg.contains('SocketException') || msg.contains('Connection refused')) {
       return 'Cannot reach the server. Make sure the backend is running.';
-    }
-    if (msg.contains('401') || msg.contains('Unauthorized')) {
-      return 'Invalid OTP. Please check and try again.';
-    }
-    if (msg.contains('404')) {
-      return 'User not found for the selected role. Contact your administrator.';
     }
     return 'Something went wrong. Please try again.';
   }

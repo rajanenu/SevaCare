@@ -29,6 +29,7 @@ import com.sevacare.patient.repository.PatientRepository;
 import com.sevacare.patient.repository.PrescriptionMedicineRepository;
 import com.sevacare.patient.repository.PrescriptionRepository;
 import com.sevacare.shared.dto.PatientDtos;
+import com.sevacare.shared.tenant.TenantContext;
 
 @Service
 public class PatientDomainService {
@@ -364,6 +365,18 @@ public class PatientDomainService {
         log.info("appointment_delete tenantPublicId={} appointmentPublicId={}", tenantPublicId, appointmentPublicId);
     }
 
+    @Transactional
+    public void completeAppointment(String tenantPublicId, String doctorPublicId, String appointmentPublicId) {
+        Appointment appointment = appointmentRepository.findByTenantPublicIdAndAppointmentPublicId(tenantPublicId, appointmentPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+        if (!appointment.getDoctorPublicId().equals(doctorPublicId)) {
+            throw new IllegalArgumentException("You are not the assigned doctor for this appointment");
+        }
+        appointment.setAppointmentStatus("completed");
+        appointmentRepository.save(appointment);
+        log.info("appointment_complete tenantPublicId={} doctorPublicId={} appointmentPublicId={}", tenantPublicId, doctorPublicId, appointmentPublicId);
+    }
+
     // Prescription Methods
     @Transactional(readOnly = true)
     public PatientDtos.PatientPrescriptionsWrapper getPatientPrescriptions(String tenantPublicId, String patientPublicId) {
@@ -384,6 +397,7 @@ public class PatientDomainService {
                             prescription.getPrescriptionPublicId(),
                             prescription.getDoctorPublicId(),
                             prescription.getDoctorName(),
+                            null, null, null,
                             prescription.getIssuedOn(),
                             prescription.getValidUntil() != null ? prescription.getValidUntil().toString() : null,
                             prescription.getNotes(),
@@ -411,10 +425,25 @@ public class PatientDomainService {
                 ))
                 .toList();
 
+        String schema = TenantContext.tenantSchema();
+        String doctorSpecialty = jdbcTemplate.query(
+                "SELECT specialty FROM " + schema + ".doctor WHERE doctor_public_id = ? LIMIT 1",
+                rs -> rs.next() ? rs.getString("specialty") : null,
+                prescription.getDoctorPublicId()
+        );
+        String patientName = jdbcTemplate.query(
+                "SELECT full_name FROM " + schema + ".patient WHERE patient_public_id = ? LIMIT 1",
+                rs -> rs.next() ? rs.getString("full_name") : null,
+                prescription.getPatientPublicId()
+        );
+
         return new PatientDtos.PrescriptionDetailView(
                 prescription.getPrescriptionPublicId(),
                 prescription.getDoctorPublicId(),
                 prescription.getDoctorName(),
+                doctorSpecialty,
+                prescription.getPatientPublicId(),
+                patientName,
                 prescription.getIssuedOn(),
                 prescription.getValidUntil() != null ? prescription.getValidUntil().toString() : null,
                 prescription.getNotes(),
@@ -531,7 +560,7 @@ public class PatientDomainService {
                             .stream()
                             .map(m -> new PatientDtos.MedicineView(m.getMedicineName(), m.getStrength(), m.getFrequency(), m.getDuration(), m.getInstructions()))
                             .toList();
-                    return new PatientDtos.PrescriptionDetailView(p.getPrescriptionPublicId(), p.getDoctorPublicId(), p.getDoctorName(), p.getIssuedOn(), p.getValidUntil() != null ? p.getValidUntil().toString() : null, p.getNotes(), p.getStatus() != null ? p.getStatus() : "active", medicines);
+                    return new PatientDtos.PrescriptionDetailView(p.getPrescriptionPublicId(), p.getDoctorPublicId(), p.getDoctorName(), null, p.getPatientPublicId(), null, p.getIssuedOn(), p.getValidUntil() != null ? p.getValidUntil().toString() : null, p.getNotes(), p.getStatus() != null ? p.getStatus() : "active", medicines);
                 })
                 .toList();
 
@@ -648,6 +677,9 @@ public class PatientDomainService {
                             prescription.getPrescriptionPublicId(),
                             prescription.getDoctorPublicId(),
                             prescription.getDoctorName(),
+                            null,
+                            prescription.getPatientPublicId(),
+                            null,
                             prescription.getIssuedOn(),
                             prescription.getValidUntil() != null ? prescription.getValidUntil().toString() : null,
                             prescription.getNotes(),

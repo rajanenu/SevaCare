@@ -73,6 +73,7 @@ class AuthenticatedSession {
   final String subjectPublicId;
   final String token;
   final bool isGeneric;
+  final String subjectName;
 
   const AuthenticatedSession({
     required this.tenantPublicId,
@@ -80,6 +81,7 @@ class AuthenticatedSession {
     required this.subjectPublicId,
     required this.token,
     this.isGeneric = false,
+    this.subjectName = '',
   });
 
   factory AuthenticatedSession.fromJson(Map<String, dynamic> json) => AuthenticatedSession(
@@ -88,6 +90,7 @@ class AuthenticatedSession {
     subjectPublicId: json['subjectPublicId'] as String,
     token: json['token'] as String,
     isGeneric: json['isGeneric'] as bool? ?? false,
+    subjectName: json['subjectName'] as String? ?? '',
   );
 }
 
@@ -317,7 +320,7 @@ class MedicineView {
   });
 
   factory MedicineView.fromJson(Map<String, dynamic> json) => MedicineView(
-    name: json['name'] as String? ?? '',
+    name: (json['medicineName'] ?? json['name']) as String? ?? '',
     strength: json['strength'] as String? ?? '',
     frequency: json['frequency'] as String? ?? '',
     duration: json['duration'] as String? ?? '',
@@ -325,11 +328,11 @@ class MedicineView {
   );
 
   Map<String, dynamic> toJson() => {
-    'name': name,
+    'medicineName': name,
     'strength': strength,
     'frequency': frequency,
     'duration': duration,
-    if (instructions != null) 'instructions': instructions,
+    if (instructions != null && instructions!.isNotEmpty) 'instructions': instructions,
   };
 }
 
@@ -656,6 +659,9 @@ class PrescriptionDetailView {
   final String prescriptionPublicId;
   final String doctorPublicId;
   final String doctorName;
+  final String? doctorSpecialty;
+  final String? patientPublicId;
+  final String? patientName;
   final String issuedOn;
   final String? validUntil;
   final List<MedicineView> medicines;
@@ -667,6 +673,9 @@ class PrescriptionDetailView {
     required this.prescriptionPublicId,
     required this.doctorPublicId,
     required this.doctorName,
+    this.doctorSpecialty,
+    this.patientPublicId,
+    this.patientName,
     required this.issuedOn,
     this.validUntil,
     required this.medicines,
@@ -679,6 +688,9 @@ class PrescriptionDetailView {
     prescriptionPublicId: json['prescriptionPublicId'] as String? ?? '',
     doctorPublicId: json['doctorPublicId'] as String? ?? '',
     doctorName: json['doctorName'] as String? ?? '',
+    doctorSpecialty: json['doctorSpecialty'] as String?,
+    patientPublicId: json['patientPublicId'] as String?,
+    patientName: json['patientName'] as String?,
     issuedOn: json['issuedOn'] as String? ?? '',
     validUntil: json['validUntil'] as String?,
     medicines: json['medicines'] != null
@@ -712,12 +724,16 @@ class PrescriptionCollectionView {
 
 class PrescriptionUploadRequest {
   final String patientPublicId;
+  final String doctorPublicId;
+  final String doctorName;
   final String? appointmentPublicId;
   final List<MedicineView> medicines;
   final String? notes;
 
   const PrescriptionUploadRequest({
     required this.patientPublicId,
+    required this.doctorPublicId,
+    required this.doctorName,
     this.appointmentPublicId,
     required this.medicines,
     this.notes,
@@ -725,6 +741,8 @@ class PrescriptionUploadRequest {
 
   Map<String, dynamic> toJson() => {
     'patientPublicId': patientPublicId,
+    'doctorPublicId': doctorPublicId,
+    'doctorName': doctorName,
     if (appointmentPublicId != null) 'appointmentPublicId': appointmentPublicId,
     'medicines': medicines.map((m) => m.toJson()).toList(),
     if (notes != null && notes!.isNotEmpty) 'notes': notes,
