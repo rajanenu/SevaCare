@@ -213,12 +213,17 @@ public class AdminDomainService {
         if (request.name() == null || request.name().isBlank()) {
             throw new IllegalArgumentException("Doctor name is required");
         }
+        String mobileNumber = normalize(request.mobileNumber());
+        if (mobileNumber == null || mobileNumber.isBlank()) {
+            throw new IllegalArgumentException("Doctor mobile number is required for login access");
+        }
 
         Doctor doctor = new Doctor();
         doctor.setDoctorPublicId(tenantRegistryService.nextDoctorPublicId());
         doctor.setTenantPublicId(request.tenantPublicId());
         doctor.setFullName(request.name());
         doctor.setSpecialty(request.specialtyOrAgeBand());
+        doctor.setMobileNumber(mobileNumber);
         doctor.setAvailability("Today · Open");
         doctor.setFee("₹500");
         doctor.setActive(true);

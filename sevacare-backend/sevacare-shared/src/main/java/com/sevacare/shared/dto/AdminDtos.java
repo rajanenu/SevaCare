@@ -19,7 +19,8 @@ public final class AdminDtos {
     public record CreateActorRequest(
             @NotBlank String tenantPublicId,
             @NotBlank String name,
-            @NotBlank String specialtyOrAgeBand
+            @NotBlank String specialtyOrAgeBand,
+            String mobileNumber
     ) {
     }
 

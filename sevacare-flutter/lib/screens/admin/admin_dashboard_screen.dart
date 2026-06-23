@@ -960,8 +960,13 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   Future<void> _saveDoctor() async {
     final name = _nameCtrl.text.trim();
     final fee = _feeCtrl.text.trim();
+    final mobile = _mobileCtrl.text.trim();
     if (name.isEmpty) {
       setState(() => _formError = 'Doctor full name is required.');
+      return;
+    }
+    if (mobile.isEmpty || mobile.length != 10 || int.tryParse(mobile) == null) {
+      setState(() => _formError = 'A valid 10-digit mobile number is required. Doctors use it to login.');
       return;
     }
     if (fee.isEmpty) {
@@ -1093,7 +1098,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                 AppFormField(
                   label: 'Mobile Number',
                   controller: _mobileCtrl,
-                  placeholder: '+91 XXXXXXXXXX',
+                  required: true,
+                  placeholder: '10-digit mobile (used for doctor login)',
                   keyboardType: TextInputType.phone,
                 ),
                 AppFormField(

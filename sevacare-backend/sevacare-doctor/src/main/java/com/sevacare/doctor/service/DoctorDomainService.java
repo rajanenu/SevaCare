@@ -68,6 +68,21 @@ public class DoctorDomainService {
         }
 
         @Transactional(readOnly = true)
+        public Doctor findDoctorForLogin(String tenantPublicId, String mobileNumber) {
+        if (mobileNumber == null || mobileNumber.isBlank()) {
+            throw new IllegalArgumentException("Mobile number is required to login as a doctor");
+        }
+        return doctorRepository.findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByDoctorPublicIdAsc(tenantPublicId, mobileNumber.trim())
+            .orElseThrow(() -> new IllegalArgumentException("You are not registered as a doctor in this hospital. Contact the Hospital admin for more details."));
+        }
+
+        @Transactional(readOnly = true)
+        public boolean isRegisteredDoctorMobile(String tenantPublicId, String mobileNumber) {
+        if (mobileNumber == null || mobileNumber.isBlank()) return false;
+        return doctorRepository.existsByTenantPublicIdAndMobileNumberAndActiveTrue(tenantPublicId, mobileNumber.trim());
+        }
+
+        @Transactional(readOnly = true)
         public DoctorDtos.DoctorDashboardView dashboard(String tenantPublicId, String doctorPublicId) {
         Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
             .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));

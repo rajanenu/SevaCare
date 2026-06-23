@@ -15,5 +15,9 @@ public interface DoctorRepository extends JpaRepository<Doctor, String> {
 
     Optional<Doctor> findFirstByTenantPublicIdAndActiveTrueOrderByDoctorPublicIdAsc(String tenantPublicId);
 
+    Optional<Doctor> findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByDoctorPublicIdAsc(String tenantPublicId, String mobileNumber);
+
+    boolean existsByTenantPublicIdAndMobileNumberAndActiveTrue(String tenantPublicId, String mobileNumber);
+
     List<Doctor> findByTenantPublicIdOrderByDoctorPublicIdAsc(String tenantPublicId);
 }

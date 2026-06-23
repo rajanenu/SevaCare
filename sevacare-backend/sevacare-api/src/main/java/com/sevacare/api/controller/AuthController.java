@@ -64,6 +64,22 @@ public class AuthController {
         if (!"platform_admin".equals(request.role())) {
             tenantRegistryService.mustFindActiveTenant(request.tenantPublicId());
         }
+
+        // Fail fast: validate registered mobile for doctor and admin roles before sending OTP
+        if ("doctor".equals(request.role()) || "admin".equals(request.role())) {
+            String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());
+            try {
+                TenantContext.set(request.tenantPublicId(), schema);
+                if ("doctor".equals(request.role())) {
+                    doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber());
+                } else {
+                    adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
+                }
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
         return ContractResponse.of(new AuthDtos.OtpRequestAccepted(
                 request.tenantPublicId(),
                 request.role(),
@@ -95,7 +111,7 @@ public class AuthController {
             TenantContext.set(request.tenantPublicId(), schema);
             String subjectPublicId = switch (request.role()) {
                 case "patient" -> patientDomainService.findOrCreatePatientForLogin(request.tenantPublicId(), request.mobileNumber()).getPatientPublicId();
-                case "doctor" -> doctorDomainService.findFirstDoctorForTenant(request.tenantPublicId()).getDoctorPublicId();
+                case "doctor" -> doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber()).getDoctorPublicId();
                 case "admin" -> adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber()).getAdminPublicId();
                 default -> throw new IllegalArgumentException("Unsupported role");
             };
