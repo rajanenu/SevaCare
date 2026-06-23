@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_utils.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -112,7 +113,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       );
       if (mounted) setState(() => _homeData = data);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = extractErrorMessage(e, fallback: 'Failed to load dashboard.'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

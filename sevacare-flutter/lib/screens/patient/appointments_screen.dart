@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -45,7 +46,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
       );
       setState(() { _appointments = home.appointments; _loading = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() { _error = extractErrorMessage(e, fallback: 'Failed to load appointments.'); _loading = false; });
     }
   }
 

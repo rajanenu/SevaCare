@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_utils.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
 
@@ -70,7 +71,7 @@ class _QrAppointmentFormScreenState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _loadError = e.toString();
+          _loadError = extractErrorMessage(e, fallback: 'Failed to load form data. Please scan the QR code again.');
           _loading = false;
         });
       }
@@ -132,7 +133,7 @@ class _QrAppointmentFormScreenState
       if (mounted) {
         setState(() {
           _submitting = false;
-          _submitError = e.toString();
+          _submitError = extractErrorMessage(e, fallback: 'Failed to submit request. Please try again.');
         });
       }
     }

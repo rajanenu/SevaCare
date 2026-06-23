@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -179,7 +180,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = extractErrorMessage(e, fallback: 'Failed to load dashboard overview.');
           _loading = false;
         });
       }
@@ -406,7 +407,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = extractErrorMessage(e, fallback: 'Failed to load admin users.');
           _loading = false;
         });
       }
@@ -478,7 +479,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _formError = e.toString();
+          _formError = extractErrorMessage(e, fallback: 'Failed to create admin user.');
         });
       }
     }
@@ -923,7 +924,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = extractErrorMessage(e, fallback: 'Failed to load doctors.');
           _loading = false;
         });
       }
@@ -1000,7 +1001,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _formError = e.toString();
+          _formError = extractErrorMessage(e, fallback: 'Failed to create doctor record.');
         });
       }
     }
@@ -1341,7 +1342,7 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = extractErrorMessage(e, fallback: 'Failed to load reports.');
           _loading = false;
         });
       }

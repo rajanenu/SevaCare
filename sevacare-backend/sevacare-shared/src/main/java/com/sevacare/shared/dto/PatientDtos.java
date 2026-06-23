@@ -29,7 +29,7 @@ public final class PatientDtos {
             @NotBlank String gender,
             @Min(0) int age,
             @NotBlank String mobileNumber,
-            @NotBlank String address,
+            String address,
             @NotBlank String specialty,
             @NotBlank String doctorPublicId,
             @NotBlank String slot

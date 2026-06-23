@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../core/network/api_client.dart';
+import '../../core/utils/error_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -112,7 +115,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _setupError = e.toString());
+      if (mounted) setState(() => _setupError = extractErrorMessage(e, fallback: 'Failed to load booking setup. Please try again.'));
     } finally {
       if (mounted) setState(() => _loadingSetup = false);
     }
@@ -123,11 +126,32 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     final form = ref.read(bookingFormProvider);
 
+    // Validate patient name
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _bookingError = 'Please enter patient name');
+      return;
+    }
+
+    // Validate mobile number
+    final mobile = _mobileCtrl.text.trim();
+    if (mobile.isEmpty || mobile.length < 10) {
+      setState(() => _bookingError = 'Please enter a valid 10-digit mobile number');
+      return;
+    }
+
     // Validate required booking fields
     if (form.selectedDoctorId.isEmpty) {
       setState(() => _bookingError = 'Please select a doctor');
       return;
     }
+
+    // Validate date selection
+    if (form.selectedDate.isEmpty) {
+      setState(() => _bookingError = 'Please select an appointment date');
+      return;
+    }
+
     if (form.selectedSlot.isEmpty) {
       setState(() => _bookingError = 'Please select a time slot');
       return;
@@ -143,9 +167,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       }
     }
 
-    final name = _nameCtrl.text.trim();
-    final mobile = _mobileCtrl.text.trim();
     final age = int.tryParse(ageStr) ?? 0;
+
+    // Combine date + time slot into the format the backend expects: "yyyy-MM-dd HH:mm"
+    final combinedSlot = '${form.selectedDate} ${form.selectedSlot}';
 
     final auth = ref.read(authProvider);
     final repo = ref.read(repositoryProvider);
@@ -159,14 +184,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         AppointmentBookingRequest(
           tenantPublicId: auth.tenantPublicId ?? '',
           patientPublicId: auth.subjectPublicId ?? '',
-          patientName: name.isNotEmpty ? name : 'Patient',
+          patientName: name,
           gender: form.gender,
           age: age,
           mobileNumber: mobile,
-          address: _addressCtrl.text.trim(),
+          address: _addressCtrl.text.trim().isEmpty ? '' : _addressCtrl.text.trim(),
           specialty: form.specialty,
           doctorPublicId: form.selectedDoctorId,
-          slot: form.selectedSlot,
+          slot: combinedSlot,
         ),
       );
 
@@ -203,7 +228,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         );
       }
     } catch (e) {
-      if (mounted) setState(() => _bookingError = e.toString());
+      if (mounted) {
+        String msg = 'Booking failed. Please try again.';
+        if (e is DioException && e.error is ApiException) {
+          msg = (e.error as ApiException).message;
+        }
+        setState(() => _bookingError = msg);
+      }
     } finally {
       if (mounted) setState(() => _booking = false);
     }
@@ -630,8 +661,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           ),
                         const SizedBox(height: 24),
 
-                        // ── Morning slots
-                        if (form.selectedDoctorId.isNotEmpty && (_setup?.morningSlots ?? []).isNotEmpty) ...[
+                        // ── Morning slots (only after date is selected)
+                        if (form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty && (_setup?.morningSlots ?? []).isNotEmpty) ...[
                           Text('Morning Slots',
                               style:
                                   AppTextStyles.sectionTitle(SevaCareColors.text)),
@@ -644,8 +675,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // ── Evening slots
-                        if (form.selectedDoctorId.isNotEmpty && (_setup?.eveningSlots ?? []).isNotEmpty) ...[
+                        // ── Evening slots (only after date is selected)
+                        if (form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty && (_setup?.eveningSlots ?? []).isNotEmpty) ...[
                           Text('Evening Slots',
                               style:
                                   AppTextStyles.sectionTitle(SevaCareColors.text)),
