@@ -11,6 +11,7 @@ const _kToken = 'seva_token';
 const _kTenantId = 'seva_tenant_id';
 const _kSubjectId = 'seva_subject_id';
 const _kRole = 'seva_role';
+const _kIsGeneric = 'seva_is_generic';
 const _kHospitalId = 'seva_hospital_id';
 const _kTheme = 'seva_theme';
 
@@ -45,12 +46,14 @@ class AuthState {
   final String? tenantPublicId;
   final String? subjectPublicId;
   final UserRole? role;
+  final bool isGenericAdmin;
 
   const AuthState({
     this.token,
     this.tenantPublicId,
     this.subjectPublicId,
     this.role,
+    this.isGenericAdmin = false,
   });
 
   bool get isAuthenticated =>
@@ -160,11 +163,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       tenantPublicId: session.tenantPublicId,
       subjectPublicId: session.subjectPublicId,
       role: role,
+      isGenericAdmin: session.isGeneric,
     );
     await _storage.write(key: _kToken, value: session.token);
     await _storage.write(key: _kTenantId, value: session.tenantPublicId);
     await _storage.write(key: _kSubjectId, value: session.subjectPublicId);
     await _storage.write(key: _kRole, value: session.role);
+    await _storage.write(key: _kIsGeneric, value: session.isGeneric ? '1' : '0');
   }
 
   Future<void> clearSession() async {
@@ -173,6 +178,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _storage.delete(key: _kTenantId);
     await _storage.delete(key: _kSubjectId);
     await _storage.delete(key: _kRole);
+    await _storage.delete(key: _kIsGeneric);
   }
 
   Future<bool> restore() async {
@@ -180,12 +186,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final tenantId = await _storage.read(key: _kTenantId);
     final subjectId = await _storage.read(key: _kSubjectId);
     final roleStr = await _storage.read(key: _kRole);
+    final isGeneric = await _storage.read(key: _kIsGeneric);
     if (token != null && token.isNotEmpty) {
       state = AuthState(
         token: token,
         tenantPublicId: tenantId,
         subjectPublicId: subjectId,
         role: roleStr != null ? UserRoleX.fromApi(roleStr) : null,
+        isGenericAdmin: isGeneric == '1',
       );
       return true;
     }

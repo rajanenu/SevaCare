@@ -26,6 +26,8 @@ public class AdminDomainService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDomainService.class);
 
+    public static final String GENERIC_ADMIN_MOBILE = "9000000003";
+
     private final AdminUserRepository adminUserRepository;
     private final DoctorDomainService doctorDomainService;
     private final PatientDomainService patientDomainService;
@@ -66,6 +68,13 @@ public class AdminDomainService {
         String normalizedMobileNumber = normalize(mobileNumber);
         if (normalizedMobileNumber == null) {
             throw new IllegalArgumentException("Admin mobile number is required");
+        }
+
+        if (GENERIC_ADMIN_MOBILE.equals(normalizedMobileNumber)) {
+            long realAdminCount = adminUserRepository.countByTenantPublicIdAndActiveTrueAndMobileNumberNot(tenantPublicId, GENERIC_ADMIN_MOBILE);
+            if (realAdminCount >= 2) {
+                throw new IllegalArgumentException("Generic admin access is disabled. Your hospital already has active admins.");
+            }
         }
 
         return adminUserRepository.findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByAdminPublicIdAsc(tenantPublicId, normalizedMobileNumber)
@@ -278,6 +287,7 @@ public class AdminDomainService {
     }
 
     private AdminDtos.AdminUserView toAdminUserView(AdminUser adminUser) {
+        boolean isGeneric = GENERIC_ADMIN_MOBILE.equals(adminUser.getMobileNumber());
         return new AdminDtos.AdminUserView(
                 adminUser.getAdminPublicId(),
                 adminUser.getTenantPublicId(),
@@ -286,7 +296,8 @@ public class AdminDomainService {
                 adminUser.getEmail(),
                 adminUser.getMobileNumber(),
                 adminUser.isActive(),
-                adminUser.getCreatedAt()
+                adminUser.getCreatedAt(),
+                isGeneric
         );
     }
 

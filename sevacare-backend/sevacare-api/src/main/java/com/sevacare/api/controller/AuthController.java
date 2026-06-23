@@ -83,7 +83,7 @@ public class AuthController {
             }
             String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false));
         }
 
         if (!LOCAL_OTP.equals(request.otp())) {
@@ -99,8 +99,10 @@ public class AuthController {
                 case "admin" -> adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber()).getAdminPublicId();
                 default -> throw new IllegalArgumentException("Unsupported role");
             };
+            boolean isGenericAdmin = "admin".equals(request.role())
+                    && AdminDomainService.GENERIC_ADMIN_MOBILE.equals(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), request.role(), subjectPublicId, token));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), request.role(), subjectPublicId, token, isGenericAdmin));
         } finally {
             TenantContext.clear();
         }

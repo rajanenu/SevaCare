@@ -290,22 +290,33 @@ public class TenantRegistryService {
         jdbcTemplate.execute(tenantSchemaDdl.replace("%s", schemaName));
     }
 
+    private static final String GENERIC_ADMIN_MOBILE = "9000000003";
+
     private void seedHospitalAdmin(String schemaName, String tenantPublicId, String contactName, String contactMobile, String contactEmail) {
-        Integer adminCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + schemaName + ".admin_user", Integer.class);
-        if (adminCount != null && adminCount > 0) {
-            return;
+        // Seed the real contact admin (if a different mobile is provided)
+        boolean contactIsGeneric = GENERIC_ADMIN_MOBILE.equals(contactMobile);
+        if (!contactIsGeneric) {
+            Integer existingContact = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM " + schemaName + ".admin_user WHERE mobile_number = ?",
+                    Integer.class, contactMobile);
+            if (existingContact == null || existingContact == 0) {
+                jdbcTemplate.update(
+                        "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        nextAdminPublicId(), tenantPublicId, contactMobile, contactEmail, contactName, contactName, true
+                );
+            }
         }
 
-        jdbcTemplate.update(
-                "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                nextAdminPublicId(),
-                tenantPublicId,
-                contactMobile,
-                contactEmail,
-                contactName,
-                contactName,
-                true
-        );
+        // Always seed the generic admin (9000000003) for every hospital
+        Integer existingGeneric = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schemaName + ".admin_user WHERE mobile_number = ?",
+                Integer.class, GENERIC_ADMIN_MOBILE);
+        if (existingGeneric == null || existingGeneric == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    nextAdminPublicId(), tenantPublicId, GENERIC_ADMIN_MOBILE, null, "Generic Admin", "Generic Admin", true
+            );
+        }
     }
 
     private String nextPrefixedId(String prefix, String sequenceName) {

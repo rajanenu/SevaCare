@@ -37,7 +37,8 @@ public final class AdminDtos {
             String email,
             String mobileNumber,
             boolean active,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            boolean isGeneric
         ) {
         }
 

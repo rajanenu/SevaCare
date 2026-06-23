@@ -40,7 +40,50 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final hospital = ref.watch(hospitalProvider);
+    final auth = ref.watch(authProvider);
+    final isGeneric = auth.isGenericAdmin;
 
+    // Generic admin: restricted view — only Admin Users tab
+    if (isGeneric) {
+      return AppShell(
+        hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
+        role: UserRole.admin,
+        bottomNavItems: _adminNavItems(),
+        currentNavIndex: widget.initialTab,
+        onNavTap: _handleNavTap,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PageHeader(title: 'Hospital Setup'),
+            const SizedBox(height: 12),
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                border: Border.all(color: Colors.amber.shade300),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'You are logged in as Generic Admin. Add at least 2 hospital admins to unlock full access.',
+                      style: AppTextStyles.bodyText(Colors.amber.shade800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const _AdminUsersTab(),
+          ],
+        ),
+      );
+    }
+
+    // Full dashboard for real admins
     final tabs = [
       SegmentItem<int>(value: 0, label: 'Dashboard'),
       SegmentItem<int>(value: 1, label: 'Admin Users'),

@@ -72,12 +72,14 @@ class AuthenticatedSession {
   final String role;
   final String subjectPublicId;
   final String token;
+  final bool isGeneric;
 
   const AuthenticatedSession({
     required this.tenantPublicId,
     required this.role,
     required this.subjectPublicId,
     required this.token,
+    this.isGeneric = false,
   });
 
   factory AuthenticatedSession.fromJson(Map<String, dynamic> json) => AuthenticatedSession(
@@ -85,6 +87,7 @@ class AuthenticatedSession {
     role: json['role'] as String,
     subjectPublicId: json['subjectPublicId'] as String,
     token: json['token'] as String,
+    isGeneric: json['isGeneric'] as bool? ?? false,
   );
 }
 

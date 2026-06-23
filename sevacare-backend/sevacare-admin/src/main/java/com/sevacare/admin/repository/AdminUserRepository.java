@@ -19,5 +19,9 @@ public interface AdminUserRepository extends JpaRepository<AdminUser, String> {
 
     long countByTenantPublicIdAndActiveTrue(String tenantPublicId);
 
+    long countByTenantPublicIdAndActiveTrueAndMobileNumberNot(String tenantPublicId, String mobileNumber);
+
     Optional<AdminUser> findByTenantPublicIdAndEmailIgnoreCase(String tenantPublicId, String email);
+
+    boolean existsByTenantPublicIdAndMobileNumber(String tenantPublicId, String mobileNumber);
 }
