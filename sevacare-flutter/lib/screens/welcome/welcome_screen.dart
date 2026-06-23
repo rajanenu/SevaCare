@@ -129,74 +129,36 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          // CTA row
-          Row(
-            children: [
-              _HeroCta(
-                label: 'Find Hospitals',
-                onTap: () => context.go('/search'),
+          // CTA — single Search Hospitals pill button
+          GestureDetector(
+            onTap: () => context.go('/search'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: SevaCareColors.textOnPrimary,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              // Decorative stat pill
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.local_hospital_outlined,
-                      size: 14,
-                      color: SevaCareColors.textOnPrimary.withValues(alpha: 0.85),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Trusted Care',
-                      style: AppTextStyles.label(
-                        SevaCareColors.textOnPrimary.withValues(alpha: 0.85),
-                      ),
-                    ),
-                  ],
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search, size: 16, color: SevaCareColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Search Hospitals',
+                    style: AppTextStyles.label(SevaCareColors.primary),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroCta extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-
-  const _HeroCta({required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap ?? () => context.go('/search'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: SevaCareColors.textOnPrimary,
-          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.label(SevaCareColors.primary),
-        ),
       ),
     );
   }
@@ -247,7 +209,7 @@ class _ActionCard extends StatelessWidget {
 
     final card = Container(
       width: cardWidth,
-      constraints: const BoxConstraints(minHeight: 100),
+      height: 110,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: item.enabled ? SevaCareColors.surface : SevaCareColors.surfaceMuted,

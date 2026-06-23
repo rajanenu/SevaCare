@@ -21,6 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final hospitalName = ref.watch(hospitalProvider).hospitalName;
     final auth = ref.watch(authProvider);
+    final isDark = ref.watch(darkModeProvider);
 
     return AppShell(
       hospitalName: hospitalName,
@@ -66,10 +67,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 8),
                 SwitchListTile.adaptive(
                   title: Text('Dark Mode', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                  subtitle: Text('Coming soon', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                  value: false,
+                  subtitle: Text('Toggle dark/light theme', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                  value: isDark,
+                  activeThumbColor: SevaCareColors.primary,
+                  activeTrackColor: SevaCareColors.primarySoft,
                   contentPadding: EdgeInsets.zero,
-                  onChanged: null,
+                  onChanged: (v) => ref.read(darkModeProvider.notifier).state = v,
                 ),
               ],
             ),

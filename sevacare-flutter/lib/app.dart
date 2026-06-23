@@ -22,6 +22,7 @@ import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/platform_admin/platform_admin_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/settings_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 
 class SevaCareApp extends ConsumerStatefulWidget {
   const SevaCareApp({super.key});
@@ -48,11 +49,15 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   @override
   Widget build(BuildContext context) {
     final hospitalState = ref.watch(hospitalProvider);
+    final isDark = ref.watch(darkModeProvider);
     final theme = AppTheme.buildTheme(hospitalState.theme);
+    final darkTheme = AppTheme.buildDarkTheme();
 
     return MaterialApp.router(
       title: 'SevaCare',
       theme: theme,
+      darkTheme: darkTheme,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
     );
@@ -100,8 +105,7 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(path: '/search', builder: (ctx, _) => const HospitalSearchScreen()),
         GoRoute(path: '/login', builder: (ctx, _) => const LoginScreen()),
         GoRoute(path: '/platform-login', builder: (ctx, _) => const LoginScreen(platformAdminMode: true)),
-        // Onboarding placeholder — redirects to search for now
-        GoRoute(path: '/onboarding', redirect: (ctx, _) => '/search'),
+        GoRoute(path: '/onboarding', builder: (ctx, _) => const OnboardingScreen()),
 
         // ── Patient ───────────────────────────────────────────────────────────
         GoRoute(path: '/patient', builder: (ctx, _) => const PatientHomeScreen()),

@@ -27,9 +27,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final auth = ref.read(authProvider);
     _nameCtrl = TextEditingController();
-    _mobileCtrl = TextEditingController(text: auth.subjectPublicId ?? '');
+    _mobileCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
     _addressCtrl = TextEditingController();
   }

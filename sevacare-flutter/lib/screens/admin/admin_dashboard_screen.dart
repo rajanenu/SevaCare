@@ -311,6 +311,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
   int _filterIndex = 0; // 0=All, 1=Active only
   bool _showAddForm = false;
   String? _nextAdminId;
+  int _page = 0;
+  static const int _pageSize = 5;
 
   // Add form controllers
   final _nameCtrl = TextEditingController();
@@ -323,7 +325,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
   @override
   void initState() {
     super.initState();
-    _loadAdmins();
+    // Load on demand — user taps "Load Admin Users" button
   }
 
   @override
@@ -349,8 +351,11 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
         activeOnly: _filterIndex == 1,
       );
       if (mounted) {
+        list.sort((a, b) =>
+            a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
         setState(() {
           _admins = list;
+          _page = 0;
           _loading = false;
         });
       }
@@ -481,6 +486,9 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
       SegmentItem<int>(value: 1, label: 'Active only'),
     ];
 
+    final totalPages = _admins.isEmpty ? 1 : (_admins.length / _pageSize).ceil();
+    final paged = _admins.skip(_page * _pageSize).take(_pageSize).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -496,19 +504,26 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted),
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   PrimaryButton(
                     label: _showAddForm ? 'Cancel' : 'Add New Admin User',
                     icon: _showAddForm ? Icons.close : Icons.add,
                     onPressed: _toggleAddForm,
                   ),
-                  const SizedBox(width: 8),
                   SecondaryButton(
-                    label: 'Refresh',
-                    icon: Icons.refresh,
+                    label: 'Load Admin Users',
+                    icon: Icons.download_outlined,
                     onPressed: _loading ? null : _loadAdmins,
                   ),
+                  if (_admins.isNotEmpty)
+                    SecondaryButton(
+                      label: 'Refresh',
+                      icon: Icons.refresh,
+                      onPressed: _loading ? null : _loadAdmins,
+                    ),
                 ],
               ),
             ],
@@ -622,7 +637,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
         else
           Column(
             children: [
-              for (final admin in _admins) ...[
+              for (final admin in paged) ...[
                 AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,14 +680,15 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           DangerButton(
                             label: 'Delete',
                             icon: Icons.delete_outline,
                             onPressed: () => _deleteAdmin(admin.adminPublicId),
                           ),
-                          const SizedBox(width: 8),
                           if (admin.active)
                             SecondaryButton(
                               label: 'Deactivate',
@@ -684,6 +700,79 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
+              ],
+              // ── Pagination controls ──────────────────────────────────────
+              if (totalPages > 1) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: _page > 0
+                          ? () => setState(() => _page--)
+                          : null,
+                      child: Opacity(
+                        opacity: _page > 0 ? 1.0 : 0.4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEBEB),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.chevron_left,
+                                  size: 16, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Previous',
+                                style: AppTextStyles.label(
+                                    const Color(0xFFDC2626)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Page ${_page + 1} of $totalPages',
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: _page < totalPages - 1
+                          ? () => setState(() => _page++)
+                          : null,
+                      child: Opacity(
+                        opacity: _page < totalPages - 1 ? 1.0 : 0.4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Next',
+                                style: AppTextStyles.label(
+                                    const Color(0xFF16A34A)),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.chevron_right,
+                                  size: 16, color: Color(0xFF16A34A)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),

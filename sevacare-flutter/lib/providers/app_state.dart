@@ -292,3 +292,7 @@ final loginFormProvider = StateNotifierProvider.autoDispose<LoginFormNotifier, L
 
 // Active role selection on login screen (before auth)
 final activeRoleProvider = StateProvider<UserRole>((ref) => UserRole.patient);
+
+// ── Dark Mode ─────────────────────────────────────────────────────────────────
+
+final darkModeProvider = StateProvider<bool>((ref) => false);

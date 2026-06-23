@@ -255,26 +255,61 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                       // ── Day selector
                       Row(
                         children: [
-                          TextButton(
-                            onPressed: () => setState(() => _dayOffset--),
-                            child: Text(
-                              '< Previous',
-                              style: AppTextStyles.label(SevaCareColors.primary),
+                          GestureDetector(
+                            onTap: () => setState(() => _dayOffset--),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFEBEB),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.chevron_left,
+                                      size: 16, color: Color(0xFFDC2626)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Previous',
+                                    style: AppTextStyles.label(
+                                        const Color(0xFFDC2626)),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           Expanded(
                             child: Center(
                               child: Text(
                                 'Timeline: $timelineLabel',
-                                style: AppTextStyles.label(SevaCareColors.textMuted),
+                                style:
+                                    AppTextStyles.label(SevaCareColors.textMuted),
                               ),
                             ),
                           ),
-                          TextButton(
-                            onPressed: () => setState(() => _dayOffset++),
-                            child: Text(
-                              'Next >',
-                              style: AppTextStyles.label(SevaCareColors.primary),
+                          GestureDetector(
+                            onTap: () => setState(() => _dayOffset++),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Next',
+                                    style: AppTextStyles.label(
+                                        const Color(0xFF16A34A)),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.chevron_right,
+                                      size: 16, color: Color(0xFF16A34A)),
+                                ],
+                              ),
                             ),
                           ),
                         ],
