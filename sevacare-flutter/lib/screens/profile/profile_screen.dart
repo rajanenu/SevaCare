@@ -61,6 +61,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         BottomNavItem(label: 'Dashboard', icon: Icons.dashboard_outlined, route: '/admin'),
         BottomNavItem(label: 'Admins', icon: Icons.manage_accounts_outlined, route: '/admin/users'),
         BottomNavItem(label: 'Doctors', icon: Icons.medical_services_outlined, route: '/admin/doctors'),
+        BottomNavItem(label: 'Reports', icon: Icons.bar_chart_outlined, route: '/admin/reports'),
         BottomNavItem(label: 'Profile', icon: Icons.person_outline, route: '/admin/profile'),
       ],
     UserRole.platformAdmin => const [],
@@ -69,7 +70,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int get _navIndex => switch (widget.role) {
     UserRole.patient => 4,
     UserRole.doctor => 3,
-    UserRole.admin => 3,
+    UserRole.admin => 4,
     UserRole.platformAdmin => 0,
   };
 

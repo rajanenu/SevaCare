@@ -428,6 +428,22 @@ class SevaCareRepository {
     );
   }
 
+  Future<PlatformAdminUserRecord> deactivatePlatformAdminUser(String adminId, String token) async {
+    return _client.put<PlatformAdminUserRecord>(
+      ApiConstants.deactivatePlatformAdmin(adminId),
+      fromJson: (d) => PlatformAdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  Future<Map<String, dynamic>> generateQrCode(String tenantId, String token) async {
+    return _client.post<Map<String, dynamic>>(
+      ApiConstants.generateQrCode(tenantId),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
   Future<List<PlatformOnboardingRequestRecord>> listOnboardingRequests(String token) async {
     final data = await _client.get<Map<String, dynamic>>(
       ApiConstants.platformOnboardingRequests,

@@ -44,7 +44,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final tabs = [
       SegmentItem<int>(value: 0, label: 'Dashboard'),
       SegmentItem<int>(value: 1, label: 'Admin Users'),
-      SegmentItem<int>(value: 2, label: 'Doctor Management'),
+      SegmentItem<int>(value: 2, label: 'Doctors'),
+      SegmentItem<int>(value: 3, label: 'Reports'),
     ];
 
     Widget tabBody;
@@ -55,6 +56,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       case 2:
         tabBody = const _DoctorManagementTab();
         break;
+      case 3:
+        tabBody = const _ReportsTab();
+        break;
       default:
         tabBody = const _DashboardTab();
     }
@@ -63,7 +67,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
       role: UserRole.admin,
       bottomNavItems: _adminNavItems(),
-      currentNavIndex: 0,
+      currentNavIndex: widget.initialTab,
       onNavTap: _handleNavTap,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,6 +1109,135 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
               ],
             ],
           ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+// ── TAB 3: Reports ────────────────────────────────────────────────────────────
+
+class _ReportsTab extends ConsumerStatefulWidget {
+  const _ReportsTab();
+
+  @override
+  ConsumerState<_ReportsTab> createState() => _ReportsTabState();
+}
+
+class _ReportsTabState extends ConsumerState<_ReportsTab> {
+  AdminOverview? _overview;
+  bool _loading = true;
+  String? _error;
+  int _timeFilter = 1; // 0=Today, 1=Week, 2=Month, 3=Year
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final repo = ref.read(repositoryProvider);
+      final overview = await repo.getAdminOverview(hospital.tenantPublicId, auth.token ?? '');
+      if (mounted) {
+        setState(() {
+          _overview = overview;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return AppCard(
+        child: Column(
+          children: [
+            Text('Failed to load reports', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+            const SizedBox(height: 8),
+            Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            const SizedBox(height: 12),
+            PrimaryButton(label: 'Retry', onPressed: _load),
+          ],
+        ),
+      );
+    }
+
+    final ov = _overview;
+    final totalVisits = ov?.metrics.isNotEmpty == true ? ov!.metrics[0].value : '0';
+    final upcoming = ov != null && ov.metrics.length > 1 ? ov.metrics[1].value : '0';
+    final completed = ov != null && ov.metrics.length > 2 ? ov.metrics[2].value : '0';
+
+    final filterSegments = [
+      SegmentItem<int>(value: 0, label: 'Today'),
+      SegmentItem<int>(value: 1, label: 'This Week'),
+      SegmentItem<int>(value: 2, label: 'This Month'),
+      SegmentItem<int>(value: 3, label: 'This Year'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Appointment Reports', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        const SizedBox(height: 12),
+        SegmentedControl<int>(
+          items: filterSegments,
+          selected: _timeFilter,
+          onChanged: (v) => setState(() => _timeFilter = v),
+        ),
+        const SizedBox(height: 16),
+        MetricRow(
+          tiles: [
+            MetricTile(value: totalVisits, label: 'Total Visits', variant: MetricVariant.primary),
+            MetricTile(value: upcoming, label: 'Upcoming', variant: MetricVariant.mint),
+          ],
+        ),
+        const SizedBox(height: 8),
+        MetricRow(
+          tiles: [
+            MetricTile(value: completed, label: 'Completed', variant: MetricVariant.peach),
+            MetricTile(value: '0', label: 'Cancelled', variant: MetricVariant.danger),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text('Summary', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        const SizedBox(height: 12),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InfoRow(label: 'Total Appointments', value: totalVisits),
+              InfoRow(label: 'Upcoming / Booked', value: upcoming),
+              InfoRow(label: 'Completed', value: completed),
+              InfoRow(label: 'Cancelled', value: '0'),
+              InfoRow(
+                label: 'Period',
+                value: ['Today', 'This Week', 'This Month', 'This Year'][_timeFilter],
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
       ],
     );

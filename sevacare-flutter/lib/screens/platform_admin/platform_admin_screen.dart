@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
@@ -45,12 +46,19 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
       role: UserRole.platformAdmin,
       headerActions: [
         TextButton(
-          onPressed: () {},
-          style: TextButton.styleFrom(foregroundColor: SevaCareColors.primary),
-          child: Text('Dashboard', style: AppTextStyles.label(SevaCareColors.primary)),
+          onPressed: () => setState(() => _tabIndex = 0),
+          style: TextButton.styleFrom(
+            foregroundColor: _tabIndex == 0 ? SevaCareColors.primary : SevaCareColors.textMuted,
+          ),
+          child: Text(
+            'Dashboard',
+            style: AppTextStyles.label(
+              _tabIndex == 0 ? SevaCareColors.primary : SevaCareColors.textMuted,
+            ),
+          ),
         ),
         TextButton(
-          onPressed: () {},
+          onPressed: () => context.go('/platform-admin/profile'),
           style: TextButton.styleFrom(foregroundColor: SevaCareColors.textMuted),
           child: Text('Profile', style: AppTextStyles.label(SevaCareColors.textMuted)),
         ),
@@ -252,6 +260,8 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   bool _loading = false;
   String? _error;
   bool _showAddForm = false;
+  final Map<String, String> _qrCodes = {}; // tenantId → qrcodeUuid
+  String? _generatingQrFor;
 
   // Add form state
   final _nameCtrl = TextEditingController();
@@ -413,6 +423,84 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         );
       }
     }
+  }
+
+  Future<void> _generateQrCode(PlatformTenantRecord tenant) async {
+    setState(() => _generatingQrFor = tenant.tenantPublicId);
+    try {
+      final repo = ref.read(repositoryProvider);
+      final result = await repo.generateQrCode(tenant.tenantPublicId, widget.token);
+      final uuid = result['qrcodeUuid'] as String? ?? '';
+      final publicId = result['qrcodePublicId'] as String? ?? '';
+      if (mounted) {
+        setState(() {
+          _qrCodes[tenant.tenantPublicId] = uuid;
+          _generatingQrFor = null;
+        });
+        _showQrDialog(tenant.hospitalName, publicId, uuid);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _generatingQrFor = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('QR generation failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
+  }
+
+  void _showQrDialog(String hospitalName, String publicId, String uuid) {
+    final baseUrl = '${Uri.base.scheme}://${Uri.base.host}'
+        '${Uri.base.port != 80 && Uri.base.port != 443 ? ':${Uri.base.port}' : ''}';
+    final qrLink = '$baseUrl/#/qrcode/$uuid/appointment-form';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('QR Code — $hospitalName', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('QR ID: $publicId', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: SevaCareColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                qrLink,
+                style: AppTextStyles.bodyText(SevaCareColors.primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Share this link or scan it as a QR code so patients can book appointments.',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          SecondaryButton(
+            label: 'Copy Link',
+            icon: Icons.copy,
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: qrLink));
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Link copied to clipboard')),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          PrimaryButton(label: 'Close', onPressed: () => Navigator.of(ctx).pop()),
+        ],
+      ),
+    );
   }
 
   @override
@@ -597,17 +685,35 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           DangerButton(
                             label: 'Delete',
                             icon: Icons.delete_outline,
                             onPressed: () => _deleteTenant(tenant.tenantPublicId, tenant.hospitalName),
                           ),
-                          const SizedBox(width: 8),
                           SecondaryButton(
-                            label: 'Update Status',
+                            label: tenant.status.toLowerCase() == 'active' ? 'Deactivate' : 'Activate',
                             onPressed: () => _toggleTenantStatus(tenant),
+                          ),
+                          SecondaryButton(
+                            label: _generatingQrFor == tenant.tenantPublicId
+                                ? 'Generating...'
+                                : _qrCodes.containsKey(tenant.tenantPublicId)
+                                    ? 'Show QR'
+                                    : 'Generate QR',
+                            icon: Icons.qr_code_outlined,
+                            onPressed: _generatingQrFor != null
+                                ? null
+                                : _qrCodes.containsKey(tenant.tenantPublicId)
+                                    ? () => _showQrDialog(
+                                          tenant.hospitalName,
+                                          '',
+                                          _qrCodes[tenant.tenantPublicId]!,
+                                        )
+                                    : () => _generateQrCode(tenant),
                           ),
                         ],
                       ),
@@ -756,9 +862,18 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
     }
   }
 
-  Future<void> _signOut() async {
-    await ref.read(authProvider.notifier).clearSession();
-    if (mounted) context.go('/');
+  Future<void> _deactivateAdmin(String adminId) async {
+    try {
+      final repo = ref.read(repositoryProvider);
+      await repo.deactivatePlatformAdminUser(adminId, widget.token);
+      await _loadAdmins();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Deactivate failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
   }
 
   String _initials(String fullName) {
@@ -935,10 +1050,20 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      DangerButton(
-                        label: 'Delete',
-                        icon: Icons.delete_outline,
-                        onPressed: () => _deleteAdmin(admin.platformAdminPublicId),
+                      Row(
+                        children: [
+                          DangerButton(
+                            label: 'Delete',
+                            icon: Icons.delete_outline,
+                            onPressed: () => _deleteAdmin(admin.platformAdminPublicId),
+                          ),
+                          const SizedBox(width: 8),
+                          if (admin.active)
+                            SecondaryButton(
+                              label: 'Deactivate',
+                              onPressed: () => _deactivateAdmin(admin.platformAdminPublicId),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -948,15 +1073,6 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
             ],
           ),
 
-        const SizedBox(height: 24),
-
-        // ── Sign Out ───────────────────────────────────────────────────────────
-        DangerButton(
-          label: 'Sign Out',
-          icon: Icons.logout,
-          onPressed: _signOut,
-          fullWidth: true,
-        ),
         const SizedBox(height: 16),
       ],
     );

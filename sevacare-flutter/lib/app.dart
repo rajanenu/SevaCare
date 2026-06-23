@@ -131,9 +131,8 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(path: '/admin', builder: (ctx, _) => const AdminDashboardScreen()),
         GoRoute(path: '/admin/users', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 1)),
         GoRoute(path: '/admin/doctors', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 2)),
+        GoRoute(path: '/admin/reports', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 3)),
         GoRoute(path: '/admin/profile', builder: (ctx, _) => const ProfileScreen(role: UserRole.admin)),
-        // Reports tab — redirect to admin home for now
-        GoRoute(path: '/admin/reports', redirect: (ctx, _) => '/admin'),
 
         // ── Platform Admin ────────────────────────────────────────────────────
         GoRoute(path: '/platform-admin', builder: (ctx, _) => const PlatformAdminScreen()),
