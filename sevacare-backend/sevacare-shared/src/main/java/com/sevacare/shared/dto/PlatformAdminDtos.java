@@ -16,6 +16,8 @@ public final class PlatformAdminDtos {
     public record PlatformTenantView(
             String tenantPublicId,
             String hospitalName,
+            String city,
+            String pinCode,
             String themeKey,
             String schemaName,
             String status
@@ -27,6 +29,8 @@ public final class PlatformAdminDtos {
 
     public record PlatformTenantUpsertRequest(
             @NotBlank String hospitalName,
+            String city,
+            String pinCode,
             String themeKey,
             String contactName,
             String contactMobile,

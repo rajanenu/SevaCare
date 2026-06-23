@@ -25,6 +25,17 @@ public class TenantRegistry {
     @Column(name = "tenant_status", nullable = false, length = 24)
     private String tenantStatus;
 
+    @Column(name = "city", nullable = false, length = 120)
+    private String city = "";
+
+    @Column(name = "pin_code", nullable = false, length = 10)
+    private String pinCode = "";
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+    public String getPinCode() { return pinCode; }
+    public void setPinCode(String pinCode) { this.pinCode = pinCode; }
+
     public String getTenantPublicId() {
         return tenantPublicId;
     }

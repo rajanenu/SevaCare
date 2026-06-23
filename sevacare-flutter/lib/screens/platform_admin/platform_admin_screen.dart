@@ -267,13 +267,19 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
 
   // Add form state
   final _nameCtrl = TextEditingController();
+  final _pinCodeCtrl = TextEditingController();
   final _contactNameCtrl = TextEditingController();
   final _contactMobileCtrl = TextEditingController();
   final _contactEmailCtrl = TextEditingController();
   String _selectedTheme = 'premium';
+  String _selectedCity = '';
   bool _saving = false;
   String? _formError;
   String? _formSuccess;
+
+  static const _cityOptions = [
+    'Bangalore', 'Chennai', 'Hyderabad', 'Visakhapatnam', 'Proddatur', 'Kadapa',
+  ];
 
   @override
   void initState() {
@@ -284,6 +290,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _pinCodeCtrl.dispose();
     _contactNameCtrl.dispose();
     _contactMobileCtrl.dispose();
     _contactEmailCtrl.dispose();
@@ -321,10 +328,12 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
       _formSuccess = null;
       if (_showAddForm) {
         _nameCtrl.clear();
+        _pinCodeCtrl.clear();
         _contactNameCtrl.clear();
         _contactMobileCtrl.clear();
         _contactEmailCtrl.clear();
         _selectedTheme = 'premium';
+        _selectedCity = '';
       }
     });
   }
@@ -345,6 +354,8 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
       await repo.createPlatformTenant(
         PlatformTenantUpsertRequest(
           hospitalName: name,
+          city: _selectedCity.isNotEmpty ? _selectedCity : null,
+          pinCode: _pinCodeCtrl.text.trim().isNotEmpty ? _pinCodeCtrl.text.trim() : null,
           themeKey: _selectedTheme,
           contactName: _contactNameCtrl.text.trim().isNotEmpty ? _contactNameCtrl.text.trim() : null,
           contactMobile:
@@ -578,6 +589,21 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                   placeholder: 'e.g. City General Hospital',
                 ),
                 AppDropdown<String>(
+                  label: 'City',
+                  value: _selectedCity,
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('Select city…')),
+                    ..._cityOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                  ],
+                  onChanged: (v) => setState(() => _selectedCity = v ?? ''),
+                ),
+                AppFormField(
+                  label: 'Pin Code',
+                  controller: _pinCodeCtrl,
+                  placeholder: 'e.g. 516360',
+                  keyboardType: TextInputType.number,
+                ),
+                AppDropdown<String>(
                   label: 'Theme',
                   value: _selectedTheme,
                   items: const [
@@ -790,6 +816,11 @@ class _HospitalCard extends StatelessWidget {
                         style: AppTextStyles.cardTitle(SevaCareColors.text),
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (tenant.city.isNotEmpty)
+                        Text(
+                          '${tenant.city}${tenant.pinCode.isNotEmpty ? ' · ${tenant.pinCode}' : ''}',
+                          style: AppTextStyles.label(SevaCareColors.primary),
+                        ),
                       Text(
                         tenant.tenantPublicId,
                         style: AppTextStyles.label(SevaCareColors.textMuted),

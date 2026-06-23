@@ -916,6 +916,8 @@ class PlatformAdminOverview {
 class PlatformTenantRecord {
   final String tenantPublicId;
   final String hospitalName;
+  final String city;
+  final String pinCode;
   final String themeKey;
   final String schemaName;
   final String status;
@@ -923,6 +925,8 @@ class PlatformTenantRecord {
   const PlatformTenantRecord({
     required this.tenantPublicId,
     required this.hospitalName,
+    this.city = '',
+    this.pinCode = '',
     required this.themeKey,
     required this.schemaName,
     required this.status,
@@ -931,6 +935,8 @@ class PlatformTenantRecord {
   factory PlatformTenantRecord.fromJson(Map<String, dynamic> json) => PlatformTenantRecord(
     tenantPublicId: json['tenantPublicId'] as String? ?? '',
     hospitalName: json['hospitalName'] as String? ?? '',
+    city: json['city'] as String? ?? '',
+    pinCode: json['pinCode'] as String? ?? '',
     themeKey: json['themeKey'] as String? ?? 'premium',
     schemaName: json['schemaName'] as String? ?? '',
     status: json['status'] as String? ?? '',
@@ -939,6 +945,8 @@ class PlatformTenantRecord {
 
 class PlatformTenantUpsertRequest {
   final String hospitalName;
+  final String? city;
+  final String? pinCode;
   final String? themeKey;
   final String? contactName;
   final String? contactMobile;
@@ -947,6 +955,8 @@ class PlatformTenantUpsertRequest {
 
   const PlatformTenantUpsertRequest({
     required this.hospitalName,
+    this.city,
+    this.pinCode,
     this.themeKey,
     this.contactName,
     this.contactMobile,
@@ -956,6 +966,8 @@ class PlatformTenantUpsertRequest {
 
   Map<String, dynamic> toJson() => {
     'hospitalName': hospitalName,
+    if (city != null) 'city': city,
+    if (pinCode != null) 'pinCode': pinCode,
     if (themeKey != null) 'themeKey': themeKey,
     if (contactName != null) 'contactName': contactName,
     if (contactMobile != null) 'contactMobile': contactMobile,

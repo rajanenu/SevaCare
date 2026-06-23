@@ -132,6 +132,9 @@ public class PlatformAdminService {
                 normalizeNullable(request.contactMobile()),
                 normalizeNullable(request.contactEmail())
         );
+        tenant.setCity(normalizeNullable(request.city()) != null ? request.city().trim() : "");
+        tenant.setPinCode(normalizeNullable(request.pinCode()) != null ? request.pinCode().trim() : "");
+        tenantRegistryRepository.save(tenant);
         return toTenantView(tenant);
     }
 
@@ -144,6 +147,8 @@ public class PlatformAdminService {
         tenant.setTenantName(request.hospitalName().trim());
         tenant.setTenantThemeKey(normalizeThemeKey(request.themeKey()));
         tenant.setTenantStatus(normalizeStatus(request.status()));
+        if (request.city() != null) tenant.setCity(request.city().trim());
+        if (request.pinCode() != null) tenant.setPinCode(request.pinCode().trim());
         TenantRegistry saved = tenantRegistryRepository.save(tenant);
         syncHospitalAdmin(saved, request.contactName(), request.contactMobile(), request.contactEmail());
         return toTenantView(saved);
@@ -152,6 +157,8 @@ public class PlatformAdminService {
     @Transactional
     public String deleteTenant(String tenantPublicId) {
         TenantRegistry tenant = findTenant(tenantPublicId);
+        // Delete FK-constrained rows first (order matters)
+        jdbcTemplate.update("DELETE FROM public.doctor_hospital_enrollment WHERE tenant_public_id = ?", tenantPublicId);
         jdbcTemplate.update(
             "DELETE FROM public.tenant_onboarding_document WHERE request_public_id IN (" +
                 "SELECT request_public_id FROM public.tenant_onboarding_request WHERE lower(trim(hospital_name)) = lower(trim(?))" +
@@ -373,6 +380,8 @@ public class PlatformAdminService {
         return new PlatformAdminDtos.PlatformTenantView(
                 tenant.getTenantPublicId(),
                 tenant.getTenantName(),
+                tenant.getCity(),
+                tenant.getPinCode(),
                 tenant.getTenantThemeKey(),
                 tenant.getTenantSchemaName(),
                 tenant.getTenantStatus()

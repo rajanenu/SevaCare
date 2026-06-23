@@ -61,8 +61,8 @@ class WelcomeScreen extends ConsumerWidget {
                     enabled: false,
                   ),
                   _ActionItem(
-                    icon: Icons.bookmark_border,
-                    title: 'Saved Hospitals',
+                    icon: Icons.local_pharmacy_outlined,
+                    title: 'Medicine Delivery',
                     subtitle: 'Coming Soon',
                     onTap: null,
                     enabled: false,

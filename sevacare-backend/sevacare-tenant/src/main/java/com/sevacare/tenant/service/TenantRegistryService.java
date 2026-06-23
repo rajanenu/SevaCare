@@ -30,7 +30,7 @@ public class TenantRegistryService {
                 .map(tenant -> new DiscoveryDtos.TenantSummary(
                         tenant.getTenantPublicId(),
                         tenant.getTenantName(),
-                        "Unknown city",
+                        tenant.getCity().isBlank() ? "Unknown city" : tenant.getCity(),
                         "General medicine",
                         tenant.getTenantThemeKey()
                 ))

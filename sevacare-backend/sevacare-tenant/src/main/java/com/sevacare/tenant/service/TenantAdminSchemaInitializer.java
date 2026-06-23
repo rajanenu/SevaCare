@@ -128,22 +128,27 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
                     "UPDATE " + schemaName + ".prescription SET doctor_name = COALESCE(doctor_name, 'Doctor') WHERE doctor_name IS NULL"
             );
         }
-        if (hasColumn(schemaName, "prescription", "prescription_date") && hasColumn(schemaName, "prescription", "created_at")) {
-            jdbcTemplate.update(
-                    "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(prescription_date AS VARCHAR), CAST(created_at AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
-            );
-        } else if (hasColumn(schemaName, "prescription", "prescription_date")) {
-            jdbcTemplate.update(
-                    "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(prescription_date AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
-            );
-        } else if (hasColumn(schemaName, "prescription", "created_at")) {
-            jdbcTemplate.update(
-                    "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(created_at AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
-            );
-        } else {
-            jdbcTemplate.update(
-                    "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
-            );
+        // Only backfill issued_on when it is stored as VARCHAR (legacy schema).
+        // New schemas define issued_on as DATE NOT NULL DEFAULT CURRENT_DATE — backfill is a no-op
+        // and PostgreSQL rejects the VARCHAR COALESCE at parse time for date columns.
+        if ("character varying".equals(columnDataType(schemaName, "prescription", "issued_on"))) {
+            if (hasColumn(schemaName, "prescription", "prescription_date") && hasColumn(schemaName, "prescription", "created_at")) {
+                jdbcTemplate.update(
+                        "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(prescription_date AS VARCHAR), CAST(created_at AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
+                );
+            } else if (hasColumn(schemaName, "prescription", "prescription_date")) {
+                jdbcTemplate.update(
+                        "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(prescription_date AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
+                );
+            } else if (hasColumn(schemaName, "prescription", "created_at")) {
+                jdbcTemplate.update(
+                        "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CAST(created_at AS VARCHAR), CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
+                );
+            } else {
+                jdbcTemplate.update(
+                        "UPDATE " + schemaName + ".prescription SET issued_on = COALESCE(issued_on, CURRENT_DATE::VARCHAR) WHERE issued_on IS NULL"
+                );
+            }
         }
         jdbcTemplate.update(
                 "UPDATE " + schemaName + ".prescription SET status = COALESCE(status, 'active') WHERE status IS NULL"
@@ -157,6 +162,14 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
                     "UPDATE " + schemaName + ".prescription SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"
             );
         }
+    }
+
+    private String columnDataType(String schemaName, String tableName, String columnName) {
+        return jdbcTemplate.query(
+                "SELECT data_type FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?",
+                rs -> rs.next() ? rs.getString("data_type") : null,
+                schemaName, tableName, columnName
+        );
     }
 
     private boolean hasColumn(String schemaName, String tableName, String columnName) {
