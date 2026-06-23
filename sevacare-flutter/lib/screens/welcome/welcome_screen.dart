@@ -14,58 +14,64 @@ class WelcomeScreen extends ConsumerWidget {
     return AppShell(
       hospitalName: 'SevaCare',
       // No role — public landing page
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Stack(
         children: [
-          const SizedBox(height: 8),
-          // ── Hero card ────────────────────────────────────────────────────────
-          _HeroCard(),
-          const SizedBox(height: 24),
-          // ── Section heading ──────────────────────────────────────────────────
-          Text(
-            'Quick Actions',
-            style: AppTextStyles.sectionTitle(SevaCareColors.text),
-          ),
-          const SizedBox(height: 12),
-          // ── Action card grid ─────────────────────────────────────────────────
-          _ActionGrid(
-            items: [
-              _ActionItem(
-                icon: Icons.search,
-                title: 'Search Hospitals',
-                onTap: () => context.go('/search'),
-                enabled: true,
+          const Positioned(top: 0, left: 0, right: 0, child: _HealthcarePattern()),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              // ── Hero card ──────────────────────────────────────────────────
+              _HeroCard(),
+              const SizedBox(height: 24),
+              // ── Section heading ────────────────────────────────────────────
+              Text(
+                'Quick Actions',
+                style: AppTextStyles.sectionTitle(SevaCareColors.text),
               ),
-              _ActionItem(
-                icon: Icons.add_business,
-                title: 'Onboard Your Hospital',
-                onTap: () => context.go('/onboarding'),
-                enabled: true,
+              const SizedBox(height: 12),
+              // ── Action card grid ───────────────────────────────────────────
+              _ActionGrid(
+                items: [
+                  _ActionItem(
+                    icon: Icons.search,
+                    title: 'Search Hospitals',
+                    onTap: () => context.go('/search'),
+                    enabled: true,
+                  ),
+                  _ActionItem(
+                    icon: Icons.add_business,
+                    title: 'Onboard New Hospital',
+                    onTap: () => context.go('/platform-login'),
+                    enabled: true,
+                  ),
+                  _ActionItem(
+                    icon: Icons.near_me,
+                    title: 'Nearby',
+                    subtitle: 'Coming Soon',
+                    onTap: null,
+                    enabled: false,
+                  ),
+                  _ActionItem(
+                    icon: Icons.qr_code_scanner,
+                    title: 'Scan QR Code',
+                    subtitle: 'Coming Soon',
+                    onTap: null,
+                    enabled: false,
+                  ),
+                  _ActionItem(
+                    icon: Icons.bookmark_border,
+                    title: 'Saved Hospitals',
+                    subtitle: 'Coming Soon',
+                    onTap: null,
+                    enabled: false,
+                  ),
+                ],
               ),
-              _ActionItem(
-                icon: Icons.near_me,
-                title: 'Nearby',
-                subtitle: 'Coming Soon',
-                onTap: null,
-                enabled: false,
-              ),
-              _ActionItem(
-                icon: Icons.qr_code_scanner,
-                title: 'Scan QR Code',
-                subtitle: 'Coming Soon',
-                onTap: null,
-                enabled: false,
-              ),
-              _ActionItem(
-                icon: Icons.bookmark_border,
-                title: 'Saved Hospitals',
-                subtitle: 'Coming Soon',
-                onTap: null,
-                enabled: false,
-              ),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -126,36 +132,6 @@ class _HeroCard extends StatelessWidget {
             'Find & book appointments with top\ndoctors near you.',
             style: AppTextStyles.bodyText(
               SevaCareColors.textOnPrimary.withValues(alpha: 0.80),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // CTA — single Search Hospitals pill button
-          GestureDetector(
-            onTap: () => context.go('/search'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: SevaCareColors.textOnPrimary,
-                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.search, size: 16, color: SevaCareColors.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Search Hospitals',
-                    style: AppTextStyles.label(SevaCareColors.primary),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -296,4 +272,70 @@ class _ActionCard extends StatelessWidget {
       child: card,
     );
   }
+}
+
+// ── Healthcare background pattern ──────────────────────────────────────────────
+
+class _HealthcarePattern extends StatelessWidget {
+  const _HealthcarePattern();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: SizedBox(
+        width: double.infinity,
+        height: 300,
+        child: CustomPaint(
+          painter: _PatternPainter(),
+        ),
+      ),
+    );
+  }
+}
+
+class _PatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF6366F1).withValues(alpha: 0.06)
+      ..style = PaintingStyle.fill;
+
+    // Large blurred circles — medical orb aesthetic
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.2), 90, paint);
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.7), 70, paint);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.5), 50, paint);
+
+    // Subtle cross / plus signs (healthcare symbol)
+    final crossPaint = Paint()
+      ..color = const Color(0xFF6366F1).withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill
+      ..strokeWidth = 2;
+
+    void drawCross(double cx, double cy, double sz) {
+      final s = sz / 2;
+      final t = sz / 6;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: s * 2, height: t * 2),
+          const Radius.circular(2),
+        ),
+        crossPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: t * 2, height: s * 2),
+          const Radius.circular(2),
+        ),
+        crossPaint,
+      );
+    }
+
+    drawCross(size.width * 0.15, size.height * 0.15, 24);
+    drawCross(size.width * 0.75, size.height * 0.65, 18);
+    drawCross(size.width * 0.9, size.height * 0.85, 14);
+    drawCross(size.width * 0.35, size.height * 0.9, 20);
+  }
+
+  @override
+  bool shouldRepaint(_PatternPainter old) => false;
 }

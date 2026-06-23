@@ -3,36 +3,47 @@
  * Tests: login, doctor overview timeline/facets, and consultation/rx navigation.
  */
 import { expect, test } from '@playwright/test';
+import { getActiveTenant } from './helpers';
 
-/* Helper: navigate to Aurora and login as doctor */
+/* Helper: navigate to active hospital and login as doctor */
 async function loginAsDoctor(page: import('@playwright/test').Page) {
+  const tenant = await getActiveTenant();
   await page.goto('/');
   await page.getByText('Search Hospitals', { exact: true }).click();
-  await page.getByText('Aurora Multispeciality').first().click();
-  await expect(page.getByText('Send OTP & Continue')).toBeVisible({ timeout: 15_000 });
+  await page.getByText(tenant.hospitalName).first().click();
+  await expect(page.getByText('Send OTP')).toBeVisible({ timeout: 15_000 });
   await page.getByText('Doctor').first().click();
-  await page.getByText('Send OTP & Continue').first().click();
+  await page.getByText('Send OTP').first().click();
   await expect(page.getByPlaceholder('Enter secure PIN')).toBeVisible({ timeout: 5_000 });
   await page.getByPlaceholder('Enter secure PIN').fill('0000');
-  await page.getByText('Continue as Doctor').first().click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByText('Continue', { exact: true }).first().click({ force: true });
+    await page.waitForTimeout(600);
+    const stillOnLogin = await page.getByText('Login', { exact: true }).first().isVisible().catch(() => false);
+    if (!stillOnLogin) {
+      break;
+    }
+  }
 }
 
 test.describe('Doctor login', () => {
   test('login screen shows doctor access option', async ({ page }) => {
+    const tenant = await getActiveTenant();
     await page.goto('/');
     await page.getByText('Search Hospitals', { exact: true }).click();
-    await page.getByText('Aurora Multispeciality').first().click();
-    await expect(page.getByText('Send OTP & Continue')).toBeVisible({ timeout: 15_000 });
+    await page.getByText(tenant.hospitalName).first().click();
+    await expect(page.getByText('Send OTP')).toBeVisible({ timeout: 15_000 });
 
     await page.getByText('Doctor').first().click();
     await expect(page.getByText('Doctor access')).toBeVisible();
-     await expect(page.getByText('Send OTP & Continue')).toBeVisible();
+    await expect(page.getByText('Send OTP')).toBeVisible();
   });
 
   test('successful doctor login shows dashboard', async ({ page }) => {
+    const tenant = await getActiveTenant();
     await loginAsDoctor(page);
-    await expect(page.getByText('dashboard')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Aurora Multispeciality').first()).toBeVisible();
+    await expect(page.getByText('Doctor Overview')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(tenant.hospitalName).first()).toBeVisible();
   });
 });
 
@@ -58,7 +69,7 @@ test.describe('Doctor dashboard', () => {
 
   test('shows patient queue section', async ({ page }) => {
     await expect(page.getByText('Patient Queue').first()).toBeVisible();
-    await expect(page.getByText('Swipe facets to review past, current, and future visits.')).toBeVisible();
+    await expect(page.getByText('Queue for selected day.')).toBeVisible();
   });
 
   test('does not render removed legacy sections', async ({ page }) => {
@@ -101,7 +112,7 @@ test.describe('Doctor navigation tabs', () => {
 
   test('navigate to Consult tab', async ({ page }) => {
     await page.getByText('Consult', { exact: true }).click();
-    await expect(page.getByText('Consultation')).toBeVisible();
+    await expect(page.getByText('Consultation', { exact: true })).toBeVisible();
   });
 });
 
@@ -110,7 +121,7 @@ test.describe('Consultation screen', () => {
     await loginAsDoctor(page);
     await expect(page.getByText('Doctor Overview')).toBeVisible({ timeout: 10_000 });
     await page.getByText('Consult', { exact: true }).click();
-    await expect(page.getByText('Consultation')).toBeVisible();
+    await expect(page.getByText('Consultation', { exact: true })).toBeVisible();
 
     await expect(page.getByText('Symptoms', { exact: true })).toBeVisible();
     await expect(page.getByText('Diagnosis', { exact: true })).toBeVisible();

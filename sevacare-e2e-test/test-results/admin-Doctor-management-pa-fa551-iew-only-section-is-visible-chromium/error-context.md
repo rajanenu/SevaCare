@@ -1,0 +1,89 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e7]:
+  - generic [ref=e11]:
+    - generic [ref=e13]:
+      - generic "Go to SevaCare Home" [ref=e14] [cursor=pointer]:
+        - generic [ref=e18]: Aurora Multispeciality
+        - generic [ref=e19]: sevacare erp system
+      - generic [ref=e20]:
+        - generic "Home" [ref=e21] [cursor=pointer]:
+          - generic [ref=e22]: Home
+        - generic [ref=e24]: ◔
+        - generic [ref=e26]:
+          - generic [ref=e27]: ◉
+          - generic [ref=e28]: Admin
+    - generic [ref=e29]:
+      - generic [ref=e31]: Doctor Management
+      - generic [ref=e32]:
+        - generic [ref=e34] [cursor=pointer]: Dashboard
+        - generic [ref=e36] [cursor=pointer]: Admin Users
+        - generic [ref=e38] [cursor=pointer]: Doctor Management
+      - generic [ref=e39]:
+        - generic [ref=e40]: Add or update doctor
+        - generic [ref=e41]: "Doctor ID: D-1008"
+        - textbox "Doctor name (required)" [ref=e43]
+        - generic [ref=e44]: Doctor name is mandatory
+        - generic [ref=e45]:
+          - generic [ref=e46]: Specialty
+          - generic [ref=e47] [cursor=pointer]:
+            - generic [ref=e48]: Cardiologist
+            - generic [ref=e49]: ▼
+        - textbox "Available from (YYYY-MM-DD)" [ref=e51]
+        - textbox "Fee" [ref=e53]: ₹500
+        - generic [ref=e54]:
+          - generic [ref=e55]: Ready to look patients
+          - generic [ref=e56]:
+            - generic [ref=e58] [cursor=pointer]: "Yes"
+            - generic [ref=e60] [cursor=pointer]: "No"
+        - generic [ref=e61]:
+          - generic [ref=e67] [cursor=pointer]: Add Doctor
+          - generic [ref=e70] [cursor=pointer]: New Doctor
+          - generic [ref=e73] [cursor=pointer]: Refresh
+      - generic [ref=e74]:
+        - generic [ref=e76] [cursor=pointer]:
+          - generic [ref=e77]: D-1001 · Dr. Meera Rao
+          - generic [ref=e78]: Cardiologist · Today · 6 slots left · ₹900
+          - generic [ref=e82]: Delete doctor
+        - generic [ref=e84] [cursor=pointer]:
+          - generic [ref=e85]: D-1002 · Dr. Arjun Varma
+          - generic [ref=e86]: Neurologist · Today · 4 slots left · ₹850
+          - generic [ref=e90]: Delete doctor
+        - generic [ref=e92] [cursor=pointer]:
+          - generic [ref=e93]: D-1003 · Dr. Priya Sharma
+          - generic [ref=e94]: Gynecologist · Today · 3 slots left · ₹700
+          - generic [ref=e98]: Delete doctor
+        - generic [ref=e100] [cursor=pointer]:
+          - generic [ref=e101]: D-1004 · Dr. Sanjay Patel
+          - generic [ref=e102]: Skin Specialist · Tomorrow · 5 slots left · ₹600
+          - generic [ref=e106]: Delete doctor
+        - generic [ref=e108] [cursor=pointer]:
+          - generic [ref=e109]: D-1005 · Dr. Kavitha Nair
+          - generic [ref=e110]: General Physician · Today · Open · ₹400
+          - generic [ref=e114]: Delete doctor
+        - generic [ref=e116] [cursor=pointer]:
+          - generic [ref=e117]: D-1006 · Dr. E2E 1776094126738
+          - generic [ref=e118]: Cardiologist · Today · Open · ₹750
+          - generic [ref=e122]: Delete doctor
+        - generic [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]: D-1007 · Dr. E2E 1776095072400
+          - generic [ref=e126]: Cardiologist · Today · Open · ₹750
+          - generic [ref=e130]: Delete doctor
+  - generic [ref=e131]:
+    - generic [ref=e132] [cursor=pointer]:
+      - generic [ref=e133]: ◫
+      - generic [ref=e134]: Dashboard
+    - generic [ref=e135] [cursor=pointer]:
+      - generic [ref=e136]: ⛨
+      - generic [ref=e137]: Admins
+    - generic [ref=e138] [cursor=pointer]:
+      - generic [ref=e139]: ⚕
+      - generic [ref=e140]: Doctors
+    - generic [ref=e141] [cursor=pointer]:
+      - generic [ref=e142]: ◰
+      - generic [ref=e143]: Reports
+    - generic [ref=e144] [cursor=pointer]:
+      - generic [ref=e145]: ◍
+      - generic [ref=e146]: Profile
+```

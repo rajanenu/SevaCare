@@ -296,3 +296,6 @@ final activeRoleProvider = StateProvider<UserRole>((ref) => UserRole.patient);
 // ── Dark Mode ─────────────────────────────────────────────────────────────────
 
 final darkModeProvider = StateProvider<bool>((ref) => false);
+
+/// Stores the mobile number the user logged in with, for profile pre-fill.
+final loginMobileProvider = StateProvider<String>((ref) => '');

@@ -12,8 +12,9 @@
     "test:doctor": "playwright test tests/doctor.spec.ts",
     "test:admin": "playwright test tests/admin.spec.ts",
     "test:api": "playwright test tests/api.spec.ts",
+    "test:qrflow": "playwright test tests/qr-appointment-request.spec.ts",
     "test:lifecycle": "playwright test tests/lifecycle.spec.ts",
-    "test:all": "playwright test tests/onboarding.spec.ts tests/patient.spec.ts tests/doctor.spec.ts tests/admin.spec.ts tests/api.spec.ts tests/lifecycle.spec.ts",
+    "test:all": "playwright test tests/onboarding.spec.ts tests/patient.spec.ts tests/doctor.spec.ts tests/admin.spec.ts tests/api.spec.ts tests/qr-appointment-request.spec.ts tests/lifecycle.spec.ts",
     "test:headed": "playwright test --headed",
     "report": "playwright show-report"
   },

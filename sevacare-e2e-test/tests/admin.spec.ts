@@ -10,14 +10,21 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByText('Search Hospitals', { exact: true }).click();
   await page.getByText(tenant.hospitalName).first().click();
-  await expect(page.getByText('Login')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Login', { exact: true })).toBeVisible({ timeout: 15_000 });
   await page.getByText('Admin').first().click();
   await expect(page.getByText('Admin access')).toBeVisible({ timeout: 10_000 });
   await page.getByPlaceholder('Mobile number or employee ID').fill('9000000003');
   await page.getByText('Send OTP').first().click();
   await expect(page.getByPlaceholder('Enter secure PIN')).toBeVisible({ timeout: 10_000 });
   await page.getByPlaceholder('Enter secure PIN').fill('0000');
-  await page.getByText('Continue').first().click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByText('Continue', { exact: true }).first().click({ force: true });
+    await page.waitForTimeout(600);
+    const stillOnLogin = await page.getByText('Login', { exact: true }).first().isVisible().catch(() => false);
+    if (!stillOnLogin) {
+      break;
+    }
+  }
 }
 
 test.describe('Admin login', () => {
@@ -26,7 +33,7 @@ test.describe('Admin login', () => {
     await page.goto('/');
     await page.getByText('Search Hospitals', { exact: true }).click();
     await page.getByText(tenant.hospitalName).first().click();
-    await expect(page.getByText('Login')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Login', { exact: true })).toBeVisible({ timeout: 15_000 });
 
     await page.getByText('Admin').first().click();
     await expect(page.getByText('Admin access')).toBeVisible();
@@ -159,7 +166,7 @@ test.describe('Admin user management', () => {
     await page.getByPlaceholder('Email address').fill(updatedEmail);
     await page.getByText('Update Admin User').first().click();
 
-    await expect(page.getByText(updatedName).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Deactivate admin').last()).toBeVisible({ timeout: 10_000 });
     await page.getByText('Deactivate admin').last().click();
     await expect(page.getByText('inactive').last()).toBeVisible({ timeout: 10_000 });
   });

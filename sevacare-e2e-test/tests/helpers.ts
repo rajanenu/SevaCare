@@ -16,14 +16,14 @@ export async function getActiveTenant() {
   return firstTenant as { tenantPublicId: string; hospitalName: string };
 }
 
-/** Navigate to homepage and select Aurora hospital */
+/** Navigate to homepage and select active hospital */
 export async function selectAuroraHospital(page: Page) {
   const tenant = await getActiveTenant();
   await page.goto('/');
   await expect(page.getByText('SevaCare').first()).toBeVisible();
   await page.getByText('Search Hospitals', { exact: true }).click();
   await page.getByText(tenant.hospitalName).first().click();
-  await expect(page.getByText('Send OTP & Continue')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Send OTP')).toBeVisible({ timeout: 15_000 });
 }
 
 /** Login as a given role on the login screen (assumes already on login page) */
@@ -33,8 +33,8 @@ export async function loginAs(page: Page, role: 'patient' | 'doctor' | 'admin') 
   }
 
   const buttonLabel = role === 'patient'
-    ? 'Send OTP & Continue'
-    : `Continue as ${role === 'doctor' ? 'Doctor' : 'Admin'}`;
+    ? 'Send OTP'
+    : 'Send OTP';
 
   await page.getByText(buttonLabel).first().click();
 }
@@ -87,13 +87,14 @@ export async function getAuthToken(role: 'patient' | 'doctor' | 'admin'): Promis
 }
 
 /** API helper: make authenticated request */
-export async function apiRequest<T>(path: string, token: string, options?: RequestInit): Promise<T> {
+export async function apiRequest<T>(path: string, token: string, options?: RequestInit, tenantPublicId?: string): Promise<T> {
+  const tenantId = tenantPublicId ?? (await getActiveTenant()).tenantPublicId;
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'X-Tenant-Id': 'T-1001',
+      'X-Tenant-Id': tenantId,
       ...(options?.headers ?? {}),
     },
   });

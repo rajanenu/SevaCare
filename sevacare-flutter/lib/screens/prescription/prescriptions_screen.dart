@@ -89,6 +89,8 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            BackBtn(onPressed: () => context.go('/patient')),
+            const SizedBox(height: 8),
             PageHeader(
               title: 'My Prescriptions',
               subtitle: _loading ? null : 'Total: ${prescriptions.length}',

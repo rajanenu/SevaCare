@@ -32,6 +32,15 @@ dependencies:
   # Date formatting
   intl: ^0.19.0
 
+  # QR code rendering
+  qr_flutter: ^4.1.0
+
+  # Image picking for profile photo
+  image_picker: ^1.1.2
+
+  # Shimmer skeleton loading
+  shimmer: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

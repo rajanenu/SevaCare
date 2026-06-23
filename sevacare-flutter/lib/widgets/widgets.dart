@@ -13,3 +13,6 @@ export 'app_avatar.dart';
 export 'page_header.dart';
 export 'info_row.dart';
 export 'orb_background.dart';
+export 'profile_avatar_picker.dart';
+export 'shimmer_loader.dart';
+export 'staggered_item.dart';

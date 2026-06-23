@@ -57,6 +57,8 @@ class ApiConstants {
   static const String platformTenants = '/platform-admin/tenants';
   static String platformTenant(String tenantId) => '/platform-admin/tenants/$tenantId';
   static String generateQrCode(String tenantId) => '/platform-admin/tenants/$tenantId/qrcode/generate';
+  static String qrCodeFormData(String uuid) => '/public/qrcode/$uuid/form-data';
+  static String qrCodeAppointmentRequest(String uuid) => '/public/qrcode/$uuid/appointment-request';
   static const String platformOnboardingRequests = '/platform-admin/onboarding-requests';
   static const String platformAdminUsers = '/platform-admin/users';
   static String platformAdminUser(String adminId) => '/platform-admin/users/$adminId';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/network/api_client.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/models/models.dart';
@@ -22,7 +23,28 @@ import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/platform_admin/platform_admin_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/settings_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
+import 'screens/qr/qr_appointment_form_screen.dart';
+
+/// Shared slide+fade page transition used by every GoRoute.
+CustomTransitionPage<void> _slidePage(
+    BuildContext ctx, GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final slide = Tween<Offset>(
+        begin: const Offset(0.06, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(position: slide, child: child),
+      );
+    },
+  );
+}
 
 class SevaCareApp extends ConsumerStatefulWidget {
   const SevaCareApp({super.key});
@@ -38,6 +60,14 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   void initState() {
     super.initState();
     _router = _buildRouter();
+    // Wire 401 auto-logout: any unauthorised response clears the session and
+    // sends the user back to the welcome screen.
+    apiClient.onUnauthorized = () {
+      if (mounted) {
+        ref.read(authProvider.notifier).clearSession();
+        _router.go('/');
+      }
+    };
   }
 
   @override
@@ -101,52 +131,124 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
       },
       routes: [
         // ── Public ────────────────────────────────────────────────────────────
-        GoRoute(path: '/', builder: (ctx, _) => const WelcomeScreen()),
-        GoRoute(path: '/search', builder: (ctx, _) => const HospitalSearchScreen()),
-        GoRoute(path: '/login', builder: (ctx, _) => const LoginScreen()),
-        GoRoute(path: '/platform-login', builder: (ctx, _) => const LoginScreen(platformAdminMode: true)),
-        GoRoute(path: '/onboarding', builder: (ctx, _) => const OnboardingScreen()),
+        GoRoute(
+          path: '/',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const WelcomeScreen()),
+        ),
+        GoRoute(
+          path: '/search',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const HospitalSearchScreen()),
+        ),
+        GoRoute(
+          path: '/login',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const LoginScreen()),
+        ),
+        GoRoute(
+          path: '/platform-login',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const LoginScreen(platformAdminMode: true)),
+        ),
+        GoRoute(path: '/onboarding', redirect: (ctx, _) => '/platform-login'),
+        GoRoute(
+          path: '/qrcode/:uuid/appointment-form',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, QrAppointmentFormScreen(
+            qrcodeUuid: state.pathParameters['uuid'] ?? '',
+          )),
+        ),
 
         // ── Patient ───────────────────────────────────────────────────────────
-        GoRoute(path: '/patient', builder: (ctx, _) => const PatientHomeScreen()),
-        GoRoute(path: '/patient/booking', builder: (ctx, _) => const BookingScreen()),
-        GoRoute(path: '/patient/appointments', builder: (ctx, _) => const AppointmentsScreen()),
-        GoRoute(path: '/patient/medical-history', builder: (ctx, _) => const MedicalHistoryScreen()),
-        GoRoute(path: '/patient/prescriptions', builder: (ctx, _) => const PrescriptionsScreen()),
+        GoRoute(
+          path: '/patient',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PatientHomeScreen()),
+        ),
+        GoRoute(
+          path: '/patient/booking',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const BookingScreen()),
+        ),
+        GoRoute(
+          path: '/patient/appointments',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AppointmentsScreen()),
+        ),
+        GoRoute(
+          path: '/patient/medical-history',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const MedicalHistoryScreen()),
+        ),
+        GoRoute(
+          path: '/patient/prescriptions',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PrescriptionsScreen()),
+        ),
         GoRoute(
           path: '/patient/prescriptions/:id',
-          builder: (ctx, state) => PrescriptionDetailScreen(
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, PrescriptionDetailScreen(
             prescriptionId: state.pathParameters['id'] ?? '',
-          ),
+          )),
         ),
-        GoRoute(path: '/patient/profile', builder: (ctx, _) => const ProfileScreen(role: UserRole.patient)),
+        GoRoute(
+          path: '/patient/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.patient)),
+        ),
         // Doctors listing — redirect to booking where doctors are shown
         GoRoute(path: '/patient/doctors', redirect: (ctx, _) => '/patient/booking'),
 
         // ── Doctor ────────────────────────────────────────────────────────────
-        GoRoute(path: '/doctor', builder: (ctx, _) => const DoctorHomeScreen()),
-        GoRoute(path: '/doctor/consult', builder: (ctx, _) => const ConsultationScreen()),
-        GoRoute(path: '/doctor/prescriptions', builder: (ctx, _) => const DoctorPrescriptionsScreen()),
-        GoRoute(path: '/doctor/profile', builder: (ctx, _) => const ProfileScreen(role: UserRole.doctor)),
+        GoRoute(
+          path: '/doctor',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const DoctorHomeScreen()),
+        ),
+        GoRoute(
+          path: '/doctor/consult',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ConsultationScreen()),
+        ),
+        GoRoute(
+          path: '/doctor/prescriptions',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const DoctorPrescriptionsScreen()),
+        ),
+        GoRoute(
+          path: '/doctor/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.doctor)),
+        ),
         // Requests tab — redirect to doctor home (queue is shown there)
         GoRoute(path: '/doctor/requests', redirect: (ctx, _) => '/doctor'),
 
         // ── Admin ─────────────────────────────────────────────────────────────
-        GoRoute(path: '/admin', builder: (ctx, _) => const AdminDashboardScreen()),
-        GoRoute(path: '/admin/users', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 1)),
-        GoRoute(path: '/admin/doctors', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 2)),
-        GoRoute(path: '/admin/reports', builder: (ctx, _) => const AdminDashboardScreen(initialTab: 3)),
-        GoRoute(path: '/admin/profile', builder: (ctx, _) => const ProfileScreen(role: UserRole.admin)),
+        GoRoute(
+          path: '/admin',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen()),
+        ),
+        GoRoute(
+          path: '/admin/users',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 1)),
+        ),
+        GoRoute(
+          path: '/admin/doctors',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 2)),
+        ),
+        GoRoute(
+          path: '/admin/reports',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 3)),
+        ),
+        GoRoute(
+          path: '/admin/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.admin)),
+        ),
 
         // ── Platform Admin ────────────────────────────────────────────────────
-        GoRoute(path: '/platform-admin', builder: (ctx, _) => const PlatformAdminScreen()),
-        GoRoute(path: '/platform-admin/profile', builder: (ctx, _) => const ProfileScreen(role: UserRole.platformAdmin)),
+        GoRoute(
+          path: '/platform-admin',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PlatformAdminScreen()),
+        ),
+        GoRoute(
+          path: '/platform-admin/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.platformAdmin)),
+        ),
 
         // ── Shared ────────────────────────────────────────────────────────────
-        GoRoute(path: '/settings', builder: (ctx, _) => const SettingsScreen()),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const SettingsScreen()),
+        ),
       ],
       errorBuilder: (ctx, state) => Scaffold(
-        backgroundColor: SevaCareColors.background,
+        backgroundColor: Theme.of(ctx).scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

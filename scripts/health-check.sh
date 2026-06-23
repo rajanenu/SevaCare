@@ -99,35 +99,35 @@ run_health_checks() {
 
   echo ""
   echo -e "${BLUE}PORT STATUS${NC}"
-  echo "  Backend (8081):....................... " -n
+  echo -n "  Backend (8081):....................... "
   check_port 8081
   
-  echo "  Frontend (8087):....................... " -n
+  echo -n "  Frontend (8087):....................... "
   check_port 8087
   
-  echo "  Database (5432):...................... " -n
+  echo -n "  Database (5432):...................... "
   check_port 5432
 
   echo ""
   echo -e "${BLUE}BACKEND SERVICES${NC}"
   echo "  Health check: $BACKEND_URL/actuator/health"
-  echo "    Status:............................... " -n
+  echo -n "    Status:............................... "
   check_endpoint "Backend health" "$BACKEND_URL/actuator/health"
   
   echo "  API availability: $BACKEND_URL/api/v1/public/tenants"
-  echo "    Status:............................... " -n
+  echo -n "    Status:............................... "
   check_endpoint "Backend API" "$BACKEND_URL/api/v1/public/tenants"
 
   echo ""
   echo -e "${BLUE}FRONTEND SERVICES${NC}"
   echo "  Application: $FRONTEND_URL"
-  echo "    Status:............................... " -n
+  echo -n "    Status:............................... "
   check_endpoint "Frontend" "$FRONTEND_URL"
 
   echo ""
   echo -e "${BLUE}DATABASE CONNECTIVITY${NC}"
   if command -v pg_isready &> /dev/null; then
-    echo "  PostgreSQL (localhost:5432):.......... " -n
+    echo -n "  PostgreSQL (localhost:5432):.......... "
     if pg_isready -h $DB_HOST -p $DB_PORT -q 2>/dev/null; then
       echo -e "${GREEN}✓ CONNECTED${NC}"
       ((HEALTH_PASS++))
@@ -136,7 +136,7 @@ run_health_checks() {
       ((HEALTH_FAIL++))
     fi
   else
-    echo "  PostgreSQL:........................... " -n
+    echo -n "  PostgreSQL:........................... "
     echo -e "${YELLOW}⚠ SKIPPED (pg_isready not found)${NC}"
   fi
 

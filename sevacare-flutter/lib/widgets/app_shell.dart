@@ -38,7 +38,7 @@ class AppShell extends StatelessWidget {
     final hasBottomNav = bottomNavItems != null && bottomNavItems!.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: SevaCareColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: OrbBackground(
         child: Column(
           children: [
@@ -100,9 +100,16 @@ class _TopBar extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: SevaCareColors.glassSurface,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E293B).withValues(alpha: 0.95)
+            : SevaCareColors.glassSurface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.glassBorder, width: 1.5),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF334155)
+              : SevaCareColors.glassBorder,
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: SevaCareColors.shadowColor.withValues(alpha: 0.06),
@@ -154,7 +161,9 @@ class _TopBar extends StatelessWidget {
                   style: AppTextStyles.body(
                     size: 13,
                     weight: FontWeight.w600,
-                    color: SevaCareColors.text,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : SevaCareColors.text,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -162,7 +171,9 @@ class _TopBar extends StatelessWidget {
                   'Healthcare Platform',
                   style: AppTextStyles.body(
                     size: 10,
-                    color: SevaCareColors.textMuted,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF94A3B8)
+                        : SevaCareColors.textMuted,
                   ),
                 ),
               ],

@@ -1,18 +1,45 @@
-# Node
+# ── Node / Expo (legacy) ──────────────────────────────────────────────────────
 **/node_modules/
 **/.expo/
 **/.expo-shared/
+
+# ── Java / Maven ──────────────────────────────────────────────────────────────
+**/target/
+
+# ── Flutter / Dart ────────────────────────────────────────────────────────────
+sevacare-flutter/.dart_tool/
+sevacare-flutter/build/
+sevacare-flutter/.flutter-plugins
+sevacare-flutter/.flutter-plugins-dependencies
+sevacare-flutter/.packages
+sevacare-flutter/pubspec.lock
+# Keep pubspec.lock committed for reproducible builds (remove line above if desired)
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
 **/dist/
 **/build/
 
-# Java / Maven
-**/target/
-
-# Logs
+# ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
+**/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.logs/
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
+**/.DS_Store
+
+# ── Environment secrets (never commit real secrets) ───────────────────────────
+.env.local
+.env.production
+sevacare-flutter/.env.local
+sevacare-flutter/.env.production
+
+# ── IDE / Tool caches ─────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.iml
+.playwright-mcp/
+.serena/

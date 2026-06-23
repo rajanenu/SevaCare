@@ -44,6 +44,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   void initState() {
     super.initState();
     _loadSetup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final loginMobile = ref.read(loginMobileProvider);
+      if (loginMobile.isNotEmpty && _mobileCtrl.text.isEmpty) {
+        _mobileCtrl.text = loginMobile;
+      }
+    });
   }
 
   @override
@@ -127,20 +133,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       return;
     }
 
-    // When advanced details shown, validate only if content is partially filled
-    if (_showAdvancedDetails) {
-      final ageStr = _ageCtrl.text.trim();
-      if (ageStr.isNotEmpty) {
-        final age = int.tryParse(ageStr);
-        if (age == null || age <= 0) {
-          setState(() => _bookingError = 'Please enter a valid age');
-          return;
-        }
+    // Validate age if provided (field is always visible now)
+    final ageStr = _ageCtrl.text.trim();
+    if (ageStr.isNotEmpty) {
+      final age = int.tryParse(ageStr);
+      if (age == null || age <= 0) {
+        setState(() => _bookingError = 'Please enter a valid age');
+        return;
       }
     }
 
     final name = _nameCtrl.text.trim();
-    final ageStr = _ageCtrl.text.trim();
     final mobile = _mobileCtrl.text.trim();
     final age = int.tryParse(ageStr) ?? 0;
 
@@ -217,10 +220,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       hospitalName: hospital.hospitalName,
       role: UserRole.patient,
       body: _loadingSetup
-          ? const SizedBox(
-              height: 500,
-              child: Center(child: CircularProgressIndicator()),
-            )
+          ? const ShimmerList(count: 4, cardHeight: 100)
           : _setupError != null
               ? SizedBox(
                   height: 400,
@@ -318,86 +318,73 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 },
                               ),
 
-                            // Additional details toggle row
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
+                            // Always visible fields
+                            AppFormField(
+                              label: 'Patient Name',
+                              controller: _nameCtrl,
+                              placeholder: 'Full name',
+                            ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: AppDropdown<String>(
+                                    label: 'Gender',
+                                    value: form.gender,
+                                    items: const [
+                                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) notifier.updateGender(v);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: 100,
+                                  child: AppFormField(
+                                    label: 'Age',
+                                    controller: _ageCtrl,
+                                    placeholder: 'Years',
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            AppFormField(
+                              label: 'Mobile Number',
+                              controller: _mobileCtrl,
+                              placeholder: '10-digit mobile',
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            ),
+                            // Optional details toggle
+                            const SizedBox(height: 4),
                             GestureDetector(
-                              onTap: () => setState(
-                                  () => _showAdvancedDetails = !_showAdvancedDetails),
+                              onTap: () => setState(() => _showAdvancedDetails = !_showAdvancedDetails),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 4),
+                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                                 child: Row(
                                   children: [
                                     Icon(
-                                      _showAdvancedDetails
-                                          ? Icons.expand_less
-                                          : Icons.expand_more,
-                                      size: 20,
-                                      color: SevaCareColors.primary,
+                                      _showAdvancedDetails ? Icons.expand_less : Icons.expand_more,
+                                      size: 18,
+                                      color: SevaCareColors.textMuted,
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Additional Details (Optional)',
-                                      style: AppTextStyles.label(SevaCareColors.primary),
+                                      'Optional Contact Info',
+                                      style: AppTextStyles.label(SevaCareColors.textMuted),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-
-                            // Optional fields — shown when expanded
                             if (_showAdvancedDetails) ...[
-                              const SizedBox(height: 4),
-                              AppFormField(
-                                label: 'Patient Name',
-                                controller: _nameCtrl,
-                                placeholder: 'Full name',
-                              ),
-                              // Gender + Age on same row
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: AppDropdown<String>(
-                                      label: 'Gender',
-                                      value: form.gender,
-                                      items: const [
-                                        DropdownMenuItem(
-                                            value: 'male', child: Text('Male')),
-                                        DropdownMenuItem(
-                                            value: 'female', child: Text('Female')),
-                                        DropdownMenuItem(
-                                            value: 'other', child: Text('Other')),
-                                      ],
-                                      onChanged: (v) {
-                                        if (v != null) notifier.updateGender(v);
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  SizedBox(
-                                    width: 100,
-                                    child: AppFormField(
-                                      label: 'Age',
-                                      controller: _ageCtrl,
-                                      placeholder: 'Years',
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              AppFormField(
-                                label: 'Mobile Number',
-                                controller: _mobileCtrl,
-                                placeholder: '10-digit mobile',
-                                keyboardType: TextInputType.phone,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly
-                                ],
-                              ),
                               AppFormField(
                                 label: 'Email Address',
                                 controller: _emailCtrl,
@@ -441,7 +428,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             final doc = filteredDoctors[index];
                             final isSelected =
                                 form.selectedDoctorId == doc.doctorPublicId;
-                            return GestureDetector(
+                            return StaggeredItem(
+                              index: index,
+                              child: GestureDetector(
                               onTap: () => notifier.updateDoctorId(doc.doctorPublicId),
                               child: Container(
                                 decoration: BoxDecoration(
@@ -566,105 +555,108 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                   ],
                                 ),
                               ),
-                            );
+                            ),
+                          );
                           },
                         ),
                       const SizedBox(height: 24),
 
-                      // ── Date selection
-                      Text('Select Date',
-                          style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-                      const SizedBox(height: 12),
-                      if ((_setup?.availableDates ?? []).isNotEmpty)
-                        SizedBox(
-                          height: 52,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _setup!.availableDates.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final date = _setup!.availableDates[index];
-                              final isSelected = form.selectedDate == date;
-                              String displayDate;
-                              try {
-                                displayDate = DateFormat('d MMM')
-                                    .format(DateTime.parse(date).toLocal());
-                              } catch (_) {
-                                displayDate = date;
-                              }
-                              return GestureDetector(
-                                onTap: () {
-                                  notifier.updateDate(date);
-                                  notifier.updateSlot('');
-                                },
-                                child: AnimatedContainer(
-                                  duration:
-                                      const Duration(milliseconds: 180),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 18, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    gradient: isSelected
-                                        ? const LinearGradient(
-                                            colors:
-                                                SevaCareColors.buttonGradient,
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                          )
-                                        : null,
-                                    color: isSelected
-                                        ? null
-                                        : SevaCareColors.surface,
-                                    borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusPill),
-                                    border: Border.all(
+                      // ── Date + slots (only after doctor selected)
+                      if (form.selectedDoctorId.isNotEmpty) ...[
+                        Text('Select Date',
+                            style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                        const SizedBox(height: 12),
+                        if ((_setup?.availableDates ?? []).isNotEmpty)
+                          SizedBox(
+                            height: 52,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _setup!.availableDates.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final date = _setup!.availableDates[index];
+                                final isSelected = form.selectedDate == date;
+                                String displayDate;
+                                try {
+                                  displayDate = DateFormat('d MMM')
+                                      .format(DateTime.parse(date).toLocal());
+                                } catch (_) {
+                                  displayDate = date;
+                                }
+                                return GestureDetector(
+                                  onTap: () {
+                                    notifier.updateDate(date);
+                                    notifier.updateSlot('');
+                                  },
+                                  child: AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 180),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: isSelected
+                                          ? const LinearGradient(
+                                              colors:
+                                                  SevaCareColors.buttonGradient,
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                            )
+                                          : null,
                                       color: isSelected
-                                          ? SevaCareColors.primary
-                                          : SevaCareColors.border,
-                                      width: isSelected ? 2 : 1,
+                                          ? null
+                                          : SevaCareColors.surface,
+                                      borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusPill),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? SevaCareColors.primary
+                                            : SevaCareColors.border,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      displayDate,
+                                      style: AppTextStyles.chipLabel(
+                                        isSelected
+                                            ? SevaCareColors.textOnPrimary
+                                            : SevaCareColors.text,
+                                      ),
                                     ),
                                   ),
-                                  child: Text(
-                                    displayDate,
-                                    style: AppTextStyles.chipLabel(
-                                      isSelected
-                                          ? SevaCareColors.textOnPrimary
-                                          : SevaCareColors.text,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      const SizedBox(height: 24),
-
-                      // ── Morning slots
-                      if ((_setup?.morningSlots ?? []).isNotEmpty) ...[
-                        Text('Morning Slots',
-                            style:
-                                AppTextStyles.sectionTitle(SevaCareColors.text)),
-                        const SizedBox(height: 10),
-                        _SlotGrid(
-                          slots: _setup!.morningSlots,
-                          selectedSlot: form.selectedSlot,
-                          onSelect: notifier.updateSlot,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // ── Evening slots
-                      if ((_setup?.eveningSlots ?? []).isNotEmpty) ...[
-                        Text('Evening Slots',
-                            style:
-                                AppTextStyles.sectionTitle(SevaCareColors.text)),
-                        const SizedBox(height: 10),
-                        _SlotGrid(
-                          slots: _setup!.eveningSlots,
-                          selectedSlot: form.selectedSlot,
-                          onSelect: notifier.updateSlot,
-                        ),
                         const SizedBox(height: 24),
+
+                        // ── Morning slots
+                        if (form.selectedDoctorId.isNotEmpty && (_setup?.morningSlots ?? []).isNotEmpty) ...[
+                          Text('Morning Slots',
+                              style:
+                                  AppTextStyles.sectionTitle(SevaCareColors.text)),
+                          const SizedBox(height: 10),
+                          _SlotGrid(
+                            slots: _setup!.morningSlots,
+                            selectedSlot: form.selectedSlot,
+                            onSelect: notifier.updateSlot,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ── Evening slots
+                        if (form.selectedDoctorId.isNotEmpty && (_setup?.eveningSlots ?? []).isNotEmpty) ...[
+                          Text('Evening Slots',
+                              style:
+                                  AppTextStyles.sectionTitle(SevaCareColors.text)),
+                          const SizedBox(height: 10),
+                          _SlotGrid(
+                            slots: _setup!.eveningSlots,
+                            selectedSlot: form.selectedSlot,
+                            onSelect: notifier.updateSlot,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ],
 
                       // ── Book button

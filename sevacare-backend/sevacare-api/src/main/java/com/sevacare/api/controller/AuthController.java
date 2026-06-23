@@ -49,6 +49,18 @@ public class AuthController {
 
     @PostMapping("/otp/request")
     public ContractResponse<AuthDtos.OtpRequestAccepted> requestOtp(@Valid @RequestBody AuthDtos.OtpRequest request) {
+        if ("platform_admin".equals(request.role())) {
+            if (!platformAdminService.hasActivePlatformAdminByMobile(request.mobileNumber())) {
+                throw new IllegalArgumentException("Unauthorized platform admin mobile number");
+            }
+            return ContractResponse.of(new AuthDtos.OtpRequestAccepted(
+                    request.tenantPublicId(),
+                    request.role(),
+                    request.mobileNumber(),
+                    LOCAL_OTP
+            ));
+        }
+
         if (!"platform_admin".equals(request.role())) {
             tenantRegistryService.mustFindActiveTenant(request.tenantPublicId());
         }
@@ -62,14 +74,20 @@ public class AuthController {
 
     @PostMapping("/otp/verify")
     public ContractResponse<AuthDtos.AuthenticatedSession> verifyOtp(@Valid @RequestBody AuthDtos.OtpVerifyRequest request) {
-        if (!LOCAL_OTP.equals(request.otp())) {
-            throw new IllegalArgumentException("Invalid OTP");
-        }
-
         if ("platform_admin".equals(request.role())) {
-            String subjectPublicId = platformAdminService.findDefaultPlatformAdminPublicId();
+            if (!platformAdminService.hasActivePlatformAdminByMobile(request.mobileNumber())) {
+                throw new IllegalArgumentException("Unauthorized platform admin mobile number");
+            }
+            if (!LOCAL_OTP.equals(request.otp())) {
+                throw new IllegalArgumentException("Invalid OTP");
+            }
+            String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId));
             return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token));
+        }
+
+        if (!LOCAL_OTP.equals(request.otp())) {
+            throw new IllegalArgumentException("Invalid OTP");
         }
 
         String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());

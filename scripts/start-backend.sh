@@ -18,8 +18,14 @@ EOF
 
 print_banner
 
-# Cleanup on exit
-trap cleanup EXIT INT TERM
+# Cleanup only on interrupt/termination for this script session.
+cleanup_backend_only() {
+  if [ -n "${BACKEND_PID:-}" ]; then
+    kill "$BACKEND_PID" 2>/dev/null || true
+  fi
+  kill_port "$BACKEND_PORT"
+}
+trap cleanup_backend_only INT TERM
 
 # Check PostgreSQL
 print_info "Checking PostgreSQL..."
@@ -52,13 +58,20 @@ $MAVEN_CMD -pl sevacare-api -am \
   clean package \
   -q 2>> "$LOGS_DIR/backend-build.log" || {
   print_error "Build failed. Check $LOGS_DIR/backend-build.log"
+  tail -n 60 "$LOGS_DIR/backend-build.log" || true
   exit 1
 }
 print_success "Build complete"
 
+JAR_PATH=$(ls -1 sevacare-api/target/sevacare-api-*.jar 2>/dev/null | grep -v '\.original$' | head -n 1 || true)
+if [ -z "$JAR_PATH" ]; then
+  print_error "Could not resolve backend jar in sevacare-api/target"
+  exit 1
+fi
+
 # Start
 print_info "Starting backend on $BACKEND_LOCAL_URL..."
-java -jar sevacare-api/target/*.jar \
+java -jar "$JAR_PATH" \
   --server.port=$BACKEND_PORT \
   --spring.datasource.url=$DB_URL \
   --spring.datasource.username=$DB_USER \
@@ -75,6 +88,7 @@ if wait_for_service "$BACKEND_LOCAL_URL/api/v1/public/tenants"; then
   print_success "Backend is ready"
 else
   print_error "Backend failed to start"
+  tail -n 80 "$LOGS_DIR/backend.log" || true
   exit 1
 fi
 

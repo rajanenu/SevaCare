@@ -154,12 +154,13 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return Column(children: [
+        const ShimmerMetricRow(),
+        const SizedBox(height: 10),
+        const ShimmerMetricRow(),
+        const SizedBox(height: 10),
+        const ShimmerList(count: 2, cardHeight: 70),
+      ]);
     }
 
     if (_error != null) {
@@ -504,26 +505,28 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted),
               ),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
+              Row(
                 children: [
                   PrimaryButton(
-                    label: _showAddForm ? 'Cancel' : 'Add New Admin User',
+                    label: _showAddForm ? 'Cancel' : 'Add Admin',
                     icon: _showAddForm ? Icons.close : Icons.add,
+                    compact: true,
                     onPressed: _toggleAddForm,
                   ),
-                  SecondaryButton(
-                    label: 'Load Admin Users',
+                  const SizedBox(width: 8),
+                  IconBtn(
                     icon: Icons.download_outlined,
+                    tooltip: 'Load Admin Users',
                     onPressed: _loading ? null : _loadAdmins,
                   ),
-                  if (_admins.isNotEmpty)
-                    SecondaryButton(
-                      label: 'Refresh',
+                  if (_admins.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    IconBtn(
                       icon: Icons.refresh,
+                      tooltip: 'Refresh',
                       onPressed: _loading ? null : _loadAdmins,
                     ),
+                  ],
                 ],
               ),
             ],
@@ -609,12 +612,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
 
         // List
         if (_loading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          )
+          const ShimmerList(count: 3)
         else if (_error != null)
           AppCard(
             child: Column(
@@ -680,20 +678,25 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
+                      Row(
                         children: [
-                          DangerButton(
-                            label: 'Delete',
+                          IconBtn(
                             icon: Icons.delete_outline,
+                            iconColor: SevaCareColors.danger,
+                            bgColor: SevaCareColors.errorSurface,
+                            tooltip: 'Delete',
                             onPressed: () => _deleteAdmin(admin.adminPublicId),
                           ),
-                          if (admin.active)
-                            SecondaryButton(
-                              label: 'Deactivate',
+                          if (admin.active) ...[
+                            const SizedBox(width: 8),
+                            IconBtn(
+                              icon: Icons.pause_circle_outline,
+                              iconColor: SevaCareColors.peachForeground,
+                              bgColor: SevaCareColors.peachSoft,
+                              tooltip: 'Deactivate',
                               onPressed: () => _deactivateAdmin(admin.adminPublicId),
                             ),
+                          ],
                         ],
                       ),
                     ],
@@ -752,7 +755,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
+                            color: const Color(0xFFFFEBEB),
                             borderRadius: BorderRadius.circular(99),
                           ),
                           child: Row(
@@ -761,11 +764,11 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                               Text(
                                 'Next',
                                 style: AppTextStyles.label(
-                                    const Color(0xFF16A34A)),
+                                    const Color(0xFFDC2626)),
                               ),
                               const SizedBox(width: 4),
                               const Icon(Icons.chevron_right,
-                                  size: 16, color: Color(0xFF16A34A)),
+                                  size: 16, color: Color(0xFFDC2626)),
                             ],
                           ),
                         ),
@@ -797,6 +800,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   String? _error;
   bool _showAddForm = false;
   String? _nextDoctorId;
+  String? _selectedSpecialtyFilter;
+  bool _doctorsLoaded = false;
 
   // Add form state
   final _nameCtrl = TextEditingController();
@@ -844,7 +849,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   @override
   void initState() {
     super.initState();
-    _loadDoctors();
+    // Doctors are loaded on demand — user selects a specialty first
   }
 
   @override
@@ -869,6 +874,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
         setState(() {
           _doctors = list;
           _loading = false;
+          _doctorsLoaded = true;
         });
       }
     } catch (e) {
@@ -993,14 +999,15 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
               Row(
                 children: [
                   PrimaryButton(
-                    label: _showAddForm ? 'Cancel' : 'Add New Doctor',
+                    label: _showAddForm ? 'Cancel' : 'Add Doctor',
                     icon: _showAddForm ? Icons.close : Icons.add,
+                    compact: true,
                     onPressed: _toggleAddForm,
                   ),
                   const SizedBox(width: 8),
-                  SecondaryButton(
-                    label: 'Refresh',
+                  IconBtn(
                     icon: Icons.refresh,
+                    tooltip: 'Refresh',
                     onPressed: _loading ? null : _loadDoctors,
                   ),
                 ],
@@ -1095,14 +1102,47 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
           const SizedBox(height: 12),
         ],
 
+        // Specialty filter
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Filter by Specialty', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              const SizedBox(height: 8),
+              AppDropdown<String?>(
+                label: 'Select Specialty',
+                value: _selectedSpecialtyFilter,
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('— All Specialties —')),
+                  ..._specialties.map((s) => DropdownMenuItem<String?>(value: s, child: Text(s))),
+                ],
+                onChanged: (v) {
+                  setState(() => _selectedSpecialtyFilter = v);
+                  if (!_doctorsLoaded) _loadDoctors();
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // Doctor list
-        if (_loading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
+        if (!_doctorsLoaded && !_loading && _doctors.isEmpty)
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.medical_services_outlined, color: SevaCareColors.textMuted, size: 32),
+                const SizedBox(height: 8),
+                Text(
+                  'Select a specialty above to load doctors.',
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                ),
+              ],
             ),
           )
+        else if (_loading)
+          const ShimmerList(count: 3)
         else if (_error != null)
           AppCard(
             child: Column(
@@ -1115,88 +1155,102 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
               ],
             ),
           )
-        else if (_doctors.isEmpty)
-          AppCard(
-            child: Text(
-              'No doctors found. Add your first doctor above.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-            ),
-          )
         else
-          Column(
-            children: [
-              for (final doctor in _doctors) ...[
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+          Builder(
+            builder: (context) {
+              final filteredDoctors = _selectedSpecialtyFilter == null
+                  ? _doctors
+                  : _doctors.where((d) => d.specialty == _selectedSpecialtyFilter).toList();
+              if (filteredDoctors.isEmpty) {
+                return AppCard(
+                  child: Text(
+                    'No doctors found. Add your first doctor above.',
+                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (final doctor in filteredDoctors) ...[
+                    AppCard(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  doctor.doctorPublicId,
-                                  style: AppTextStyles.label(SevaCareColors.textMuted),
-                                ),
-                                Text(
-                                  doctor.fullName,
-                                  style: AppTextStyles.cardTitle(SevaCareColors.text),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: SevaCareColors.primarySoft,
-                                        borderRadius: BorderRadius.circular(99),
-                                      ),
-                                      child: Text(
-                                        doctor.specialty,
-                                        style: AppTextStyles.label(SevaCareColors.primary),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
                                     Text(
-                                      doctor.fee,
-                                      style: AppTextStyles.body(
-                                        size: 13,
-                                        weight: FontWeight.w600,
-                                        color: SevaCareColors.peachForeground,
-                                      ),
+                                      doctor.doctorPublicId,
+                                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                                    ),
+                                    Text(
+                                      doctor.fullName,
+                                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: SevaCareColors.primarySoft,
+                                            borderRadius: BorderRadius.circular(99),
+                                          ),
+                                          child: Text(
+                                            doctor.specialty,
+                                            style: AppTextStyles.label(SevaCareColors.primary),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          doctor.fee,
+                                          style: AppTextStyles.body(
+                                            size: 13,
+                                            weight: FontWeight.w600,
+                                            color: SevaCareColors.peachForeground,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Availability: ${doctor.availability}',
+                                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                    ),
+                                    Text(
+                                      'Mobile: ${doctor.mobileNumber ?? 'Not set'}',
+                                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Availability: ${doctor.availability}',
-                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                                ),
-                                Text(
-                                  'Mobile: ${doctor.mobileNumber ?? 'Not set'}',
-                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                                ),
-                              ],
-                            ),
+                              ),
+                              StatusBadge(status: doctor.active ? 'active' : 'inactive'),
+                            ],
                           ),
-                          StatusBadge(status: doctor.active ? 'active' : 'inactive'),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              IconBtn(
+                                icon: Icons.delete_outline,
+                                iconColor: SevaCareColors.danger,
+                                bgColor: SevaCareColors.errorSurface,
+                                tooltip: 'Delete doctor',
+                                onPressed: () => _deleteDoctor(doctor.doctorPublicId),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      DangerButton(
-                        label: 'Delete doctor',
-                        icon: Icons.delete_outline,
-                        onPressed: () => _deleteDoctor(doctor.doctorPublicId),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              );
+            },
           ),
         const SizedBox(height: 16),
       ],

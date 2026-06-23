@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ class GradientButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
   final bool fullWidth;
+  final bool compact;
 
   const GradientButton({
     super.key,
@@ -21,6 +23,7 @@ class GradientButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.fullWidth = false,
+    this.compact = false,
   });
 
   @override
@@ -29,8 +32,8 @@ class GradientButton extends StatelessWidget {
 
     Widget child = isLoading
         ? SizedBox(
-            width: 20,
-            height: 20,
+            width: compact ? 16 : 20,
+            height: compact ? 16 : 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(_foregroundColor()),
@@ -40,10 +43,15 @@ class GradientButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 18, color: _foregroundColor()),
+                Icon(icon, size: compact ? 14 : 18, color: _foregroundColor()),
                 const SizedBox(width: 8),
               ],
-              Text(label, style: AppTextStyles.buttonLabel(_foregroundColor())),
+              Text(
+                label,
+                style: compact
+                    ? AppTextStyles.label(_foregroundColor())
+                    : AppTextStyles.buttonLabel(_foregroundColor()),
+              ),
             ],
           );
 
@@ -52,8 +60,14 @@ class GradientButton extends StatelessWidget {
     }
 
     final button = Container(
-      constraints: fullWidth ? const BoxConstraints(minHeight: 50) : const BoxConstraints(minHeight: 46),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+      constraints: fullWidth
+          ? const BoxConstraints(minHeight: 50)
+          : compact
+              ? const BoxConstraints(minHeight: 32)
+              : const BoxConstraints(minHeight: 46),
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+          : const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
       decoration: BoxDecoration(
         gradient: _gradientOrNull(isDisabled),
         color: _gradientOrNull(isDisabled) == null ? _solidColor() : null,
@@ -63,7 +77,7 @@ class GradientButton extends StatelessWidget {
             : variant == ButtonVariant.ghost
                 ? Border.all(color: SevaCareColors.border, width: 1.5)
                 : null,
-        boxShadow: variant == ButtonVariant.primary && !isDisabled
+        boxShadow: variant == ButtonVariant.primary && !isDisabled && !compact
             ? [
                 BoxShadow(
                   color: SevaCareColors.primary.withValues(alpha: 0.30),
@@ -71,7 +85,7 @@ class GradientButton extends StatelessWidget {
                   offset: const Offset(0, 4),
                 ),
               ]
-            : variant == ButtonVariant.danger && !isDisabled
+            : variant == ButtonVariant.danger && !isDisabled && !compact
                 ? [
                     BoxShadow(
                       color: SevaCareColors.danger.withValues(alpha: 0.25),
@@ -89,7 +103,10 @@ class GradientButton extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: onPressed,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onPressed!();
+      },
       child: button,
     );
   }
@@ -140,6 +157,7 @@ class PrimaryButton extends GradientButton {
     super.isLoading,
     super.icon,
     super.fullWidth,
+    super.compact,
   }) : super(variant: ButtonVariant.primary);
 }
 
@@ -151,6 +169,7 @@ class SecondaryButton extends GradientButton {
     super.isLoading,
     super.icon,
     super.fullWidth,
+    super.compact,
   }) : super(variant: ButtonVariant.secondary);
 }
 
@@ -162,6 +181,7 @@ class DangerButton extends GradientButton {
     super.isLoading,
     super.icon,
     super.fullWidth,
+    super.compact,
   }) : super(variant: ButtonVariant.danger);
 }
 
@@ -194,6 +214,48 @@ class BackBtn extends StatelessWidget {
             const Icon(Icons.chevron_left, size: 18, color: SevaCareColors.text),
             Text('Back', style: AppTextStyles.label(SevaCareColors.text)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small icon-only action button for card action rows.
+class IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color? iconColor;
+  final Color? bgColor;
+  final String tooltip;
+
+  const IconBtn({
+    super.key,
+    required this.icon,
+    this.onPressed,
+    this.iconColor,
+    this.bgColor,
+    this.tooltip = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDisabled = onPressed == null;
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: isDisabled ? 0.4 : 1.0,
+        child: GestureDetector(
+          onTap: onPressed,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: bgColor ?? SevaCareColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: SevaCareColors.border, width: 1),
+            ),
+            child: Icon(icon, size: 16, color: iconColor ?? SevaCareColors.textMuted),
+          ),
         ),
       ),
     );

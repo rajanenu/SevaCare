@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +53,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _emailCtrl;
   late final TextEditingController _otpCtrl;
 
+  bool _roleSelected = false; // user must tap a role tab to enable Send OTP
+  int _resendCountdown = 0;   // counts down from 120 after OTP is sent
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +66,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _mobileCtrl = TextEditingController(text: _defaultMobile(startRole));
     _emailCtrl = TextEditingController();
     _otpCtrl = TextEditingController(text: '0000');
+
+    // platformAdminMode starts with role pre-selected
+    _roleSelected = widget.platformAdminMode;
 
     // If platformAdminMode, lock to platformAdmin role
     if (widget.platformAdminMode) {
@@ -87,6 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _mobileCtrl.text = _defaultMobile(newRole);
     _emailCtrl.clear();
     _otpCtrl.text = '0000';
+    setState(() => _roleSelected = true);
   }
 
   Future<void> _sendOtp() async {
@@ -97,6 +105,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (mobile.isEmpty) {
       notifier.setError('Please enter a mobile number.');
+      return;
+    }
+
+    if (mobile.length != 10) {
+      notifier.setError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -113,9 +126,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           );
       notifier.markOtpSent();
+      // Start 120-second countdown for Resend OTP
+      setState(() => _resendCountdown = 120);
+      _startResendTimer();
     } catch (e) {
       notifier.setError(_friendlyError(e));
     }
+  }
+
+  void _startResendTimer() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() {
+        if (_resendCountdown > 0) _resendCountdown--;
+      });
+      return _resendCountdown > 0;
+    });
   }
 
   Future<void> _verifyOtp() async {
@@ -143,6 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           );
       await ref.read(authProvider.notifier).setSession(session);
+      ref.read(loginMobileProvider.notifier).state = mobile;
       if (mounted) {
         context.go(_routeForRole(role));
       }
@@ -152,6 +180,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _resendOtp() async {
+    setState(() => _resendCountdown = 120);
+    _startResendTimer();
     ref.read(loginFormProvider.notifier).resetOtp();
     _otpCtrl.text = '0000';
     await _sendOtp();
@@ -222,6 +252,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               selected: role,
               onChanged: _onRoleChanged,
             ),
+            if (!_roleSelected && !widget.platformAdminMode) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Please select your role above to continue',
+                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 20),
           ],
           // ── Login card ───────────────────────────────────────────────────
@@ -301,7 +339,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: 'Send OTP',
                     isLoading: formState.sending,
                     fullWidth: true,
-                    onPressed: formState.sending ? null : _sendOtp,
+                    onPressed: (formState.sending || !_roleSelected) ? null : _sendOtp,
                   )
                 else ...[
                   PrimaryButton(
@@ -312,9 +350,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 10),
                   SecondaryButton(
-                    label: 'Resend OTP',
+                    label: _resendCountdown > 0
+                        ? 'Resend in ${_resendCountdown}s'
+                        : 'Resend OTP',
                     fullWidth: true,
-                    onPressed: formState.sending ? null : _resendOtp,
+                    onPressed: (formState.sending || _resendCountdown > 0) ? null : _resendOtp,
                   ),
                 ],
               ],

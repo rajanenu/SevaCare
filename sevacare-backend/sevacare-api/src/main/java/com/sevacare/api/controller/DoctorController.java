@@ -71,7 +71,7 @@ public class DoctorController {
     }
 
     @GetMapping("/{tenantPublicId}/records")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<DoctorDtos.DoctorCollection> listDoctors(@PathVariable String tenantPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
@@ -80,7 +80,7 @@ public class DoctorController {
     }
 
     @GetMapping("/{tenantPublicId}/records/{doctorPublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<DoctorDtos.DoctorView> getDoctor(@PathVariable String tenantPublicId, @PathVariable String doctorPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
@@ -89,7 +89,7 @@ public class DoctorController {
     }
 
     @PutMapping("/{tenantPublicId}/records/{doctorPublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<DoctorDtos.DoctorView> upsertDoctor(
             @PathVariable String tenantPublicId,
             @PathVariable String doctorPublicId,
@@ -102,7 +102,7 @@ public class DoctorController {
     }
 
     @PostMapping("/{tenantPublicId}/records")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<DoctorDtos.DoctorView> createDoctor(
             @PathVariable String tenantPublicId,
             @Valid @RequestBody DoctorDtos.DoctorUpsertRequest request
@@ -114,7 +114,7 @@ public class DoctorController {
     }
 
     @GetMapping("/{tenantPublicId}/records/next-public-id")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<String> nextDoctorPublicId(@PathVariable String tenantPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
@@ -123,7 +123,7 @@ public class DoctorController {
     }
 
     @DeleteMapping("/{tenantPublicId}/records/{doctorPublicId}")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<String> deleteDoctor(@PathVariable String tenantPublicId, @PathVariable String doctorPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");

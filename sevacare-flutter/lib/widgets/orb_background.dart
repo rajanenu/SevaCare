@@ -9,8 +9,8 @@ class OrbBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Warm cream base
-        Container(color: SevaCareColors.background),
+        // Base — theme-aware
+        Container(color: Theme.of(context).scaffoldBackgroundColor),
         // Indigo orb — top-left
         Positioned(
           top: -60,

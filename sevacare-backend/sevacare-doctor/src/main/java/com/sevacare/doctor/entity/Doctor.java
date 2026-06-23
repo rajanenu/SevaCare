@@ -30,6 +30,9 @@ public class Doctor {
     @Column(name = "fee", nullable = false, length = 32)
     private String fee;
 
+    @Column(name = "mobile_number", length = 24)
+    private String mobileNumber;
+
     @Column(name = "active", nullable = false)
     private boolean active;
 
@@ -94,6 +97,14 @@ public class Doctor {
 
     public void setFee(String fee) {
         this.fee = fee;
+    }
+
+    public String getMobileNumber() {
+        return mobileNumber;
+    }
+
+    public void setMobileNumber(String mobileNumber) {
+        this.mobileNumber = mobileNumber;
     }
 
     public boolean isActive() {

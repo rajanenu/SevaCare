@@ -268,7 +268,33 @@
 
 ---
 
-### **10. info.sh** - Quick Reference & Documentation
+### **10. reset-single-tenant.sh** - Keep One Local Hospital
+```bash
+./reset-single-tenant.sh
+```
+
+**Purpose:** Remove local extra tenants and keep one active hospital for clean E2E testing.
+
+**What it does:**
+- Drops schemas for all non-target tenants
+- Clears onboarding requests/documents
+- Ensures single tenant `T-2001` exists and is active
+- Seeds one patient, one doctor, and one admin login user
+
+**Default test credentials after reset:**
+- Patient mobile: `9000000001` (OTP `0000`)
+- Doctor mobile: any value (OTP `0000`)
+- Admin mobile: `9000000003` (OTP `0000`)
+- Platform admin mobile: `9844221599` (OTP `1599`)
+
+**Example:**
+```bash
+./reset-single-tenant.sh
+```
+
+---
+
+### **11. info.sh** - Quick Reference & Documentation
 ```bash
 ./info.sh [--urls|--commands|--docker|--env|all]
 ```

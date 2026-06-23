@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,17 +21,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _mobileCtrl;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _addressCtrl;
+  String _gender = 'male';
+  late final TextEditingController _ageCtrl;
   bool _saving = false;
   bool _saved = false;
   String? _error;
+  bool _showOptionalFields = false;
+  // ignore: unused_field — stored for future upload API; set via onImageChanged
+  Uint8List? _profileImageBytes;
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _mobileCtrl = TextEditingController();
+    final loginMobile = ref.read(loginMobileProvider);
+    _mobileCtrl = TextEditingController(text: loginMobile);
     _emailCtrl = TextEditingController();
     _addressCtrl = TextEditingController();
+    _ageCtrl = TextEditingController();
   }
 
   @override
@@ -39,6 +47,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
     _addressCtrl.dispose();
+    _ageCtrl.dispose();
     super.dispose();
   }
 
@@ -123,6 +132,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Back button — especially needed for Platform Admin (no bottom nav)
+          Row(
+            children: [
+              BackBtn(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    switch (widget.role) {
+                      case UserRole.patient:
+                        context.go('/patient');
+                      case UserRole.doctor:
+                        context.go('/doctor');
+                      case UserRole.admin:
+                        context.go('/admin');
+                      case UserRole.platformAdmin:
+                        context.go('/platform-admin');
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           PageHeader(title: 'My Profile', subtitle: widget.role.label),
           const SizedBox(height: 16),
 
@@ -130,7 +163,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Center(
             child: Column(
               children: [
-                AppAvatar(initials: initials, size: 72, hue: hue),
+                ProfileAvatarPicker(
+                  initials: initials,
+                  hue: hue,
+                  size: 80,
+                  onImageChanged: (bytes) => setState(() => _profileImageBytes = bytes),
+                ),
                 const SizedBox(height: 8),
                 Text(auth.subjectPublicId ?? '', style: AppTextStyles.badgeText(SevaCareColors.textMuted)),
                 const SizedBox(height: 4),
@@ -165,24 +203,76 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   required: true,
                   onChanged: (_) => setState(() { _saved = false; }),
                 ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: AppDropdown<String>(
+                        label: 'Gender',
+                        value: _gender,
+                        items: const [
+                          DropdownMenuItem(value: 'male', child: Text('Male')),
+                          DropdownMenuItem(value: 'female', child: Text('Female')),
+                          DropdownMenuItem(value: 'other', child: Text('Other')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _gender = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 90,
+                      child: AppFormField(
+                        label: 'Age',
+                        controller: _ageCtrl,
+                        keyboardType: TextInputType.number,
+                        placeholder: '25',
+                      ),
+                    ),
+                  ],
+                ),
                 AppFormField(
                   label: 'Mobile Number',
                   controller: _mobileCtrl,
                   keyboardType: TextInputType.phone,
                   placeholder: 'Enter mobile number',
                 ),
-                AppFormField(
-                  label: 'Email Address',
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  placeholder: 'Enter email address',
+                // Optional contact info toggle
+                GestureDetector(
+                  onTap: () => setState(() => _showOptionalFields = !_showOptionalFields),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showOptionalFields ? Icons.expand_less : Icons.expand_more,
+                          size: 18,
+                          color: SevaCareColors.textMuted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Optional Contact Info',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                AppFormField(
-                  label: 'Address',
-                  controller: _addressCtrl,
-                  placeholder: 'Enter address',
-                  maxLines: 2,
-                ),
+                if (_showOptionalFields) ...[
+                  AppFormField(
+                    label: 'Email Address',
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    placeholder: 'Enter email address',
+                  ),
+                  AppFormField(
+                    label: 'Address',
+                    controller: _addressCtrl,
+                    placeholder: 'Enter address',
+                    maxLines: 2,
+                  ),
+                ],
                 PrimaryButton(
                   label: 'Save Profile',
                   onPressed: _save,

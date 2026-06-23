@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/date_utils.dart';
@@ -134,9 +135,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()),
-      );
+      return const ShimmerList(count: 4, cardHeight: 80);
     }
 
     if (_error != null) {
@@ -262,6 +261,9 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   bool _showAddForm = false;
   final Map<String, String> _qrCodes = {}; // tenantId → qrcodeUuid
   String? _generatingQrFor;
+
+  int _visibleCount = 2;
+  final Set<String> _expandedTenants = {};
 
   // Add form state
   final _nameCtrl = TextEditingController();
@@ -462,12 +464,31 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         title: Text('QR Code — $hospitalName', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text('QR ID: $publicId', style: AppTextStyles.label(SevaCareColors.textMuted)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            // Actual QR code image
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SevaCareColors.border, width: 1),
+                ),
+                child: QrImageView(
+                  data: qrLink,
+                  version: QrVersions.auto,
+                  size: 200,
+                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Copyable link
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: SevaCareColors.surfaceMuted,
                 borderRadius: BorderRadius.circular(8),
@@ -477,10 +498,11 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                 style: AppTextStyles.bodyText(SevaCareColors.primary),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              'Share this link or scan it as a QR code so patients can book appointments.',
+              'Patients can scan this QR code or visit the link to book an appointment.',
               style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -523,14 +545,15 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
               Row(
                 children: [
                   PrimaryButton(
-                    label: _showAddForm ? 'Cancel' : 'Add New Hospital',
+                    label: _showAddForm ? 'Cancel' : 'Add Hospital',
                     icon: _showAddForm ? Icons.close : Icons.add,
+                    compact: true,
                     onPressed: _toggleAddForm,
                   ),
                   const SizedBox(width: 8),
-                  SecondaryButton(
-                    label: 'Refresh',
+                  IconBtn(
                     icon: Icons.refresh,
+                    tooltip: 'Refresh',
                     onPressed: _loading ? null : _loadTenants,
                   ),
                 ],
@@ -621,9 +644,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
 
         // Tenant list
         if (_loading)
-          const Center(
-            child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
-          )
+          const ShimmerList(count: 3)
         else if (_error != null)
           AppCard(
             child: Column(
@@ -647,85 +668,206 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         else
           Column(
             children: [
-              for (final tenant in _tenants) ...[
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tenant.hospitalName,
-                                  style: AppTextStyles.cardTitle(SevaCareColors.text),
-                                ),
-                                Text(
-                                  tenant.tenantPublicId,
-                                  style: AppTextStyles.label(SevaCareColors.textMuted),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: SevaCareColors.surfaceMuted,
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                  child: Text(
-                                    tenant.themeKey.toUpperCase(),
-                                    style: AppTextStyles.label(SevaCareColors.textMuted),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          StatusBadge(status: tenant.status),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          DangerButton(
-                            label: 'Delete',
-                            icon: Icons.delete_outline,
-                            onPressed: () => _deleteTenant(tenant.tenantPublicId, tenant.hospitalName),
-                          ),
-                          SecondaryButton(
-                            label: tenant.status.toLowerCase() == 'active' ? 'Deactivate' : 'Activate',
-                            onPressed: () => _toggleTenantStatus(tenant),
-                          ),
-                          SecondaryButton(
-                            label: _generatingQrFor == tenant.tenantPublicId
-                                ? 'Generating...'
-                                : _qrCodes.containsKey(tenant.tenantPublicId)
-                                    ? 'Show QR'
-                                    : 'Generate QR',
-                            icon: Icons.qr_code_outlined,
-                            onPressed: _generatingQrFor != null
-                                ? null
-                                : _qrCodes.containsKey(tenant.tenantPublicId)
-                                    ? () => _showQrDialog(
-                                          tenant.hospitalName,
-                                          '',
-                                          _qrCodes[tenant.tenantPublicId]!,
-                                        )
-                                    : () => _generateQrCode(tenant),
-                          ),
-                        ],
-                      ),
-                    ],
+              for (final (i, tenant) in _tenants.take(_visibleCount).indexed) ...[
+                StaggeredItem(
+                  index: i,
+                  child: _HospitalCard(
+                    tenant: tenant,
+                    isExpanded: _expandedTenants.contains(tenant.tenantPublicId),
+                    isGeneratingQr: _generatingQrFor == tenant.tenantPublicId,
+                    qrGenerated: _qrCodes.containsKey(tenant.tenantPublicId),
+                    onTap: () => setState(() {
+                      if (_expandedTenants.contains(tenant.tenantPublicId)) {
+                        _expandedTenants.remove(tenant.tenantPublicId);
+                      } else {
+                        _expandedTenants.add(tenant.tenantPublicId);
+                      }
+                    }),
+                    onDelete: () => _deleteTenant(tenant.tenantPublicId, tenant.hospitalName),
+                    onToggleStatus: () => _toggleTenantStatus(tenant),
+                    onGenerateQr: _generatingQrFor != null ? null : () => _generateQrCode(tenant),
+                    onShowQr: _qrCodes.containsKey(tenant.tenantPublicId)
+                        ? () => _showQrDialog(tenant.hospitalName, '', _qrCodes[tenant.tenantPublicId]!)
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 8),
               ],
+              if (_visibleCount < _tenants.length)
+                GestureDetector(
+                  onTap: () => setState(() => _visibleCount += 2),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SevaCareColors.border, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.expand_more, size: 16, color: SevaCareColors.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Load More (${_tenants.length - _visibleCount} remaining)',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+// ── Hospital Card ─────────────────────────────────────────────────────────────
+
+class _HospitalCard extends StatelessWidget {
+  final PlatformTenantRecord tenant;
+  final bool isExpanded;
+  final bool isGeneratingQr;
+  final bool qrGenerated;
+  final VoidCallback? onTap;
+  final VoidCallback? onDelete;
+  final VoidCallback? onToggleStatus;
+  final VoidCallback? onGenerateQr;
+  final VoidCallback? onShowQr;
+
+  const _HospitalCard({
+    required this.tenant,
+    required this.isExpanded,
+    required this.isGeneratingQr,
+    required this.qrGenerated,
+    this.onTap,
+    this.onDelete,
+    this.onToggleStatus,
+    this.onGenerateQr,
+    this.onShowQr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AppCard(
+        child: Column(
+          children: [
+            // ── Collapsed header row ──────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: SevaCareColors.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      tenant.hospitalName.isNotEmpty
+                          ? tenant.hospitalName[0].toUpperCase()
+                          : 'H',
+                      style: AppTextStyles.body(
+                        size: 16,
+                        weight: FontWeight.w700,
+                        color: SevaCareColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tenant.hospitalName,
+                        style: AppTextStyles.cardTitle(SevaCareColors.text),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        tenant.tenantPublicId,
+                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                StatusBadge(status: tenant.status),
+                const SizedBox(width: 6),
+                Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: SevaCareColors.textMuted,
+                ),
+              ],
+            ),
+            // ── Expanded actions ──────────────────────────────────────────
+            if (isExpanded) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  IconBtn(
+                    icon: Icons.delete_outline,
+                    iconColor: SevaCareColors.danger,
+                    bgColor: SevaCareColors.errorSurface,
+                    tooltip: 'Delete hospital',
+                    onPressed: onDelete,
+                  ),
+                  const SizedBox(width: 8),
+                  IconBtn(
+                    icon: tenant.status.toLowerCase() == 'active'
+                        ? Icons.pause_circle_outline
+                        : Icons.play_circle_outline,
+                    iconColor: tenant.status.toLowerCase() == 'active'
+                        ? SevaCareColors.peachForeground
+                        : SevaCareColors.mintForeground,
+                    bgColor: tenant.status.toLowerCase() == 'active'
+                        ? SevaCareColors.peachSoft
+                        : SevaCareColors.mintSoft,
+                    tooltip: tenant.status.toLowerCase() == 'active'
+                        ? 'Deactivate'
+                        : 'Activate',
+                    onPressed: onToggleStatus,
+                  ),
+                  const SizedBox(width: 8),
+                  if (isGeneratingQr)
+                    const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else
+                    IconBtn(
+                      icon: Icons.qr_code_outlined,
+                      iconColor: SevaCareColors.primary,
+                      bgColor: SevaCareColors.primarySoft,
+                      tooltip: qrGenerated ? 'Show QR Code' : 'Generate QR Code',
+                      onPressed: qrGenerated ? onShowQr : onGenerateQr,
+                    ),
+                  const Spacer(),
+                  Text(
+                    tenant.themeKey.toUpperCase(),
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -903,14 +1045,15 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
               Row(
                 children: [
                   PrimaryButton(
-                    label: _showAddForm ? 'Cancel' : 'Add New Admin',
+                    label: _showAddForm ? 'Cancel' : 'Add Admin',
                     icon: _showAddForm ? Icons.close : Icons.add,
+                    compact: true,
                     onPressed: _toggleAddForm,
                   ),
                   const SizedBox(width: 8),
-                  SecondaryButton(
-                    label: 'Refresh',
+                  IconBtn(
                     icon: Icons.refresh,
+                    tooltip: 'Refresh',
                     onPressed: _loading ? null : _loadAdmins,
                   ),
                 ],
@@ -986,9 +1129,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
 
         // Admin list
         if (_loading)
-          const Center(
-            child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
-          )
+          const ShimmerList(count: 3)
         else if (_error != null)
           AppCard(
             child: Column(
@@ -1049,18 +1190,23 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                           StatusBadge(status: admin.active ? 'active' : 'inactive'),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
-                          DangerButton(
-                            label: 'Delete',
+                          IconBtn(
                             icon: Icons.delete_outline,
+                            iconColor: SevaCareColors.danger,
+                            bgColor: SevaCareColors.errorSurface,
+                            tooltip: 'Delete admin',
                             onPressed: () => _deleteAdmin(admin.platformAdminPublicId),
                           ),
                           const SizedBox(width: 8),
                           if (admin.active)
-                            SecondaryButton(
-                              label: 'Deactivate',
+                            IconBtn(
+                              icon: Icons.pause_circle_outline,
+                              iconColor: SevaCareColors.peachForeground,
+                              bgColor: SevaCareColors.peachSoft,
+                              tooltip: 'Deactivate',
                               onPressed: () => _deactivateAdmin(admin.platformAdminPublicId),
                             ),
                         ],

@@ -74,7 +74,7 @@ check_prerequisite() {
 get_version() {
   case $1 in
     java)
-      java -version 2>&1 | grep -oP '(?<=version ")[^"]*' | head -1 || echo "unknown"
+      java -version 2>&1 | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -1 || echo "unknown"
       ;;
     node)
       node --version 2>/dev/null || echo "unknown"

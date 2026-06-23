@@ -1,5 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import '../constants/api_constants.dart';
+import '../config/app_config.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -15,11 +16,15 @@ class ApiClient {
   String? _token;
   String? _tenantId;
 
+  /// Called when the server returns HTTP 401 (session expired / unauthorized).
+  VoidCallback? onUnauthorized;
+
   ApiClient() {
     _dio = Dio(BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
+      baseUrl: AppConfig.apiBaseUrl,
+      connectTimeout: AppConfig.connectTimeout,
+      receiveTimeout: AppConfig.receiveTimeout,
+      sendTimeout: AppConfig.connectTimeout,
       headers: {'Content-Type': 'application/json'},
     ));
 
@@ -35,6 +40,9 @@ class ApiClient {
       },
       onError: (error, handler) {
         final statusCode = error.response?.statusCode ?? 0;
+        if (statusCode == 401 && onUnauthorized != null) {
+          onUnauthorized!();
+        }
         final message = _extractMessage(error.response?.data) ??
             error.message ??
             'Request failed ($statusCode)';

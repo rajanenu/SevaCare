@@ -1,0 +1,11 @@
+**/target/
+**/.git/
+**/.gitignore
+**/*.log
+**/node_modules/
+**/dist/
+**/README.md
+**/docs/
+**/.vscode/
+**/.idea/
+**/.mvn/

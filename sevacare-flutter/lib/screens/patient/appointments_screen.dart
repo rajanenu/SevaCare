@@ -68,6 +68,8 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          BackBtn(onPressed: () => context.go('/patient')),
+          const SizedBox(height: 8),
           PageHeader(title: 'My Appointments', subtitle: 'All your scheduled visits'),
           const SizedBox(height: 12),
           SegmentedControl<String>(

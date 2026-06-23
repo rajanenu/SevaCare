@@ -118,12 +118,15 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                   ),
                   const SizedBox(height: 10),
                   // Hospital cards
-                  ...filtered.map(
-                    (tenant) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _HospitalCard(
-                        tenant: tenant,
-                        onTap: () => _selectHospital(tenant),
+                  ...filtered.indexed.map(
+                    ((int, TenantSummary) entry) => StaggeredItem(
+                      index: entry.$1,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _HospitalCard(
+                          tenant: entry.$2,
+                          onTap: () => _selectHospital(entry.$2),
+                        ),
                       ),
                     ),
                   ),

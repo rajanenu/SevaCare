@@ -294,7 +294,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5),
+                                color: const Color(0xFFFFEBEB),
                                 borderRadius: BorderRadius.circular(99),
                               ),
                               child: Row(
@@ -303,11 +303,11 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                                   Text(
                                     'Next',
                                     style: AppTextStyles.label(
-                                        const Color(0xFF16A34A)),
+                                        const Color(0xFFDC2626)),
                                   ),
                                   const SizedBox(width: 4),
                                   const Icon(Icons.chevron_right,
-                                      size: 16, color: Color(0xFF16A34A)),
+                                      size: 16, color: Color(0xFFDC2626)),
                                 ],
                               ),
                             ),

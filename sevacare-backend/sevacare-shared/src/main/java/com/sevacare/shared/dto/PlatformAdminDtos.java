@@ -3,6 +3,8 @@ package com.sevacare.shared.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import jakarta.validation.constraints.NotBlank;
+
 public final class PlatformAdminDtos {
 
     private PlatformAdminDtos() {
@@ -23,6 +25,23 @@ public final class PlatformAdminDtos {
     public record PlatformTenantCollection(List<PlatformTenantView> tenants) {
     }
 
+    public record PlatformTenantUpsertRequest(
+            @NotBlank String hospitalName,
+            String themeKey,
+            String contactName,
+            String contactMobile,
+            String contactEmail,
+            String status
+    ) {
+    }
+
+    public record PlatformTenantQrCodeView(
+            String qrcodePublicId,
+            String tenantPublicId,
+            String qrcodeUuid
+    ) {
+    }
+
     public record PlatformOnboardingRequestView(
             String requestPublicId,
             String hospitalName,
@@ -37,5 +56,26 @@ public final class PlatformAdminDtos {
     }
 
     public record PlatformOnboardingCollection(List<PlatformOnboardingRequestView> requests) {
+    }
+
+    public record PlatformAdminUserView(
+            String platformAdminPublicId,
+            String fullName,
+            String mobileNumber,
+            String email,
+            boolean active,
+            LocalDateTime createdAt
+    ) {
+    }
+
+    public record PlatformAdminUserCollection(List<PlatformAdminUserView> admins) {
+    }
+
+    public record PlatformAdminUserUpsertRequest(
+            @NotBlank String fullName,
+            @NotBlank String mobileNumber,
+            String email,
+            Boolean active
+    ) {
     }
 }

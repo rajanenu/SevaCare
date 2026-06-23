@@ -236,6 +236,7 @@ public class DoctorDomainService {
             doctor.setSpecialty(request.specialty());
             doctor.setAvailability(request.availability());
             doctor.setFee(request.fee());
+            doctor.setMobileNumber(request.mobileNumber());
             doctor.setActive(request.active());
             doctor.setAge(request.age());
             doctor.setAddress(request.address());
@@ -313,6 +314,7 @@ public class DoctorDomainService {
                     doctor.getSpecialty(),
                     doctor.getAvailability(),
                     doctor.getFee(),
+                    doctor.getMobileNumber(),
                     doctor.isActive(),
                     doctor.getAge(),
                     doctor.getAddress(),

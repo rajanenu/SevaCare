@@ -128,9 +128,10 @@ if [ -n "$CREATED_ADMIN_ID" ]; then
     expect "Update admin user" "200" "PUT" "$BASE_URL/api/v1/admin/$TENANT_ID/users/$CREATED_ADMIN_ID" "$AUTH_TOKEN" "$TENANT_ID" "{\"fullName\":\"Updated Integration Admin\",\"name\":\"Updated Admin\",\"email\":\"$UPDATE_EMAIL\",\"mobileNumber\":\"9000000100\",\"active\":true}"
     expect "Deactivate admin user" "200" "PUT" "$BASE_URL/api/v1/admin/$TENANT_ID/users/$CREATED_ADMIN_ID/deactivate" "$AUTH_TOKEN" "$TENANT_ID" ""
     expect "Get deactivated admin user" "200" "GET" "$BASE_URL/api/v1/admin/$TENANT_ID/users/$CREATED_ADMIN_ID" "$AUTH_TOKEN" "$TENANT_ID" ""
+    expect "Delete admin user" "200" "DELETE" "$BASE_URL/api/v1/admin/$TENANT_ID/users/$CREATED_ADMIN_ID" "$AUTH_TOKEN" "$TENANT_ID" ""
 else
-    TOTAL=$((TOTAL + 1))
-    FAIL=$((FAIL + 1))
+    TOTAL=$((TOTAL + 2))
+    FAIL=$((FAIL + 2))
     echo "  FAIL Could not extract created admin id"
 fi
 

@@ -151,7 +151,7 @@ start_frontend() {
   
   print_info "Building frontend..."
   export EXPO_PUBLIC_API_BASE_URL=$API_BASE_LOCAL
-  npx expo export --platform web -q 2>> "$LOGS_DIR/frontend-build.log" || {
+  npx expo export --platform web 2>> "$LOGS_DIR/frontend-build.log" || {
     print_error "Frontend build failed. Check $LOGS_DIR/frontend-build.log"
     exit 1
   }

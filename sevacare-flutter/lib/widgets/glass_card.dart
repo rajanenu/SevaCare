@@ -32,7 +32,9 @@ class GlassCard extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
           decoration: BoxDecoration(
-            color: backgroundColor ?? SevaCareColors.glassSurface,
+            color: backgroundColor ?? (Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF1E293B).withValues(alpha: 0.9)
+                : SevaCareColors.glassSurface),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
               color: borderColor ?? SevaCareColors.glassBorder,
@@ -79,9 +81,16 @@ class AppCard extends StatelessWidget {
     final radius = borderRadius ?? AppTheme.radius;
     final card = Container(
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E293B)
+            : SevaCareColors.surface,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: SevaCareColors.border, width: 1),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF334155)
+              : SevaCareColors.border,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),

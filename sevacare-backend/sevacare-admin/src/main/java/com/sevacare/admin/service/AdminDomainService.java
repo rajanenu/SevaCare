@@ -68,7 +68,7 @@ public class AdminDomainService {
             throw new IllegalArgumentException("Admin mobile number is required");
         }
 
-        return adminUserRepository.findByTenantPublicIdAndMobileNumberAndActiveTrue(tenantPublicId, normalizedMobileNumber)
+        return adminUserRepository.findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByAdminPublicIdAsc(tenantPublicId, normalizedMobileNumber)
                 .orElseThrow(() -> new IllegalArgumentException("No active admin exists for the provided mobile number"));
     }
 
@@ -179,6 +179,24 @@ public class AdminDomainService {
         AdminUser saved = adminUserRepository.save(adminUser);
         log.info("admin_user_deactivated tenantPublicId={} adminPublicId={}", tenantPublicId, adminPublicId);
         return toAdminUserView(saved);
+    }
+
+    @Transactional
+    public AdminDtos.DeleteActorResult deleteAdminUser(String tenantPublicId, String adminPublicId) {
+        AdminUser adminUser = adminUserRepository.findById(adminPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + adminPublicId));
+
+        if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Admin does not belong to tenant");
+        }
+
+        if (adminUser.isActive() && adminUserRepository.countByTenantPublicIdAndActiveTrue(tenantPublicId) <= 1) {
+            throw new IllegalStateException("Cannot delete the last active admin user");
+        }
+
+        adminUserRepository.delete(adminUser);
+        log.info("admin_user_deleted tenantPublicId={} adminPublicId={}", tenantPublicId, adminPublicId);
+        return new AdminDtos.DeleteActorResult(adminPublicId, tenantPublicId, "deleted");
     }
 
     @Transactional

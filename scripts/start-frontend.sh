@@ -1,74 +1,54 @@
 #!/usr/bin/env bash
-# Start only Frontend
-# Usage: ./scripts/start-frontend.sh [api_url]
-# Example: ./scripts/start-frontend.sh http://localhost:8081/api/v1
+# Build and serve the Flutter web frontend (replaces old Expo/React Native web)
+# Usage: ./scripts/start-frontend.sh [port]
+# Example: ./scripts/start-frontend.sh 8087
 
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/constants/config.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FLUTTER_DIR="$SCRIPT_DIR/../sevacare-flutter"
+PORT="${1:-8087}"
+BUILD_OUT="/tmp/sevacare-web"
 
-mkdir -p "$LOGS_DIR"
+echo "╔══════════════════════════════════════════════════════════════════╗"
+echo "║               Flutter Web — SevaCare Frontend                   ║"
+echo "╚══════════════════════════════════════════════════════════════════╝"
 
-API_URL="${1:-$API_BASE_LOCAL}"
-
-print_banner() {
-  cat << 'EOF'
-╔══════════════════════════════════════════════════════════════════╗
-║               🌐 SevaCare - Frontend Service                    ║
-╚══════════════════════════════════════════════════════════════════╝
-EOF
-}
-
-print_banner
-
-# Cleanup on exit
-trap cleanup EXIT INT TERM
-
-# Kill existing frontend if running
-if ! is_port_available $FRONTEND_PORT; then
-  print_warning "Killing existing process on port $FRONTEND_PORT..."
-  kill_port $FRONTEND_PORT
-  sleep 1
+# Kill any existing server on the target port
+if lsof -ti tcp:"$PORT" &>/dev/null; then
+  echo "⚠  Killing existing process on port $PORT..."
+  kill "$(lsof -ti tcp:"$PORT")" 2>/dev/null || true
 fi
 
-# Build
-print_info "Building frontend..."
-cd "$FRONTEND_DIR"
-export EXPO_PUBLIC_API_BASE_URL=$API_URL
-npx expo export --platform web -q 2>> "$LOGS_DIR/frontend-build.log" || {
-  print_error "Build failed. Check $LOGS_DIR/frontend-build.log"
+# Build Flutter web
+echo "🔨 Building Flutter web (release)..."
+cd "$FLUTTER_DIR"
+flutter build web --release --output="$BUILD_OUT" || {
+  echo "❌ Build failed"
   exit 1
 }
-print_success "Build complete"
+echo "✅ Build complete → $BUILD_OUT"
 
-# Start
-print_info "Starting frontend on $FRONTEND_LOCAL_URL..."
-npx serve -s dist -l $FRONTEND_PORT \
-  >> "$LOGS_DIR/frontend.log" 2>&1 &
+# Serve
+echo "🚀 Starting server on port $PORT..."
+python3 -m http.server "$PORT" --directory "$BUILD_OUT" &
+SERVER_PID=$!
 
-FRONTEND_PID=$!
-export FRONTEND_PID
-print_success "Frontend started (PID: $FRONTEND_PID)"
-
-# Wait for readiness
-print_info "Waiting for frontend to be ready..."
-if wait_for_service "$FRONTEND_LOCAL_URL"; then
-  print_success "Frontend is ready"
-else
-  print_error "Frontend failed to start"
+sleep 1
+if ! curl -sf "http://localhost:$PORT/" -o /dev/null; then
+  echo "❌ Server failed to start"
   exit 1
 fi
 
-cat << EOF
+# Detect LAN IP
+LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}' | head -1)
 
-✅ Frontend is running
+echo ""
+echo "✅ Frontend is running"
+echo ""
+echo "   Local   → http://localhost:$PORT"
+[ -n "$LAN_IP" ] && echo "   Network → http://$LAN_IP:$PORT"
+echo ""
+echo "⏹  Stop: kill $SERVER_PID  (or Ctrl+C)"
 
-📍 URL: $FRONTEND_LOCAL_URL
-🔗 API: $API_URL
-
-📋 Logs: $LOGS_DIR/frontend.log
-⏹️  Stop: Press Ctrl+C
-
-EOF
-
-wait
+wait $SERVER_PID

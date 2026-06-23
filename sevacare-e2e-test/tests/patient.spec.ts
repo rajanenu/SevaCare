@@ -3,37 +3,49 @@
  * Tests: login, home screen, doctors list, booking form, confirmation, appointments, prescriptions.
  */
 import { expect, test } from '@playwright/test';
-import { selectDropdown } from './helpers';
+import { getActiveTenant, selectDropdown } from './helpers';
 
-/* Helper: navigate to Aurora login screen */
-async function gotoAuroraLogin(page: import('@playwright/test').Page) {
+async function pickFirstAvailableDateAndSlot(page: import('@playwright/test').Page) {
+  const firstSlot = page.locator('text=/^\\d{2}:\\d{2}$/').first();
+  await firstSlot.click();
+}
+
+/* Helper: navigate to active hospital login screen */
+async function gotoHospitalLogin(page: import('@playwright/test').Page) {
+  const tenant = await getActiveTenant();
   await page.goto('/');
   await page.getByText('Search Hospitals', { exact: true }).click();
-  await page.getByText('Aurora Multispeciality').first().click();
-  await expect(page.getByText('Send OTP & Continue')).toBeVisible({ timeout: 15_000 });
+  await page.getByText(tenant.hospitalName).first().click();
+  await expect(page.getByText('Send OTP')).toBeVisible({ timeout: 15_000 });
 }
 
 /* Helper: login as patient (default credentials pre-filled) */
 async function loginAsPatient(page: import('@playwright/test').Page) {
-  await gotoAuroraLogin(page);
-  await page.getByText('Send OTP & Continue').first().click();
+  await gotoHospitalLogin(page);
+  await page.getByText('Send OTP').first().click();
   await expect(page.getByPlaceholder('Enter OTP')).toBeVisible({ timeout: 5_000 });
   await page.getByPlaceholder('Enter OTP').fill('0000');
-  await page.getByText('Continue as Patient').first().click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByText('Continue', { exact: true }).first().click({ force: true });
+    await page.waitForTimeout(600);
+    const stillOnLogin = await page.getByText('Login').first().isVisible().catch(() => false);
+    if (!stillOnLogin) {
+      break;
+    }
+  }
 }
 
 test.describe('Patient login', () => {
   test('login screen shows patient access by default', async ({ page }) => {
-    await gotoAuroraLogin(page);
+    await gotoHospitalLogin(page);
     await expect(page.getByText('Patient access')).toBeVisible();
-    await expect(page.getByText('Book care, manage appointments, and access prescriptions')).toBeVisible();
     await expect(page.getByPlaceholder('Mobile number')).toBeVisible();
-    await expect(page.getByText('Send OTP & Continue')).toBeVisible();
+    await expect(page.getByText('Send OTP')).toBeVisible();
   });
 
   test('choose different hospital link works', async ({ page }) => {
-    await gotoAuroraLogin(page);
-    await page.getByText('Choose a different hospital').first().click();
+    await gotoHospitalLogin(page);
+    await page.getByText('Choose Different Hospital').first().click();
     await expect(page.getByText('Search Hospitals', { exact: true })).toBeVisible();
   });
 
@@ -73,14 +85,13 @@ test.describe('Doctors listing', () => {
   test('doctors tab shows doctor cards', async ({ page }) => {
     await page.getByText('Doctors').first().click();
     await expect(page.getByText('Doctor listing')).toBeVisible();
-    // Should list seeded doctors
-    await expect(page.getByText('Dr. Meera Rao').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Dr\./).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('clicking doctor navigates to booking', async ({ page }) => {
     await page.getByText('Doctors').first().click();
     await expect(page.getByText('Doctor listing')).toBeVisible();
-    await page.getByText('Dr. Meera Rao').first().click();
+    await page.getByText(/Dr\./).first().click();
     await expect(page.getByText('Appointment booking')).toBeVisible();
   });
 });
@@ -120,6 +131,7 @@ test.describe('Booking flow', () => {
     // Fill patient details
     await page.getByPlaceholder('Patient name').fill('E2E Test Patient');
     await page.getByPlaceholder('Age').fill('30');
+    await page.getByPlaceholder('Mobile number').fill('9000000001');
     await page.getByPlaceholder('Address').first().fill('123 Test Lane');
 
     // Select gender
@@ -135,11 +147,7 @@ test.describe('Booking flow', () => {
       await doctorCards.click();
     }
 
-    // Select a date
-    await page.getByText('Mon 24').first().click();
-
-    // Select a time slot
-    await page.getByText('09:00').first().click();
+    await pickFirstAvailableDateAndSlot(page);
 
     // Confirm booking
     await page.getByText('Confirm booking').first().click();
@@ -157,6 +165,7 @@ test.describe('Confirmation & Appointments', () => {
     await page.getByText('Book Appointments').first().click();
     await page.getByPlaceholder('Patient name').fill('Confirmation Tester');
     await page.getByPlaceholder('Age').fill('25');
+    await page.getByPlaceholder('Mobile number').fill('9000000001');
 
     await selectDropdown(page, 'Specialization', 'Cardiologist');
 
@@ -164,8 +173,7 @@ test.describe('Confirmation & Appointments', () => {
     if (await doctorCards.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await doctorCards.click();
     }
-    await page.getByText('Mon 24').first().click();
-    await page.getByText('09:00').first().click();
+    await pickFirstAvailableDateAndSlot(page);
 
     await page.getByText('Confirm booking').first().click();
     await expect(page.getByText('Appointment confirmed')).toBeVisible({ timeout: 10_000 });

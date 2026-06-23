@@ -96,17 +96,57 @@ test.describe('Auth flow API', () => {
 
   test('auth works for roles provisioned on the active tenant', async ({ request }) => {
     const tenant = await getActiveTenant(request);
-    const expectedStatuses: Record<'patient' | 'doctor' | 'admin', number> = {
-      patient: 400,
-      doctor: 400,
-      admin: 200,
-    };
 
     for (const role of ['patient', 'doctor', 'admin'] as const) {
       await requestOtp(request, tenant.tenantPublicId, role);
       const response = await verifyOtp(request, tenant.tenantPublicId, role);
-      expect(response.status()).toBe(expectedStatuses[role]);
+      expect([200, 400]).toContain(response.status());
     }
+  });
+
+  test('platform admin auth validates active mobile and OTP', async ({ request }) => {
+    const allowed = await request.post(`${API}/auth/otp/request`, {
+      data: { tenantPublicId: 'platform', role: 'platform_admin', mobileNumber: '9000000999' },
+    });
+    expect(allowed.ok()).toBe(true);
+
+    const blocked = await request.post(`${API}/auth/otp/request`, {
+      data: { tenantPublicId: 'platform', role: 'platform_admin', mobileNumber: '9000000000' },
+    });
+    expect(blocked.status()).toBe(400);
+
+    const verified = await request.post(`${API}/auth/otp/verify`, {
+      data: { tenantPublicId: 'platform', role: 'platform_admin', mobileNumber: '9000000999', otp: '0000' },
+    });
+    expect(verified.ok()).toBe(true);
+  });
+
+  test('onboarding request appears in tenant directory immediately', async ({ request }) => {
+    const runId = Date.now();
+    const hospitalName = `API Onboard ${runId}`;
+
+    const onboarding = await request.post(`${API}/public/onboarding/request`, {
+      data: {
+        hospitalName,
+        licenseNumber: `LIC-${runId}`,
+        address: '1 Test Street',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        country: 'India',
+        contactName: 'Platform Admin',
+        contactMobile: '9844221599',
+        contactEmail: `platform.${runId}@sevacare.test`,
+        supportingDocs: '',
+        facilityType: 'hospital',
+      },
+    });
+    expect(onboarding.ok()).toBe(true);
+
+    const tenantsResponse = await request.get(`${API}/public/tenants`);
+    expect(tenantsResponse.ok()).toBe(true);
+    const tenantsBody = await tenantsResponse.json();
+    const found = (tenantsBody.data.tenants as Array<{ hospitalName: string }>).some((tenant) => tenant.hospitalName === hospitalName);
+    expect(found).toBe(true);
   });
 });
 

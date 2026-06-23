@@ -3,7 +3,7 @@
  * Tests: landing page, hospital search, onboarding form submission, QR/saved screens.
  */
 import { expect, test } from '@playwright/test';
-import { selectDropdown } from './helpers';
+import { getActiveTenant, selectDropdown } from './helpers';
 
 test.describe('Landing page', () => {
   test('shows hero card and action tiles', async ({ page }) => {
@@ -28,34 +28,55 @@ test.describe('Landing page', () => {
 
 test.describe('Hospital search flow', () => {
   test('search results page lists hospitals', async ({ page }) => {
+    const tenant = await getActiveTenant();
     await page.goto('/');
     await page.getByText('Search Hospitals', { exact: true }).click();
-    await expect(page.locator('text=Aurora Multispeciality').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(`text=${tenant.hospitalName}`).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('back to landing returns to welcome', async ({ page }) => {
+    const tenant = await getActiveTenant();
     await page.goto('/');
     await page.getByText('Search Hospitals', { exact: true }).click();
-    await expect(page.locator('text=Aurora Multispeciality').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(`text=${tenant.hospitalName}`).first()).toBeVisible({ timeout: 10_000 });
     await page.getByLabel('Back').click();
     await expect(page.getByText('Search Hospitals', { exact: true })).toBeVisible();
   });
 
   test('selecting hospital shows loading then login', async ({ page }) => {
+    const tenant = await getActiveTenant();
     await page.goto('/');
     await page.getByText('Search Hospitals', { exact: true }).click();
-    await page.getByText('Aurora Multispeciality').first().click();
-    await expect(page.getByText('Loading Aurora Multispeciality')).toBeVisible();
-    await expect(page.getByText('Send OTP & Continue')).toBeVisible({ timeout: 15_000 });
+    await page.getByText(tenant.hospitalName).first().click();
+    await expect(page.getByText(`Loading ${tenant.hospitalName}`)).toBeVisible();
+    await expect(page.getByText('Send OTP')).toBeVisible({ timeout: 15_000 });
   });
 });
 
 test.describe('Tenant onboarding flow', () => {
-  test('onboarding form is accessible and has all fields', async ({ page }) => {
+  async function gotoOnboardingAfterPlatformLogin(page: import('@playwright/test').Page) {
     await page.goto('/');
     await page.getByText('Onboard Your Hospital', { exact: true }).click();
+    await expect(page.getByText('Platform Admin Login')).toBeVisible({ timeout: 10_000 });
+    await page.getByPlaceholder('Platform admin mobile number').fill('9000000999');
+    await page.getByText('Send OTP').first().click();
+    await expect(page.getByPlaceholder('Enter platform OTP')).toBeVisible({ timeout: 10_000 });
+    await page.getByPlaceholder('Enter platform OTP').fill('0000');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await page.getByText('Continue', { exact: true }).first().click({ force: true });
+      await page.waitForTimeout(600);
+      const stillOnLogin = await page.getByText('Platform Admin Login').first().isVisible().catch(() => false);
+      if (!stillOnLogin) {
+        break;
+      }
+    }
+    await expect(page.getByText('Tenant onboarding')).toBeVisible({ timeout: 10_000 });
+  }
+
+  test('onboarding form is accessible and has all fields', async ({ page }) => {
+    await gotoOnboardingAfterPlatformLogin(page);
     await expect(page.getByText('Tenant onboarding')).toBeVisible();
-    await expect(page.getByText('Hospital details')).toBeVisible();
+    await expect(page.getByText('Hospital details').first()).toBeVisible();
     await expect(page.getByText('Contact and docs')).toBeVisible();
 
     // Verify form fields exist
@@ -71,9 +92,7 @@ test.describe('Tenant onboarding flow', () => {
   });
 
   test('submit onboarding form', async ({ page }) => {
-    await page.goto('/');
-    await page.getByText('Onboard Your Hospital', { exact: true }).click();
-    await expect(page.getByText('Tenant onboarding')).toBeVisible();
+    await gotoOnboardingAfterPlatformLogin(page);
 
     await page.getByPlaceholder('Hospital name').fill('Test General Hospital');
     await page.getByPlaceholder('License number').fill('LIC-TEST-001');
@@ -91,9 +110,7 @@ test.describe('Tenant onboarding flow', () => {
   });
 
   test('back to landing from onboarding', async ({ page }) => {
-    await page.goto('/');
-    await page.getByText('Onboard Your Hospital', { exact: true }).click();
-    await expect(page.getByText('Tenant onboarding')).toBeVisible();
+    await gotoOnboardingAfterPlatformLogin(page);
     await page.getByLabel('Back').click();
     await expect(page.getByText('Search Hospitals', { exact: true })).toBeVisible();
   });

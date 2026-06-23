@@ -104,6 +104,18 @@ public class AdminController {
         return ContractResponse.of(adminDomainService.deactivateAdminUser(tenantPublicId, adminPublicId));
     }
 
+    @DeleteMapping("/{tenantPublicId}/users/{adminPublicId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.DeleteActorResult> deleteAdminUser(
+            @PathVariable String tenantPublicId,
+            @PathVariable String adminPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.deleteAdminUser(tenantPublicId, adminPublicId));
+    }
+
     @PostMapping("/doctors")
     @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<AdminDtos.ManagedActor> createDoctor(@Valid @RequestBody AdminDtos.CreateActorRequest request) {

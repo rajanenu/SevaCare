@@ -30,6 +30,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seva_care
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SEVACARE_DB_URL: jdbc:postgresql://postgres:5432/seva_care
+      SEVACARE_DB_USERNAME: postgres
+      SEVACARE_DB_PASSWORD: postgres
+      SEVACARE_AUTH_SECRET: dev-sevacare-secret
       SEVACARE_JWT_SECRET: dev-sevacare-secret
       SERVER_PORT: 8081
     ports:
@@ -43,16 +47,17 @@ services:
 
   frontend:
     build:
-      context: ../sevacare-frontend
-      dockerfile: ../sevacare-deploy/Dockerfile.frontend
+      context: ..
+      dockerfile: sevacare-deploy/Dockerfile.frontend
+      args:
+        ENV: local
+        API_PORT: "8081"
     container_name: sevacare-frontend
     depends_on:
       backend:
         condition: service_healthy
-    environment:
-      EXPO_PUBLIC_API_BASE_URL: http://backend:8081/api/v1
     ports:
-      - "8087:8087"
+      - "8087:8080"
 
 volumes:
   pgdata:

@@ -64,6 +64,8 @@ class _DoctorPrescriptionsScreenState
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          BackBtn(onPressed: () => context.go('/doctor')),
+          const SizedBox(height: 8),
           PageHeader(
             title: 'Prescriptions Issued',
             subtitle: 'Total: ${list.length}',

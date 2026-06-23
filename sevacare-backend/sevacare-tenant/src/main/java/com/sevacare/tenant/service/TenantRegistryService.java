@@ -1,6 +1,7 @@
 package com.sevacare.tenant.service;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -66,6 +67,38 @@ public class TenantRegistryService {
         return nextPrefixedId("A", "admin_public_id_seq");
     }
 
+    public String buildTenantSchemaName(String tenantPublicId) {
+        return "tenant_t_" + tenantPublicId.split("-")[1].toLowerCase(Locale.ROOT);
+    }
+
+    @Transactional
+    public TenantRegistry provisionTenant(
+            String tenantPublicId,
+            String hospitalName,
+            String themeKey,
+            String contactName,
+            String contactMobile,
+            String contactEmail
+    ) {
+        String schemaName = buildTenantSchemaName(tenantPublicId);
+        jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+        createTenantSchema(schemaName);
+
+        TenantRegistry tenant = new TenantRegistry();
+        tenant.setTenantPublicId(tenantPublicId);
+        tenant.setTenantName(hospitalName);
+        tenant.setTenantThemeKey(themeKey);
+        tenant.setTenantSchemaName(schemaName);
+        tenant.setTenantStatus("active");
+        tenantRegistryRepository.save(tenant);
+
+        if (contactMobile != null && !contactMobile.isBlank()) {
+            seedHospitalAdmin(schemaName, tenantPublicId, contactName, contactMobile, contactEmail);
+        }
+
+        return tenant;
+    }
+
     @Transactional
     public String submitOnboardingRequest(
             String hospitalName,
@@ -104,26 +137,7 @@ public class TenantRegistryService {
         // Auto-activate: Create tenant and schema for immediate access
         try {
             String tenantPublicId = nextTenantPublicId();
-            String schemaName = "tenant_t_" + tenantPublicId.split("-")[1];
-            
-            // Create tenant schema with all required tables
-            jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-            createTenantSchema(schemaName);
-            
-            // Register tenant in public registry
-            jdbcTemplate.update(
-                    """
-                    INSERT INTO public.tenant_registry
-                        (tenant_public_id, tenant_name, tenant_theme_key, tenant_schema_name, tenant_status)
-                    VALUES (?, ?, ?, ?, 'active')
-                    """,
-                    tenantPublicId,
-                    hospitalName,
-                    "default",
-                    schemaName
-            );
-
-                    seedHospitalAdmin(schemaName, tenantPublicId, contactName, contactMobile, contactEmail);
+            provisionTenant(tenantPublicId, hospitalName, "default", contactName, contactMobile, contactEmail);
             
             // Update onboarding request to approved
             jdbcTemplate.update(
@@ -140,7 +154,7 @@ public class TenantRegistryService {
 
     private void createTenantSchema(String schemaName) {
         // Create tables following the pattern from bootstrap migration
-        jdbcTemplate.execute("""
+        String tenantSchemaDdl = """
             CREATE TABLE IF NOT EXISTS %s.patient (
                 patient_public_id VARCHAR(24) PRIMARY KEY,
                 tenant_public_id VARCHAR(24) NOT NULL,
@@ -161,6 +175,7 @@ public class TenantRegistryService {
                 specialty VARCHAR(120),
                 availability VARCHAR(160),
                 fee VARCHAR(24),
+                mobile_number VARCHAR(24),
                 active BOOLEAN DEFAULT true,
                 age INT,
                 address VARCHAR(160),
@@ -270,11 +285,9 @@ public class TenantRegistryService {
                 active BOOLEAN DEFAULT true,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            """.formatted(schemaName, schemaName, schemaName, schemaName, 
-                         schemaName, schemaName, schemaName, schemaName,
-                         schemaName, schemaName, schemaName, schemaName, schemaName,
-                         schemaName)
-        );
+            """;
+
+        jdbcTemplate.execute(tenantSchemaDdl.replace("%s", schemaName));
     }
 
     private void seedHospitalAdmin(String schemaName, String tenantPublicId, String contactName, String contactMobile, String contactEmail) {

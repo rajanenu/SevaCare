@@ -11,11 +11,13 @@ public interface AdminUserRepository extends JpaRepository<AdminUser, String> {
 
     Optional<AdminUser> findFirstByTenantPublicIdAndActiveTrueOrderByAdminPublicIdAsc(String tenantPublicId);
 
-    Optional<AdminUser> findByTenantPublicIdAndMobileNumberAndActiveTrue(String tenantPublicId, String mobileNumber);
+    Optional<AdminUser> findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByAdminPublicIdAsc(String tenantPublicId, String mobileNumber);
 
     List<AdminUser> findByTenantPublicIdOrderByAdminPublicIdAsc(String tenantPublicId);
 
     List<AdminUser> findByTenantPublicIdAndActiveTrueOrderByAdminPublicIdAsc(String tenantPublicId);
+
+    long countByTenantPublicIdAndActiveTrue(String tenantPublicId);
 
     Optional<AdminUser> findByTenantPublicIdAndEmailIgnoreCase(String tenantPublicId, String email);
 }

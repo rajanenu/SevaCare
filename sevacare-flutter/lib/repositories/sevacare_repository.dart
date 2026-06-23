@@ -444,6 +444,24 @@ class SevaCareRepository {
     );
   }
 
+  Future<Map<String, dynamic>> getQrCodeFormData(String qrcodeUuid) async {
+    return _client.get<Map<String, dynamic>>(
+      ApiConstants.qrCodeFormData(qrcodeUuid),
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  Future<Map<String, dynamic>> submitQrAppointmentRequest(
+    String qrcodeUuid,
+    Map<String, dynamic> body,
+  ) async {
+    return _client.post<Map<String, dynamic>>(
+      ApiConstants.qrCodeAppointmentRequest(qrcodeUuid),
+      body: body,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
   Future<List<PlatformOnboardingRequestRecord>> listOnboardingRequests(String token) async {
     final data = await _client.get<Map<String, dynamic>>(
       ApiConstants.platformOnboardingRequests,

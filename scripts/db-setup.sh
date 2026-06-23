@@ -6,7 +6,8 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/constants/config.sh"
 
-COMMAND="${1:-check}"
+RAW_COMMAND="${1:-check}"
+COMMAND="${RAW_COMMAND#--}"
 RESET_CONFIRM="${2:-}"
 
 # Colors for output
@@ -190,7 +191,7 @@ reset_database() {
 }
 
 # Main execution
-case $COMMAND in
+case "$COMMAND" in
   check)
     check_status
     ;;
