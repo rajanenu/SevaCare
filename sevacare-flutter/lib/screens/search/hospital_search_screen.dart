@@ -95,16 +95,11 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
   Widget build(BuildContext context) {
     return AppShell(
       hospitalName: 'SevaCare',
-      // No role — public screen
+      showBackButton: true,
+      onBack: () => context.go('/'),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Back button ────────────────────────────────────────────────────
-          Align(
-            alignment: Alignment.centerLeft,
-            child: BackBtn(onPressed: () => context.go('/')),
-          ),
-          const SizedBox(height: 16),
           // ── Page header ────────────────────────────────────────────────────
           const PageHeader(
             title: 'Search Hospitals',

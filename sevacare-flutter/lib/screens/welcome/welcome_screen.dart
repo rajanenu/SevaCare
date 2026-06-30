@@ -6,73 +6,167 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/widgets.dart';
 
-class WelcomeScreen extends ConsumerWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return AppShell(
       hospitalName: 'SevaCare',
-      // No role — public landing page
-      body: Stack(
-        children: [
-          const Positioned(top: 0, left: 0, right: 0, child: _HealthcarePattern()),
-
-          Column(
+      body: FadeTransition(
+        opacity: _fade,
+        child: SlideTransition(
+          position: _slide,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 8),
-              // ── Hero card ──────────────────────────────────────────────────
-              _HeroCard(),
-              const SizedBox(height: 24),
-              // ── Section heading ────────────────────────────────────────────
-              Text(
-                'Quick Actions',
-                style: AppTextStyles.sectionTitle(SevaCareColors.text),
+              // ── Hero ──────────────────────────────────────────────────────
+              const _HeroCard(),
+              const SizedBox(height: 28),
+
+              // ── Primary actions ────────────────────────────────────────────
+              StaggeredItem(
+                index: 0,
+                baseDelay: const Duration(milliseconds: 80),
+                child: Text('Quick Actions',
+                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
               ),
               const SizedBox(height: 12),
-              // ── Action card grid ───────────────────────────────────────────
-              _ActionGrid(
-                items: [
-                  _ActionItem(
-                    icon: Icons.search,
-                    title: 'Search Hospitals',
-                    onTap: () => context.go('/search'),
-                    enabled: true,
+              Row(
+                children: [
+                  Expanded(
+                    child: StaggeredItem(
+                      index: 1,
+                      baseDelay: const Duration(milliseconds: 80),
+                      child: _PrimaryCard(
+                        icon: Icons.search_rounded,
+                        label: 'Search Hospitals',
+                        description: 'Find & book nearby',
+                        gradient: const LinearGradient(
+                          colors: SevaCareColors.buttonGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        onTap: () => context.go('/search'),
+                      ),
+                    ),
                   ),
-                  _ActionItem(
-                    icon: Icons.add_business,
-                    title: 'Onboard New Hospital',
-                    onTap: () => context.go('/platform-login'),
-                    enabled: true,
-                  ),
-                  _ActionItem(
-                    icon: Icons.near_me,
-                    title: 'Nearby',
-                    subtitle: 'Coming Soon',
-                    onTap: null,
-                    enabled: false,
-                  ),
-                  _ActionItem(
-                    icon: Icons.qr_code_scanner,
-                    title: 'Scan QR Code',
-                    subtitle: 'Coming Soon',
-                    onTap: null,
-                    enabled: false,
-                  ),
-                  _ActionItem(
-                    icon: Icons.local_pharmacy_outlined,
-                    title: 'Medicine Delivery',
-                    subtitle: 'Coming Soon',
-                    onTap: null,
-                    enabled: false,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StaggeredItem(
+                      index: 2,
+                      baseDelay: const Duration(milliseconds: 80),
+                      child: _PrimaryCard(
+                        icon: Icons.add_business_rounded,
+                        label: 'Onboard Hospital',
+                        description: 'Register your clinic',
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF10B981), Color(0xFF059669)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        onTap: () => context.go('/platform-login'),
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
+
+              // ── Coming soon ────────────────────────────────────────────────
+              StaggeredItem(
+                index: 3,
+                baseDelay: const Duration(milliseconds: 80),
+                child: Row(
+                  children: [
+                    Text('Coming Soon',
+                        style: AppTextStyles.sectionTitle(
+                            SevaCareColors.textMuted)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: SevaCareColors.peachSoft,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text('SOON',
+                          style: AppTextStyles.labelCaps(
+                              SevaCareColors.peachForeground)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              StaggeredItem(
+                index: 4,
+                baseDelay: const Duration(milliseconds: 80),
+                child: Row(
+                  children: [
+                    Expanded(
+                        child: _ComingSoonCard(
+                            icon: Icons.near_me_rounded, label: 'Nearby')),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: _ComingSoonCard(
+                            icon: Icons.qr_code_scanner_rounded,
+                            label: 'Scan QR')),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: _ComingSoonCard(
+                            icon: Icons.local_pharmacy_outlined,
+                            label: 'Pharmacy')),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // ── Footer tagline ─────────────────────────────────────────────
+              StaggeredItem(
+                index: 5,
+                baseDelay: const Duration(milliseconds: 80),
+                child: Center(
+                  child: Text(
+                    'Trusted healthcare, at your fingertips.',
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -81,261 +175,299 @@ class WelcomeScreen extends ConsumerWidget {
 // ── Hero Card ──────────────────────────────────────────────────────────────────
 
 class _HeroCard extends StatelessWidget {
+  const _HeroCard();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: SevaCareColors.heroGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        boxShadow: [
-          BoxShadow(
-            color: SevaCareColors.primaryStrong.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radius + 2),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: SevaCareColors.heroGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Decorative pill accent
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.30),
-                width: 1,
+        ),
+        child: Stack(
+          children: [
+            // ── Premium 6-layer animation ──────────────────────────────────
+            const Positioned.fill(
+              child: ClipRect(
+                child: PremiumHeroAnimation(),
               ),
             ),
-            child: Text(
-              'HEALTHCARE SIMPLIFIED',
-              style: AppTextStyles.labelCaps(
-                SevaCareColors.textOnPrimary.withValues(alpha: 0.9),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Smart Healthcare,\nSimplified.',
-            style: AppTextStyles.heroTitle(SevaCareColors.textOnPrimary),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Find & book appointments with top\ndoctors near you.',
-            style: AppTextStyles.bodyText(
-              SevaCareColors.textOnPrimary.withValues(alpha: 0.80),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Action grid ────────────────────────────────────────────────────────────────
-
-class _ActionItem {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onTap;
-  final bool enabled;
-
-  const _ActionItem({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onTap,
-    required this.enabled,
-  });
-}
-
-class _ActionGrid extends StatelessWidget {
-  final List<_ActionItem> items;
-
-  const _ActionGrid({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: items.map((item) => _ActionCard(item: item)).toList(),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  final _ActionItem item;
-
-  const _ActionCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    // Each card takes ~half the width minus spacing
-    final cardWidth = (MediaQuery.of(context).size.width - 32 - 12) / 2;
-
-    final card = Container(
-      width: cardWidth,
-      height: 110,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: item.enabled ? SevaCareColors.surface : SevaCareColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(
-          color: item.enabled ? SevaCareColors.border : SevaCareColors.border.withValues(alpha: 0.5),
-          width: 1,
-        ),
-        boxShadow: item.enabled
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+            // ── Depth scrim — subtle dark gradient at bottom edge ──────────
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.0),
+                      Colors.black.withValues(alpha: 0.14),
+                    ],
+                    stops: const [0.0, 0.60, 1.0],
+                  ),
                 ),
-              ]
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon container
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: item.enabled ? SevaCareColors.primarySoft : SevaCareColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            ),
-            child: Center(
-              child: Icon(
-                item.icon,
-                size: 22,
-                color: item.enabled
-                    ? SevaCareColors.primary
-                    : SevaCareColors.textMuted.withValues(alpha: 0.5),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            item.title,
-            style: AppTextStyles.cardTitle(
-              item.enabled ? SevaCareColors.text : SevaCareColors.textMuted,
-            ),
-          ),
-          if (item.subtitle != null) ...[
-            const SizedBox(height: 3),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: SevaCareColors.peachSoft,
-                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              ),
-              child: Text(
-                item.subtitle!,
-                style: AppTextStyles.labelCaps(SevaCareColors.peachForeground),
+            // ── Content ────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4ADE80),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    const Color(0xFF4ADE80).withValues(alpha: 0.7),
+                                blurRadius: 5,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          'HEALTHCARE SIMPLIFIED',
+                          style: AppTextStyles.labelCaps(
+                              Colors.white.withValues(alpha: 0.92)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  // Headline
+                  Text(
+                    'Smart Healthcare,\nSimplified.',
+                    style: AppTextStyles.heroTitle(Colors.white),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Consultations, records, prescriptions\nand more — all in one place.',
+                    style: AppTextStyles.bodyText(
+                        Colors.white.withValues(alpha: 0.78)),
+                  ),
+                  const SizedBox(height: 22),
+                  // Trust stats row
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: const [
+                      _StatPill(
+                          icon: Icons.local_hospital_rounded,
+                          label: '2 Hospitals'),
+                      _StatPill(
+                          icon: Icons.people_rounded, label: '6+ Doctors'),
+                      _StatPill(
+                          icon: Icons.bolt_rounded, label: 'Live Queue'),
+                    ],
+                  ),
+                  // Bottom space — EKG trace animates here
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
           ],
-        ],
-      ),
-    );
-
-    if (item.enabled && item.onTap != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-            splashColor: SevaCareColors.primary.withValues(alpha: 0.08),
-            highlightColor: SevaCareColors.primary.withValues(alpha: 0.04),
-            child: card,
-          ),
         ),
-      );
-    }
-
-    // Disabled card — render as-is, no ink
-    return Opacity(
-      opacity: item.enabled ? 1.0 : 0.65,
-      child: card,
+      ),
     );
   }
 }
 
-// ── Healthcare background pattern ──────────────────────────────────────────────
-
-class _HealthcarePattern extends StatelessWidget {
-  const _HealthcarePattern();
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _StatPill({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: SizedBox(
-        width: double.infinity,
-        height: 300,
-        child: CustomPaint(
-          painter: _PatternPainter(),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(99),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.22), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: Colors.white.withValues(alpha: 0.88)),
+          const SizedBox(width: 5),
+          Text(label,
+              style: AppTextStyles.labelCaps(
+                  Colors.white.withValues(alpha: 0.92))),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Primary Action Card (with press-scale animation) ───────────────────────────
+
+class _PrimaryCard extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String description;
+  final Gradient gradient;
+  final VoidCallback onTap;
+
+  const _PrimaryCard({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  State<_PrimaryCard> createState() => _PrimaryCardState();
+}
+
+class _PrimaryCardState extends State<_PrimaryCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = (widget.gradient as LinearGradient).colors.first;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: SevaCareColors.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            border: Border.all(color: SevaCareColors.border, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: iconColor.withValues(alpha: _pressed ? 0.12 : 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: widget.gradient,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withValues(alpha: 0.38),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(widget.icon, size: 22, color: Colors.white),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                widget.label,
+                style: AppTextStyles.cardTitle(SevaCareColors.text),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                widget.description,
+                style: AppTextStyles.label(SevaCareColors.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Text(
+                    'Open',
+                    style: AppTextStyles.label(iconColor),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 12, color: iconColor),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _PatternPainter extends CustomPainter {
+// ── Coming Soon Card ───────────────────────────────────────────────────────────
+
+class _ComingSoonCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ComingSoonCard({required this.icon, required this.label});
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF6366F1).withValues(alpha: 0.06)
-      ..style = PaintingStyle.fill;
-
-    // Large blurred circles — medical orb aesthetic
-    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.2), 90, paint);
-    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.7), 70, paint);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.5), 50, paint);
-
-    // Subtle cross / plus signs (healthcare symbol)
-    final crossPaint = Paint()
-      ..color = const Color(0xFF6366F1).withValues(alpha: 0.08)
-      ..style = PaintingStyle.fill
-      ..strokeWidth = 2;
-
-    void drawCross(double cx, double cy, double sz) {
-      final s = sz / 2;
-      final t = sz / 6;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(cx, cy), width: s * 2, height: t * 2),
-          const Radius.circular(2),
-        ),
-        crossPaint,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(cx, cy), width: t * 2, height: s * 2),
-          const Radius.circular(2),
-        ),
-        crossPaint,
-      );
-    }
-
-    drawCross(size.width * 0.15, size.height * 0.15, 24);
-    drawCross(size.width * 0.75, size.height * 0.65, 18);
-    drawCross(size.width * 0.9, size.height * 0.85, 14);
-    drawCross(size.width * 0.35, size.height * 0.9, 20);
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: SevaCareColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(
+            color: SevaCareColors.border.withValues(alpha: 0.6), width: 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              size: 22,
+              color: SevaCareColors.textMuted.withValues(alpha: 0.50)),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: AppTextStyles.label(SevaCareColors.textMuted),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(_PatternPainter old) => false;
 }

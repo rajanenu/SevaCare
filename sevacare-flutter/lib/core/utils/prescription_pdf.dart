@@ -1,5 +1,6 @@
-import 'dart:html' as html; // ignore: avoid_web_libraries_in_flutter
 import 'dart:typed_data';
+import 'prescription_pdf_downloader_native.dart'
+    if (dart.library.html) 'prescription_pdf_downloader_web.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -311,12 +312,7 @@ class PrescriptionPdfService {
   }) async {
     final bytes = await generate(hospitalName: hospitalName, rx: rx);
     final filename = 'prescription_${rx.prescriptionPublicId}.pdf';
-    final blob = html.Blob([bytes], 'application/pdf');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute('download', filename)
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    await downloadPdf(bytes, filename);
   }
 
   static String _rxLabel(String id) {

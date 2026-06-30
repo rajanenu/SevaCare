@@ -100,6 +100,13 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     }
   }
 
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Morning';
+    if (h < 17) return 'Afternoon';
+    return 'Evening';
+  }
+
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return '?';
@@ -137,24 +144,82 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'Doctor Overview'),
-          const SizedBox(height: 12),
-
-          // ── Doctor avatar ────────────────────────────────────────────────────
-          Center(
-            child: Column(
-              children: [
-                AppAvatar(
-                  initials: _initials(subjectId.isNotEmpty ? subjectId : 'Dr'),
-                  hue: AppAvatar.hueFromString(subjectId),
-                  size: 72,
+          // ── Animated doctor hero banner ──────────────────────────────────────
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: SevaCareColors.heroGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  subjectId,
-                  style: AppTextStyles.label(SevaCareColors.textMuted),
-                ),
-              ],
+              ),
+              child: Stack(
+                children: [
+                  const AnimatedHealthcareBg(
+                    variant: HealthcareBgVariant.doctor,
+                    height: 130,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        AppAvatar(
+                          initials: _initials(subjectId.isNotEmpty ? subjectId : 'Dr'),
+                          hue: AppAvatar.hueFromString(subjectId),
+                          size: 60,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Good ${_greeting()}, Doctor',
+                                style: AppTextStyles.label(
+                                  SevaCareColors.textOnPrimary.withValues(alpha: 0.80),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                subjectId,
+                                style: AppTextStyles.cardTitle(SevaCareColors.textOnPrimary),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: SevaCareColors.mint.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6, height: 6,
+                                      decoration: const BoxDecoration(
+                                        color: SevaCareColors.mint,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Available',
+                                      style: AppTextStyles.label(SevaCareColors.mint),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -224,14 +289,18 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
           const SizedBox(height: 12),
 
           // ── Metrics ──────────────────────────────────────────────────────────
-          if (_loading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (_error != null) ...[
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(
+              key: ValueKey(_loading ? 'loading' : (_error ?? 'data-$_dayOffset')),
+              child: _loading
+                  ? const ShimmerList(count: 3, cardHeight: 80)
+                  : const SizedBox.shrink(),
+            ),
+          ),
+          if (!_loading && _error != null) ...[
             AppCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +313,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 ],
               ),
             ),
-          ] else ...[
+          ],
+          if (!_loading && _error == null) ...[
+            // ── Today's Insight banner ───────────────────────────────────────
+            if (queueView != null)
+              _TodayInsightBanner(queueView: queueView),
+            const SizedBox(height: 16),
             MetricRow(
               tiles: [
                 MetricTile(
@@ -441,6 +515,134 @@ class _Chip extends StatelessWidget {
         label,
         style: AppTextStyles.label(textColor),
       ),
+    );
+  }
+}
+
+// ── Today's Insight Banner ─────────────────────────────────────────────────────
+
+class _TodayInsightBanner extends StatefulWidget {
+  final DoctorQueueDayView queueView;
+  const _TodayInsightBanner({required this.queueView});
+
+  @override
+  State<_TodayInsightBanner> createState() => _TodayInsightBannerState();
+}
+
+class _TodayInsightBannerState extends State<_TodayInsightBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  String get _insightText {
+    final total = widget.queueView.totalAppointments;
+    final pending = widget.queueView.pendingNotes;
+    final avg = widget.queueView.avgConsultMinutes;
+    final done = total - pending;
+    if (total == 0) return 'No appointments today. Enjoy a lighter day!';
+    if (done == total) return 'All $total patients seen today. Excellent work!';
+    if (done == 0) return '$total patients waiting. Your queue starts now.';
+    return '$done/$total patients seen · $pending pending · Avg $avg min/consult';
+  }
+
+  Color get _accentColor {
+    final pending = widget.queueView.pendingNotes;
+    if (pending == 0) return SevaCareColors.mint;
+    if (pending <= 2) return SevaCareColors.peach;
+    return SevaCareColors.primary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (_, child) {
+        final glow = _pulse.value;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _accentColor.withValues(alpha: 0.08 + glow * 0.04),
+                _accentColor.withValues(alpha: 0.04),
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _accentColor.withValues(alpha: 0.22 + glow * 0.10),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Pulsing icon
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _accentColor.withValues(alpha: 0.12 + glow * 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.insights_rounded,
+                  color: _accentColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 7, height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _accentColor.withValues(alpha: 0.5 + glow * 0.5),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          "TODAY'S INSIGHT",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: _accentColor,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _insightText,
+                      style: AppTextStyles.bodyText(SevaCareColors.text),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/models/models.dart';
@@ -89,7 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SectionDivider(),
                 const InfoRow(label: 'Environment', value: 'Local'),
                 const SectionDivider(),
-                const InfoRow(label: 'API', value: 'localhost:8081'),
+                InfoRow(label: 'API', value: AppConfig.apiBaseUrl),
               ],
             ),
           ),

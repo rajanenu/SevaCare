@@ -16,3 +16,7 @@ export 'orb_background.dart';
 export 'profile_avatar_picker.dart';
 export 'shimmer_loader.dart';
 export 'staggered_item.dart';
+export 'animated_healthcare_bg.dart';
+export 'premium_hero_animation.dart';
+export 'booking_success_overlay.dart';
+export 'health_card_widget.dart';

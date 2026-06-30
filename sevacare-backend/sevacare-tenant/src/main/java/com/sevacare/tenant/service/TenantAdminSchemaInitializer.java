@@ -43,6 +43,7 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
             ensureAdminUserTableShape(tenant, schemaName);
             ensureAppointmentTableShape(schemaName);
             ensurePrescriptionTableShape(schemaName);
+            ensureNotificationTablesExist(schemaName);
         }
     }
 
@@ -181,6 +182,41 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
                 columnName
         );
         return count != null && count > 0;
+    }
+
+    private void ensureNotificationTablesExist(String schemaName) {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.leave_request (
+                    request_public_id  VARCHAR(32)  PRIMARY KEY,
+                    tenant_public_id   VARCHAR(16)  NOT NULL,
+                    doctor_public_id   VARCHAR(16)  NOT NULL,
+                    doctor_name        VARCHAR(160) NOT NULL DEFAULT '',
+                    leave_type         VARCHAR(32)  NOT NULL,
+                    from_date          DATE,
+                    to_date            DATE,
+                    message            TEXT         NOT NULL DEFAULT '',
+                    status             VARCHAR(24)  NOT NULL DEFAULT 'PENDING',
+                    admin_response     TEXT,
+                    submitted_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    responded_at       TIMESTAMP,
+                    notified_at        TIMESTAMP
+                )""".formatted(schemaName));
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.app_notification (
+                    notification_public_id  VARCHAR(40)  PRIMARY KEY,
+                    tenant_public_id        VARCHAR(16)  NOT NULL,
+                    recipient_id            VARCHAR(40)  NOT NULL,
+                    recipient_type          VARCHAR(16)  NOT NULL,
+                    notif_type              VARCHAR(40)  NOT NULL,
+                    title                   VARCHAR(200) NOT NULL,
+                    body                    TEXT         NOT NULL,
+                    reference_id            VARCHAR(40),
+                    is_read                 BOOLEAN      NOT NULL DEFAULT FALSE,
+                    created_at              TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )""".formatted(schemaName));
+
+        log.info("notification_tables_ensured schemaName={}", schemaName);
     }
 
     private boolean hasSchema(String schemaName) {

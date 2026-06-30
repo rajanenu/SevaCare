@@ -28,6 +28,8 @@ sevacare:
     secret: ${SEVACARE_AUTH_SECRET:dev-sevacare-secret}
   storage:
     onboarding-dir: ${SEVACARE_ONBOARDING_STORAGE_DIR:${user.home}/sevacare-storage/onboarding}
+  cors:
+    allowed-origins: ${SEVACARE_CORS_ORIGINS:http://localhost:8087,http://192.168.*.*:8087,http://10.*.*.*:8087}
 
 server:
   port: ${PORT:8080}

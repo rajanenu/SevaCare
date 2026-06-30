@@ -20,4 +20,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, String> {
     boolean existsByTenantPublicIdAndMobileNumberAndActiveTrue(String tenantPublicId, String mobileNumber);
 
     List<Doctor> findByTenantPublicIdOrderByDoctorPublicIdAsc(String tenantPublicId);
+
+    List<Doctor> findByTenantPublicIdAndSpecialtyAndActiveTrueOrderByDoctorPublicIdAsc(
+            String tenantPublicId, String specialty);
 }

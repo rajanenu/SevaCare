@@ -1124,3 +1124,122 @@ class TenantOnboardingAccepted {
     message: json['message'] as String? ?? '',
   );
 }
+
+// ── Leave Requests ────────────────────────────────────────────────────────────
+
+class LeaveRequestRecord {
+  final String requestPublicId;
+  final String tenantPublicId;
+  final String doctorPublicId;
+  final String doctorName;
+  final String leaveType;
+  final String? fromDate;
+  final String? toDate;
+  final String message;
+  final String status; // PENDING | APPROVED | DECLINED | AUTO_APPROVED
+  final String? adminResponse;
+  final String submittedAt;
+  final String? respondedAt;
+
+  const LeaveRequestRecord({
+    required this.requestPublicId,
+    required this.tenantPublicId,
+    required this.doctorPublicId,
+    required this.doctorName,
+    required this.leaveType,
+    this.fromDate,
+    this.toDate,
+    required this.message,
+    required this.status,
+    this.adminResponse,
+    required this.submittedAt,
+    this.respondedAt,
+  });
+
+  factory LeaveRequestRecord.fromJson(Map<String, dynamic> json) => LeaveRequestRecord(
+    requestPublicId: json['requestPublicId'] as String? ?? '',
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    doctorName: json['doctorName'] as String? ?? '',
+    leaveType: json['leaveType'] as String? ?? '',
+    fromDate: json['fromDate'] as String?,
+    toDate: json['toDate'] as String?,
+    message: json['message'] as String? ?? '',
+    status: json['status'] as String? ?? 'PENDING',
+    adminResponse: json['adminResponse'] as String?,
+    submittedAt: json['submittedAt'] as String? ?? '',
+    respondedAt: json['respondedAt'] as String?,
+  );
+}
+
+class LeaveRequestCollection {
+  final String tenantPublicId;
+  final List<LeaveRequestRecord> requests;
+
+  const LeaveRequestCollection({required this.tenantPublicId, required this.requests});
+
+  factory LeaveRequestCollection.fromJson(Map<String, dynamic> json) => LeaveRequestCollection(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    requests: json['requests'] != null
+        ? (json['requests'] as List).map((e) => LeaveRequestRecord.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
+  );
+}
+
+// ── In-app Notifications ──────────────────────────────────────────────────────
+
+class AppNotification {
+  final String notificationPublicId;
+  final String recipientId;
+  final String recipientType;
+  final String notifType;
+  final String title;
+  final String body;
+  final String? referenceId;
+  final bool read;
+  final String createdAt;
+
+  const AppNotification({
+    required this.notificationPublicId,
+    required this.recipientId,
+    required this.recipientType,
+    required this.notifType,
+    required this.title,
+    required this.body,
+    this.referenceId,
+    required this.read,
+    required this.createdAt,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+    notificationPublicId: json['notificationPublicId'] as String? ?? '',
+    recipientId: json['recipientId'] as String? ?? '',
+    recipientType: json['recipientType'] as String? ?? '',
+    notifType: json['notifType'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    body: json['body'] as String? ?? '',
+    referenceId: json['referenceId'] as String?,
+    read: json['read'] as bool? ?? false,
+    createdAt: json['createdAt'] as String? ?? '',
+  );
+}
+
+class NotificationCollection {
+  final String tenantPublicId;
+  final List<AppNotification> notifications;
+  final int unreadCount;
+
+  const NotificationCollection({
+    required this.tenantPublicId,
+    required this.notifications,
+    required this.unreadCount,
+  });
+
+  factory NotificationCollection.fromJson(Map<String, dynamic> json) => NotificationCollection(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    notifications: json['notifications'] != null
+        ? (json['notifications'] as List).map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
+    unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+  );
+}

@@ -216,28 +216,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final formState = ref.watch(loginFormProvider);
     final hospitalState = ref.watch(hospitalProvider);
 
+    final isPlatformAdmin = widget.platformAdminMode;
+    final headerName = isPlatformAdmin
+        ? 'SevaCare'
+        : (hospitalState.hospitalName.isNotEmpty
+            ? hospitalState.hospitalName
+            : 'SevaCare');
+
     return AppShell(
-      hospitalName: hospitalState.hospitalName.isNotEmpty
-          ? hospitalState.hospitalName
-          : 'SevaCare',
+      hospitalName: headerName,
+      showBackButton: true,
+      onBack: () => context.go(isPlatformAdmin ? '/' : '/search'),
       // No role shown in header — persona chip appears after login
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Back button ──────────────────────────────────────────────────
-          Align(
-            alignment: Alignment.centerLeft,
-            child: BackBtn(
-              onPressed: () => context.go('/search'),
-            ),
-          ),
-          const SizedBox(height: 16),
           // ── Page header ──────────────────────────────────────────────────
           PageHeader(
-            title: hospitalState.hospitalName.isNotEmpty
-                ? hospitalState.hospitalName
-                : 'SevaCare',
-            subtitle: 'Login to continue',
+            title: isPlatformAdmin ? 'SevaCare Administration' : headerName,
+            subtitle: isPlatformAdmin ? 'Platform Admin Access' : 'Login to continue',
           ),
           const SizedBox(height: 16),
           // ── Role segmented control ───────────────────────────────────────
@@ -356,14 +353,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          // ── Choose different hospital ────────────────────────────────────
-          SecondaryButton(
-            label: 'Choose Different Hospital',
-            icon: Icons.swap_horiz,
-            fullWidth: true,
-            onPressed: () => context.go('/search'),
-          ),
-          const SizedBox(height: 16),
+          // ── Choose different hospital (hospital login only) ───────────────
+          if (!widget.platformAdminMode) ...[
+            SecondaryButton(
+              label: 'Choose Different Hospital',
+              icon: Icons.swap_horiz,
+              fullWidth: true,
+              onPressed: () => context.go('/search'),
+            ),
+            const SizedBox(height: 16),
+          ],
         ],
       ),
     );

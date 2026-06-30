@@ -480,4 +480,95 @@ class SevaCareRepository {
     final list = data['requests'] as List? ?? [];
     return list.map((e) => PlatformOnboardingRequestRecord.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  // ── Leave Requests ───────────────────────────────────────────────────────────
+
+  Future<LeaveRequestCollection> getDoctorLeaveRequests(String tenantId, String doctorId, String token) async {
+    return _client.get<LeaveRequestCollection>(
+      ApiConstants.leaveRequests(tenantId, doctorId),
+      fromJson: (d) => LeaveRequestCollection.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<LeaveRequestRecord> createLeaveRequest(
+      String tenantId, String doctorId, String token, String adminPublicId,
+      Map<String, dynamic> body) async {
+    return _client.post<LeaveRequestRecord>(
+      '${ApiConstants.leaveRequests(tenantId, doctorId)}?adminPublicId=${Uri.encodeComponent(adminPublicId)}',
+      body: body,
+      fromJson: (d) => LeaveRequestRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<LeaveRequestCollection> getAdminLeaveRequests(String tenantId, String token) async {
+    return _client.get<LeaveRequestCollection>(
+      ApiConstants.adminLeaveRequests(tenantId),
+      fromJson: (d) => LeaveRequestCollection.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<LeaveRequestRecord> actionLeaveRequest(
+      String tenantId, String requestId, String token, String action, String? response) async {
+    return _client.put<LeaveRequestRecord>(
+      ApiConstants.leaveRequestAction(tenantId, requestId),
+      body: {'action': action, 'response': response ?? ''},
+      fromJson: (d) => LeaveRequestRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── Notifications ────────────────────────────────────────────────────────────
+
+  Future<NotificationCollection> getNotifications(
+      String tenantId, String recipientId, String recipientType, String token) async {
+    return _client.get<NotificationCollection>(
+      ApiConstants.notifications(tenantId, recipientId, recipientType),
+      fromJson: (d) => NotificationCollection.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> markNotificationRead(String tenantId, String notifId, String token) async {
+    await _client.post<String>(
+      ApiConstants.markNotificationRead(tenantId, notifId),
+      body: {},
+      fromJson: (d) => d.toString(),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> markAllNotificationsRead(
+      String tenantId, String recipientId, String recipientType, String token) async {
+    await _client.post<String>(
+      ApiConstants.markAllNotificationsRead(tenantId, recipientId, recipientType),
+      body: {},
+      fromJson: (d) => d.toString(),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── Admin Messages ───────────────────────────────────────────────────────────
+
+  Future<void> sendAdminMessage(String tenantId, String token,
+      {required String title,
+      required String body,
+      required String targetType,
+      String? targetDoctorId,
+      String? targetSpecialty}) async {
+    await _client.post<String>(
+      ApiConstants.adminMessages(tenantId),
+      body: {
+        'title': title,
+        'body': body,
+        'targetType': targetType,
+        if (targetDoctorId case final id?) 'targetDoctorId': id,
+        if (targetSpecialty case final s?) 'targetSpecialty': s,
+      },
+      fromJson: (d) => d.toString(),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
 }

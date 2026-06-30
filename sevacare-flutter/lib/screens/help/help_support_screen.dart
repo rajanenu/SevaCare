@@ -1,0 +1,309 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/models/models.dart';
+import '../../providers/app_state.dart';
+import '../../widgets/widgets.dart';
+
+class HelpSupportScreen extends ConsumerStatefulWidget {
+  const HelpSupportScreen({super.key});
+
+  @override
+  ConsumerState<HelpSupportScreen> createState() => _HelpSupportScreenState();
+}
+
+class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
+  final _nameCtrl = TextEditingController();
+  final _messageCtrl = TextEditingController();
+  bool _submitted = false;
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _messageCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty || _messageCtrl.text.trim().isEmpty) return;
+    setState(() => _sending = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) setState(() { _sending = false; _submitted = true; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final hospital = ref.watch(hospitalProvider);
+    final isPlatformAdmin = auth.role == UserRole.platformAdmin;
+    final isAuthenticated = auth.isAuthenticated;
+    final hospitalName = (isAuthenticated && !isPlatformAdmin && hospital.hospitalName.isNotEmpty)
+        ? hospital.hospitalName
+        : 'SevaCare';
+
+    return AppShell(
+      hospitalName: isPlatformAdmin ? 'SevaCare' : hospitalName,
+      role: auth.role,
+      showBackButton: true,
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          PageHeader(
+            title: 'Help & Support',
+            subtitle: isPlatformAdmin
+                ? 'SevaCare platform support'
+                : '$hospitalName support',
+          ),
+          const SizedBox(height: 20),
+
+          // Context badge
+          _ContextBanner(isPlatformAdmin: isPlatformAdmin, hospitalName: hospitalName),
+          const SizedBox(height: 20),
+
+          // Contact details
+          if (isPlatformAdmin) ...[
+            _ContactCard(
+              icon: Icons.email_outlined,
+              label: 'Email',
+              value: 'support@sevacare.in',
+              color: SevaCareColors.primary,
+            ),
+            const SizedBox(height: 10),
+            _ContactCard(
+              icon: Icons.phone_outlined,
+              label: 'Toll-Free',
+              value: '1800-SEVA-CARE',
+              color: SevaCareColors.mint,
+            ),
+            const SizedBox(height: 10),
+            _ContactCard(
+              icon: Icons.access_time_rounded,
+              label: 'Support Hours',
+              value: 'Mon – Sat, 9 AM – 6 PM IST',
+              color: SevaCareColors.peach,
+            ),
+          ] else ...[
+            _ContactCard(
+              icon: Icons.local_hospital_rounded,
+              label: 'Hospital',
+              value: hospitalName,
+              color: SevaCareColors.primary,
+            ),
+            const SizedBox(height: 10),
+            _ContactCard(
+              icon: Icons.email_outlined,
+              label: 'Email',
+              value: 'support@${hospitalName.toLowerCase().replaceAll(' ', '')}.in',
+              color: SevaCareColors.mint,
+            ),
+            const SizedBox(height: 10),
+            _ContactCard(
+              icon: Icons.access_time_rounded,
+              label: 'Response Time',
+              value: 'Within 24 hours on working days',
+              color: SevaCareColors.peach,
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          // Message form
+          if (_submitted)
+            _SuccessBanner(isPlatformAdmin: isPlatformAdmin)
+          else ...[
+            Text('Send a Message', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            const SizedBox(height: 4),
+            Text(
+              isPlatformAdmin
+                  ? 'Describe your issue or question and our team will get back to you.'
+                  : 'Send a message to the $hospitalName support team.',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            ),
+            const SizedBox(height: 16),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppFormField(
+                    label: 'Your Name',
+                    controller: _nameCtrl,
+                    placeholder: 'Enter your full name',
+                    required: true,
+                  ),
+                  AppFormField(
+                    label: 'Message',
+                    controller: _messageCtrl,
+                    placeholder: 'Describe your issue or question in detail…',
+                    required: true,
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 4),
+                  PrimaryButton(
+                    label: 'Send Message',
+                    icon: Icons.send_rounded,
+                    isLoading: _sending,
+                    fullWidth: true,
+                    onPressed: _sending ? null : _submit,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Context Banner ─────────────────────────────────────────────────────────────
+
+class _ContextBanner extends StatelessWidget {
+  final bool isPlatformAdmin;
+  final String hospitalName;
+  const _ContextBanner({required this.isPlatformAdmin, required this.hospitalName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isPlatformAdmin
+              ? [const Color(0xFF5148CC), const Color(0xFF7C6FE0)]
+              : [const Color(0xFF059669), const Color(0xFF10B981)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isPlatformAdmin ? Icons.support_agent_rounded : Icons.local_hospital_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isPlatformAdmin ? 'SevaCare Support' : '$hospitalName Support',
+                  style: AppTextStyles.cardTitle(Colors.white),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isPlatformAdmin
+                      ? 'Platform-level issues, onboarding, and billing'
+                      : 'Hospital services, appointments, and clinical queries',
+                  style: AppTextStyles.label(Colors.white.withValues(alpha: 0.85)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Contact Card ───────────────────────────────────────────────────────────────
+
+class _ContactCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  const _ContactCard({required this.icon, required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+              const SizedBox(height: 1),
+              Text(value, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Success Banner ─────────────────────────────────────────────────────────────
+
+class _SuccessBanner extends StatelessWidget {
+  final bool isPlatformAdmin;
+  const _SuccessBanner({required this.isPlatformAdmin});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: SevaCareColors.mintSoft,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              color: SevaCareColors.mint,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 12),
+          Text('Message Sent!', style: AppTextStyles.sectionTitle(SevaCareColors.mintForeground)),
+          const SizedBox(height: 6),
+          Text(
+            isPlatformAdmin
+                ? 'Our SevaCare team will respond within 1 business day.'
+                : 'The hospital support team will respond within 24 hours.',
+            style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}

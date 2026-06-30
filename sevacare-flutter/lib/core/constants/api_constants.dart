@@ -1,7 +1,9 @@
+import '../config/app_config.dart';
+
 class ApiConstants {
   ApiConstants._();
 
-  static const String baseUrl = 'http://localhost:8081/api/v1';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   // Auth
   static const String otpRequest = '/auth/otp/request';
@@ -52,6 +54,21 @@ class ApiConstants {
   static String adminUser(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId';
   static String nextAdminId(String tenantId) => '/admin/$tenantId/users/next-public-id';
   static String deactivateAdmin(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/deactivate';
+
+  // Leave Requests
+  static String leaveRequests(String tenantId, String doctorId) => '/$tenantId/doctors/$doctorId/leave-requests';
+  static String adminLeaveRequests(String tenantId) => '/$tenantId/admin/leave-requests';
+  static String leaveRequestAction(String tenantId, String requestId) => '/$tenantId/admin/leave-requests/$requestId/action';
+
+  // Notifications
+  static String notifications(String tenantId, String recipientId, String recipientType) =>
+      '/$tenantId/notifications?recipientId=${Uri.encodeComponent(recipientId)}&recipientType=${Uri.encodeComponent(recipientType)}';
+  static String markNotificationRead(String tenantId, String notifId) => '/$tenantId/notifications/$notifId/read';
+  static String markAllNotificationsRead(String tenantId, String recipientId, String recipientType) =>
+      '/$tenantId/notifications/read-all?recipientId=${Uri.encodeComponent(recipientId)}&recipientType=${Uri.encodeComponent(recipientType)}';
+
+  // Admin Messages
+  static String adminMessages(String tenantId) => '/$tenantId/admin/messages';
 
   // Platform Admin
   static const String platformOverview = '/platform-admin/overview';

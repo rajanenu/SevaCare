@@ -19,11 +19,14 @@ import 'screens/prescription/prescription_detail_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/consultation_screen.dart';
 import 'screens/doctor/doctor_prescriptions_screen.dart';
+import 'screens/doctor/doctor_requests_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/platform_admin/platform_admin_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/settings_screen.dart';
 import 'screens/qr/qr_appointment_form_screen.dart';
+import 'screens/help/help_support_screen.dart';
+import 'screens/notifications/notification_screen.dart';
 
 /// Shared slide+fade page transition used by every GoRoute.
 CustomTransitionPage<void> _slidePage(
@@ -206,8 +209,10 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           path: '/doctor/profile',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.doctor)),
         ),
-        // Requests tab — redirect to doctor home (queue is shown there)
-        GoRoute(path: '/doctor/requests', redirect: (ctx, _) => '/doctor'),
+        GoRoute(
+          path: '/doctor/requests',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const DoctorRequestsScreen()),
+        ),
 
         // ── Admin ─────────────────────────────────────────────────────────────
         GoRoute(
@@ -245,6 +250,14 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(
           path: '/settings',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const SettingsScreen()),
+        ),
+        GoRoute(
+          path: '/help',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const HelpSupportScreen()),
+        ),
+        GoRoute(
+          path: '/notifications',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const NotificationScreen()),
         ),
       ],
       errorBuilder: (ctx, state) => Scaffold(

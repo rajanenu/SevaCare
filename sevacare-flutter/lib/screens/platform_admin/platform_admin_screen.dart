@@ -75,7 +75,12 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
             onChanged: (v) => setState(() => _tabIndex = v),
           ),
           const SizedBox(height: 16),
-          tabBody,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(key: ValueKey(_tabIndex), child: tabBody),
+          ),
         ],
       ),
     );
@@ -479,23 +484,8 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           children: [
             Text('QR ID: $publicId', style: AppTextStyles.label(SevaCareColors.textMuted)),
             const SizedBox(height: 16),
-            // Actual QR code image
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: SevaCareColors.border, width: 1),
-                ),
-                child: QrImageView(
-                  data: qrLink,
-                  version: QrVersions.auto,
-                  size: 200,
-                  errorCorrectionLevel: QrErrorCorrectLevel.M,
-                ),
-              ),
-            ),
+            // Actual QR code image — rendered after frame to avoid freezing the UI
+            Center(child: _QrDialogContent(qrLink: qrLink)),
             const SizedBox(height: 16),
             // Copyable link
             Container(
@@ -1252,6 +1242,51 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
 
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+// ── Deferred QR renderer — avoids freezing the UI on web ─────────────────────
+
+class _QrDialogContent extends StatefulWidget {
+  final String qrLink;
+  const _QrDialogContent({required this.qrLink});
+  @override
+  State<_QrDialogContent> createState() => _QrDialogContentState();
+}
+
+class _QrDialogContentState extends State<_QrDialogContent> {
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 224,
+      height: 224,
+      padding: _ready ? const EdgeInsets.all(12) : EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SevaCareColors.border, width: 1),
+      ),
+      child: _ready
+          ? RepaintBoundary(
+              child: QrImageView(
+                data: widget.qrLink,
+                version: QrVersions.auto,
+                size: 200,
+                errorCorrectionLevel: QrErrorCorrectLevel.M,
+              ),
+            )
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 }

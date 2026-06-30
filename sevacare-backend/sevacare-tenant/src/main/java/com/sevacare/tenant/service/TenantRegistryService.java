@@ -258,12 +258,14 @@ public class TenantRegistryService {
             );
             
             CREATE TABLE IF NOT EXISTS %s.medical_history (
-                history_public_id VARCHAR(24) PRIMARY KEY,
+                id BIGSERIAL PRIMARY KEY,
                 patient_public_id VARCHAR(24) NOT NULL,
                 tenant_public_id VARCHAR(24) NOT NULL,
-                condition_name VARCHAR(160),
-                diagnosis_date DATE,
+                record_type VARCHAR(50),
+                record_value VARCHAR(255) NOT NULL DEFAULT '',
                 notes TEXT,
+                record_date DATE,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 FOREIGN KEY (patient_public_id) REFERENCES %s.patient(patient_public_id)
             );
             

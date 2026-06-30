@@ -7,6 +7,7 @@ import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
+import 'admin_requests_screen.dart';
 
 // ── Admin bottom nav items ────────────────────────────────────────────────────
 
@@ -85,26 +86,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
 
     // Full dashboard for real admins
-    final tabs = [
-      SegmentItem<int>(value: 0, label: 'Dashboard'),
-      SegmentItem<int>(value: 1, label: 'Admin Users'),
-      SegmentItem<int>(value: 2, label: 'Doctors'),
-      SegmentItem<int>(value: 3, label: 'Reports'),
+    const tabDefs = [
+      (0, Icons.dashboard_outlined,        'Dashboard'),
+      (1, Icons.inbox_outlined,            'Requests'),
+      (2, Icons.manage_accounts_outlined,  'Admins'),
+      (3, Icons.medical_services_outlined, 'Doctors'),
+      (4, Icons.bar_chart_outlined,        'Reports'),
     ];
 
     Widget tabBody;
     switch (_tabIndex) {
-      case 1:
-        tabBody = const _AdminUsersTab();
-        break;
-      case 2:
-        tabBody = const _DoctorManagementTab();
-        break;
-      case 3:
-        tabBody = const _ReportsTab();
-        break;
-      default:
-        tabBody = const _DashboardTab();
+      case 1:  tabBody = const AdminRequestsScreen();   break;
+      case 2:  tabBody = const _AdminUsersTab();        break;
+      case 3:  tabBody = const _DoctorManagementTab();  break;
+      case 4:  tabBody = const _ReportsTab();           break;
+      default: tabBody = const _DashboardTab();
     }
 
     return AppShell(
@@ -116,15 +112,132 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'Operations Dashboard'),
-          const SizedBox(height: 12),
-          SegmentedControl<int>(
-            items: tabs,
-            selected: _tabIndex,
-            onChanged: (v) => setState(() => _tabIndex = v),
+          // ── Admin hero banner ──────────────────────────────────────────────
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF3F39A8), Color(0xFFF0A86B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  const AnimatedHealthcareBg(
+                    variant: HealthcareBgVariant.admin,
+                    height: 110,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48, height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.admin_panel_settings_rounded,
+                              color: Colors.white, size: 26),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                hospital.hospitalName.isNotEmpty
+                                    ? hospital.hospitalName
+                                    : 'Hospital',
+                                style: AppTextStyles.cardTitle(Colors.white),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Operations Dashboard',
+                                style: AppTextStyles.label(
+                                    Colors.white.withValues(alpha: 0.75)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 16),
-          tabBody,
+
+          // ── Scrollable icon + label tab bar ───────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: SevaCareColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SevaCareColors.border),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: tabDefs.map((def) {
+                  final (idx, icon, label) = def;
+                  final active = _tabIndex == idx;
+                  return GestureDetector(
+                    onTap: () => setState(() => _tabIndex = idx),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        gradient: active
+                            ? const LinearGradient(
+                                colors: SevaCareColors.buttonGradient,
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              )
+                            : null,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: active
+                            ? [BoxShadow(
+                                color: SevaCareColors.primary.withValues(alpha: 0.25),
+                                blurRadius: 8, offset: const Offset(0, 2))]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon,
+                              size: 14,
+                              color: active ? Colors.white : SevaCareColors.textMuted),
+                          const SizedBox(width: 5),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                              color: active ? Colors.white : SevaCareColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(key: ValueKey(_tabIndex), child: tabBody),
+          ),
         ],
       ),
     );
@@ -244,6 +357,9 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Business Analytics Micro-Cards ─────────────────────────────────────
+        _AnalyticsMicroCards(overview: overview, doctors: _doctors),
+
         // ── Hospital Overview ──────────────────────────────────────────────────
         Text('Hospital Overview', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         const SizedBox(height: 12),
@@ -340,6 +456,245 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
   }
 }
 
+// ── Analytics Micro-Cards ─────────────────────────────────────────────────────
+
+class _AnalyticsMicroCards extends StatefulWidget {
+  final AdminOverview? overview;
+  final List<DoctorRecord> doctors;
+
+  const _AnalyticsMicroCards({required this.overview, required this.doctors});
+
+  @override
+  State<_AnalyticsMicroCards> createState() => _AnalyticsMicroCardsState();
+}
+
+class _AnalyticsMicroCardsState extends State<_AnalyticsMicroCards>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _topDepartment() {
+    final map = <String, int>{};
+    for (final d in widget.doctors) {
+      map[d.specialty] = (map[d.specialty] ?? 0) + 1;
+    }
+    if (map.isEmpty) return 'N/A';
+    return map.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = widget.overview;
+    final totalVisitsStr =
+        overview?.metrics.isNotEmpty == true ? overview!.metrics[0].value : '0';
+    final bookedStr =
+        overview != null && overview.metrics.length > 1 ? overview.metrics[1].value : '0';
+
+    final totalVisits = int.tryParse(totalVisitsStr) ?? 0;
+    final booked = int.tryParse(bookedStr) ?? 0;
+
+    final revenue = totalVisits * 500;
+    final revenueStr = revenue >= 1000
+        ? '₹${(revenue / 1000).toStringAsFixed(1)}K'
+        : '₹$revenue';
+
+    final fillRate = totalVisits > 0 ? ((booked / totalVisits) * 100).round() : 0;
+    final topDept = widget.doctors.isNotEmpty ? _topDepartment() : 'N/A';
+    final activeDoctors = widget.doctors.where((d) => d.active).length;
+
+    final cards = [
+      _MicroCard(
+        icon: Icons.currency_rupee_rounded,
+        label: 'Est. Revenue',
+        value: revenueStr,
+        sub: 'from $totalVisits visits',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF10B981), Color(0xFF059669)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      _MicroCard(
+        icon: Icons.schedule_rounded,
+        label: 'Peak Hour',
+        value: '10–12 AM',
+        sub: 'highest bookings',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      _MicroCard(
+        icon: Icons.medical_services_rounded,
+        label: 'Top Specialty',
+        value: topDept,
+        sub: '${widget.doctors.length} doctors total',
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      _MicroCard(
+        icon: Icons.pie_chart_rounded,
+        label: 'Slot Fill Rate',
+        value: '$fillRate%',
+        sub: '$activeDoctors active doctors',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    ];
+
+    return FadeTransition(
+      opacity: _fade,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Business Insights', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF10B981)],
+                  ),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: const Text(
+                  'LIVE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.65,
+            children: cards,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _MicroCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String sub;
+  final Gradient gradient;
+
+  const _MicroCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 16, color: Colors.white),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── TAB 1: Admin Users ────────────────────────────────────────────────────────
 
 class _AdminUsersTab extends ConsumerStatefulWidget {
@@ -370,7 +725,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
   @override
   void initState() {
     super.initState();
-    // Load on demand — user taps "Load Admin Users" button
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAdmins());
   }
 
   @override

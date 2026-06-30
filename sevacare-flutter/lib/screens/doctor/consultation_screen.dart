@@ -420,6 +420,28 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           ],
           const SizedBox(height: 16),
 
+          // ── Feature #2: Quick Prescription Templates ──────────────────────
+          _QuickTemplatesBar(
+            onApply: (medicines, notes) {
+              setState(() {
+                _medicines.addAll(medicines);
+                if (notes.isNotEmpty && _notesCtrl.text.isEmpty) {
+                  _notesCtrl.text = notes;
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Template applied — review and adjust medicines.'),
+                  backgroundColor: SevaCareColors.mint,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
           // ── Write Prescription section ─────────────────────────────────────
           Text('Write Prescription', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
           const SizedBox(height: 12),
@@ -818,3 +840,205 @@ class _MedicineRow extends StatelessWidget {
     );
   }
 }
+
+// ── Quick Prescription Templates ──────────────────────────────────────────────
+// Feature #2: One-tap condition templates that pre-fill medicines + notes.
+
+typedef _TemplateApplyCallback = void Function(
+    List<MedicineView> medicines, String notes);
+
+class _QuickTemplatesBar extends StatefulWidget {
+  final _TemplateApplyCallback onApply;
+  const _QuickTemplatesBar({required this.onApply});
+
+  @override
+  State<_QuickTemplatesBar> createState() => _QuickTemplatesBarState();
+}
+
+class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
+  bool _expanded = false;
+
+  static const _templates = [
+    _RxTemplate(
+      label: 'Common Cold',
+      icon: Icons.sick_outlined,
+      color: Color(0xFF6366F1),
+      notes: 'Rest, stay hydrated, avoid cold food/drinks.',
+      medicines: [
+        (name: 'Paracetamol', strength: '500mg', freq: 'TDS', dur: '5 days',   note: 'After food'),
+        (name: 'Cetirizine',  strength: '10mg',  freq: 'OD',  dur: '5 days',   note: 'At night'),
+        (name: 'Ambroxol',    strength: '30mg',  freq: 'BD',  dur: '5 days',   note: 'After food'),
+      ],
+    ),
+    _RxTemplate(
+      label: 'Hypertension',
+      icon: Icons.favorite_border,
+      color: Color(0xFFDB4E2D),
+      notes: 'Low-salt diet. Monitor BP daily. Follow up in 2 weeks.',
+      medicines: [
+        (name: 'Amlodipine',  strength: '5mg',  freq: 'OD', dur: '30 days', note: 'Morning'),
+        (name: 'Telmisartan', strength: '40mg', freq: 'OD', dur: '30 days', note: 'Morning'),
+      ],
+    ),
+    _RxTemplate(
+      label: 'Diabetes F/U',
+      icon: Icons.water_drop_outlined,
+      color: Color(0xFFF0A86B),
+      notes: 'Check HbA1c in 3 months. Low-sugar diet. Walk 30 min daily.',
+      medicines: [
+        (name: 'Metformin',   strength: '500mg', freq: 'BD', dur: '30 days', note: 'After food'),
+        (name: 'Glimepiride', strength: '1mg',   freq: 'OD', dur: '30 days', note: 'Before breakfast'),
+      ],
+    ),
+    _RxTemplate(
+      label: 'Gastritis',
+      icon: Icons.medication_outlined,
+      color: Color(0xFF52C499),
+      notes: 'Avoid spicy food, alcohol, NSAIDs. Eat small frequent meals.',
+      medicines: [
+        (name: 'Pantoprazole', strength: '40mg', freq: 'OD',  dur: '14 days', note: '30 min before food'),
+        (name: 'Domperidone',  strength: '10mg', freq: 'TDS', dur: '7 days',  note: 'Before meals'),
+        (name: 'Sucralfate',   strength: '1g',   freq: 'TDS', dur: '7 days',  note: 'After meals'),
+      ],
+    ),
+    _RxTemplate(
+      label: 'Migraine',
+      icon: Icons.psychology_outlined,
+      color: Color(0xFF7C6FE0),
+      notes: 'Avoid triggers. Rest in dark room during attack.',
+      medicines: [
+        (name: 'Sumatriptan', strength: '50mg',  freq: 'SOS', dur: 'As needed', note: 'At onset'),
+        (name: 'Naproxen',    strength: '500mg', freq: 'BD',  dur: '3 days',    note: 'With food'),
+        (name: 'Propranolol', strength: '20mg',  freq: 'BD',  dur: '30 days',   note: 'Prevention'),
+      ],
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: BoxDecoration(
+              color: SevaCareColors.peachSoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.bolt_rounded, size: 18, color: SevaCareColors.peach),
+                const SizedBox(width: 8),
+                Text(
+                  'Quick Templates',
+                  style: AppTextStyles.body(
+                    size: 13, weight: FontWeight.w700,
+                    color: SevaCareColors.peachForeground,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: SevaCareColors.peach.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('${_templates.length} conditions',
+                      style: AppTextStyles.label(SevaCareColors.peachForeground)),
+                ),
+                const Spacer(),
+                Text(_expanded ? 'Hide' : 'Show',
+                    style: AppTextStyles.label(SevaCareColors.peachForeground)),
+                Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18, color: SevaCareColors.peachForeground),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _templates.map((t) => _TemplateChip(
+              template: t,
+              onTap: () {
+                final medicines = t.medicines.map((m) => MedicineView(
+                  name: m.name,
+                  strength: m.strength,
+                  frequency: m.freq,
+                  duration: m.dur,
+                  instructions: m.note,
+                )).toList();
+                widget.onApply(medicines, t.notes);
+              },
+            )).toList(),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tap a condition to add pre-filled medicines. Edit them below before issuing.',
+            style: AppTextStyles.label(SevaCareColors.textMuted),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RxTemplate {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String notes;
+  final List<({String name, String strength, String freq, String dur, String note})> medicines;
+
+  const _RxTemplate({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.notes,
+    required this.medicines,
+  });
+}
+
+class _TemplateChip extends StatelessWidget {
+  final _RxTemplate template;
+  final VoidCallback onTap;
+  const _TemplateChip({required this.template, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: template.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: template.color.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(template.icon, size: 16, color: template.color),
+            const SizedBox(width: 7),
+            Text(
+              template.label,
+              style: AppTextStyles.body(
+                  size: 13, weight: FontWeight.w600, color: template.color),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '${template.medicines.length} meds',
+              style: AppTextStyles.label(template.color.withValues(alpha: 0.65)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

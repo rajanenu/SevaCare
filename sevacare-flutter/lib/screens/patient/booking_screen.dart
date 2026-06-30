@@ -196,36 +196,33 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       );
 
       if (mounted) {
+        // Resolve doctor name from current selection
+        final bookedDoc = _doctors.where(
+          (d) => d.doctorPublicId == form.selectedDoctorId,
+        ).firstOrNull;
+        final doctorName = bookedDoc?.name ?? '';
+
+        // Format slot for display: "2 Jul · 10:30 AM"
+        String displaySlot = combinedSlot;
+        try {
+          final dt = DateTime.parse(combinedSlot.replaceFirst(' ', 'T')).toLocal();
+          final months = ['Jan','Feb','Mar','Apr','May','Jun',
+                          'Jul','Aug','Sep','Oct','Nov','Dec'];
+          final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+          final min = dt.minute.toString().padLeft(2, '0');
+          final ampm = dt.hour < 12 ? 'AM' : 'PM';
+          displaySlot = '${dt.day} ${months[dt.month - 1]} · $hour:$min $ampm';
+        } catch (_) {}
+
         ref.read(bookingFormProvider.notifier).reset();
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-            ),
-            title: Row(
-              children: [
-                const Icon(Icons.check_circle, color: SevaCareColors.mint, size: 28),
-                const SizedBox(width: 10),
-                Text('Booked!', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-              ],
-            ),
-            content: Text(
-              'Your appointment has been booked successfully.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-            ),
-            actions: [
-              PrimaryButton(
-                label: 'Go to Dashboard',
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  context.go('/patient');
-                },
-              ),
-            ],
-          ),
+
+        await showBookingSuccessOverlay(
+          context,
+          doctorName: doctorName,
+          displaySlot: displaySlot,
         );
+
+        if (mounted) context.go('/patient');
       }
     } catch (e) {
       if (mounted) {
