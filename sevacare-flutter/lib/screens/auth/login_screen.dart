@@ -140,9 +140,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
     }
-    // Token expired or not found — fall back to OTP
+    // Token was expired or missing — wipe stale storage and disable biometric
+    await BiometricService.setEnabled(false);
+    await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+    if (!mounted) return;
+    setState(() => _biometricEnabled = false);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Session expired. Please log in with OTP.'),
+      content: Text('Session expired — please log in with OTP. Biometric has been disabled.'),
     ));
   }
 

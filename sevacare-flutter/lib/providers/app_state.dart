@@ -177,14 +177,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _storage.write(key: _kSubjectName, value: session.subjectName);
   }
 
-  Future<void> clearSession() async {
+  /// Clears in-memory session.
+  ///
+  /// If [wipeStorage] is false (the default for user-initiated sign-out) and
+  /// biometric unlock is enabled, the encrypted credentials stay in secure
+  /// storage so biometric can restore the session without OTP.
+  ///
+  /// Pass [wipeStorage] = true for:
+  ///   - 401 auto-logout (token is expired — keeping it is pointless)
+  ///   - "Sign out fully / disable biometric" user action
+  Future<void> clearSession({bool wipeStorage = false}) async {
     state = AuthState.unauthenticated;
-    await _storage.delete(key: _kToken);
-    await _storage.delete(key: _kTenantId);
-    await _storage.delete(key: _kSubjectId);
-    await _storage.delete(key: _kRole);
-    await _storage.delete(key: _kIsGeneric);
-    await _storage.delete(key: _kSubjectName);
+    if (wipeStorage) {
+      await _storage.delete(key: _kToken);
+      await _storage.delete(key: _kTenantId);
+      await _storage.delete(key: _kSubjectId);
+      await _storage.delete(key: _kRole);
+      await _storage.delete(key: _kIsGeneric);
+      await _storage.delete(key: _kSubjectName);
+    }
+    // When wipeStorage is false, credentials stay encrypted in secure storage.
+    // Only biometric auth can re-activate the session (via restore()).
   }
 
   Future<bool> restore() async {

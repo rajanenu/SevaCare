@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/models/models.dart';
@@ -125,7 +126,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _signOut(BuildContext context) async {
-    await ref.read(authProvider.notifier).clearSession();
+    final biometricEnabled = await BiometricService.isEnabled();
+    if (!context.mounted) return;
+
+    if (biometricEnabled) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SevaCareColors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          content: Text(
+            'Your biometric unlock is active. How would you like to sign out?',
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'soft'),
+              child: Text('Sign Out', style: AppTextStyles.label(SevaCareColors.primary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'hard'),
+              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              child: const Text('Sign Out & Disable Biometric'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || choice == 'cancel' || !context.mounted) return;
+      if (choice == 'hard') {
+        await BiometricService.setEnabled(false);
+        await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+      } else {
+        await ref.read(authProvider.notifier).clearSession(wipeStorage: false);
+      }
+    } else {
+      await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+    }
+
     if (context.mounted) context.go('/');
   }
 }

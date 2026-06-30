@@ -68,7 +68,8 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
     // sends the user back to the welcome screen.
     apiClient.onUnauthorized = () {
       if (mounted) {
-        ref.read(authProvider.notifier).clearSession();
+        // 401 = token is genuinely expired — always wipe storage
+        ref.read(authProvider.notifier).clearSession(wipeStorage: true);
         _router.go('/');
       }
     };

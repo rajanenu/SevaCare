@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/error_utils.dart';
@@ -232,26 +233,76 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ── Sign out ──────────────────────────────────────────────────────────────────
 
   Future<void> _signOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+    final biometricEnabled = await BiometricService.isEnabled();
+
+    if (!mounted) return;
+
+    // When biometric is enabled, offer two choices so the user understands what happens
+    if (biometricEnabled) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SevaCareColors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          content: Text(
+            'Your biometric unlock is active. How would you like to sign out?',
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    await ref.read(authProvider.notifier).clearSession();
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ),
+            // Soft sign-out: credentials stay → biometric can re-unlock without OTP
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'soft'),
+              child: Text('Sign Out', style: AppTextStyles.label(SevaCareColors.primary)),
+            ),
+            // Hard sign-out: wipes everything, disables biometric
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'hard'),
+              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              child: const Text('Sign Out & Disable Biometric'),
+            ),
+          ],
+        ),
+      );
+
+      if (choice == null || choice == 'cancel' || !mounted) return;
+
+      if (choice == 'hard') {
+        await BiometricService.setEnabled(false);
+        await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+      } else {
+        // Soft: clear in-memory state, keep encrypted credentials for biometric
+        await ref.read(authProvider.notifier).clearSession(wipeStorage: false);
+      }
+    } else {
+      // No biometric — standard confirm dialog
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: SevaCareColors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          content: Text('Are you sure you want to sign out?',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+    }
+
     if (mounted) context.go('/');
   }
 
