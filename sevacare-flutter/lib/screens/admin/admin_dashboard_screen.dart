@@ -354,9 +354,32 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         ? overview.metrics[2].value
         : '0';
 
+    // Derive "Today at a glance" numbers from metrics
+    final todayVisits    = int.tryParse(overview?.metrics.isNotEmpty == true
+        ? overview!.metrics[0].value : '0') ?? 0;
+    final upcomingBooked = int.tryParse(overview != null && overview.metrics.length > 1
+        ? overview.metrics[1].value : '0') ?? 0;
+    final activeDoctors  = _doctors.where((d) => d.active).length;
+    // Pending leaves come from AdminRequests — approximate from overview if available
+    // (backend can expose this; we show 0 if not present yet)
+    const pendingLeaves  = 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── TODAY AT A GLANCE (actionable, shown first) ────────────────────────
+        _TodayGlanceSection(
+          todayVisits:     todayVisits,
+          upcomingBooked:  upcomingBooked,
+          activeDoctors:   activeDoctors,
+          pendingLeaves:   pendingLeaves,
+          onViewRequests:  () {
+            // Navigate to Requests tab (tab index 1)
+            context.go('/admin');
+          },
+        ),
+        const SizedBox(height: 24),
+
         // ── Business Analytics Micro-Cards ─────────────────────────────────────
         _AnalyticsMicroCards(overview: overview, doctors: _doctors),
 
@@ -452,6 +475,215 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+// ── Today at a Glance ────────────────────────────────────────────────────────
+
+class _TodayGlanceSection extends StatelessWidget {
+  final int todayVisits;
+  final int upcomingBooked;
+  final int activeDoctors;
+  final int pendingLeaves;
+  final VoidCallback onViewRequests;
+
+  const _TodayGlanceSection({
+    required this.todayVisits,
+    required this.upcomingBooked,
+    required this.activeDoctors,
+    required this.pendingLeaves,
+    required this.onViewRequests,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPending = pendingLeaves > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text('Today at a Glance',
+              style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: SevaCareColors.primarySoft,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              'LIVE',
+              style: TextStyle(
+                color: SevaCareColors.primary,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+
+        // ── Action-needed alert (pending leaves) ──────────────────────────────
+        if (hasPending) ...[
+          Semantics(
+            label: '$pendingLeaves pending leave requests need your attention',
+            button: true,
+            child: GestureDetector(
+              onTap: onViewRequests,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: SevaCareColors.warningSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: SevaCareColors.warning.withValues(alpha: 0.4)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: SevaCareColors.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '$pendingLeaves leave request${pendingLeaves == 1 ? '' : 's'} awaiting approval',
+                      style: AppTextStyles.bodyText(SevaCareColors.warning),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded,
+                      size: 12, color: SevaCareColors.warning),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // ── Primary stat row ──────────────────────────────────────────────────
+        Row(children: [
+          Expanded(
+            child: _GlanceTile(
+              icon: Icons.people_alt_rounded,
+              label: "Today's Patients",
+              value: '$todayVisits',
+              color: SevaCareColors.primary,
+              bg: SevaCareColors.primarySoft,
+              isActionable: false,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _GlanceTile(
+              icon: Icons.schedule_rounded,
+              label: 'Upcoming',
+              value: '$upcomingBooked',
+              color: const Color(0xFFD97706),
+              bg: SevaCareColors.warningSurface,
+              isActionable: upcomingBooked > 0,
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: _GlanceTile(
+              icon: Icons.medical_services_rounded,
+              label: 'Active Doctors',
+              value: '$activeDoctors',
+              color: SevaCareColors.mintForeground,
+              bg: SevaCareColors.mintSoft,
+              isActionable: false,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _GlanceTile(
+              icon: Icons.inbox_outlined,
+              label: 'Pending Leaves',
+              value: '$pendingLeaves',
+              color: pendingLeaves > 0
+                  ? SevaCareColors.danger
+                  : SevaCareColors.textMuted,
+              bg: pendingLeaves > 0
+                  ? SevaCareColors.errorSurface
+                  : SevaCareColors.surfaceMuted,
+              isActionable: pendingLeaves > 0,
+              onTap: pendingLeaves > 0 ? onViewRequests : null,
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+}
+
+class _GlanceTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final Color bg;
+  final bool isActionable;
+  final VoidCallback? onTap;
+
+  const _GlanceTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.bg,
+    required this.isActionable,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$label: $value${isActionable ? ', tap to view' : ''}',
+      button: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: color.withValues(alpha: isActionable ? 0.35 : 0.15),
+              width: isActionable ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(icon, size: 16, color: color),
+                if (isActionable) ...[
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      size: 10, color: color.withValues(alpha: 0.6)),
+                ],
+              ]),
+              const SizedBox(height: 8),
+              Text(value,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    height: 1,
+                  )),
+              const SizedBox(height: 4),
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: color.withValues(alpha: 0.75),
+                  )),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

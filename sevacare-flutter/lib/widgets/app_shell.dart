@@ -9,6 +9,7 @@ import '../data/models/models.dart';
 import '../providers/app_state.dart';
 import 'app_avatar.dart';
 import 'bottom_nav.dart';
+import 'connectivity_banner.dart';
 import 'orb_background.dart';
 
 const double _kMaxContentWidth = 520;
@@ -79,12 +80,18 @@ class AppShell extends StatelessWidget {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
-                    child: _TopBar(
-                      hospitalName: hospitalName,
-                      role: role,
-                      actions: headerActions,
-                      showBackButton: showBackButton,
-                      onBack: onBack,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _TopBar(
+                          hospitalName: hospitalName,
+                          role: role,
+                          actions: headerActions,
+                          showBackButton: showBackButton,
+                          onBack: onBack,
+                        ),
+                        const ConnectivityBanner(),
+                      ],
                     ),
                   ),
                 ),
@@ -172,26 +179,37 @@ class _TopBar extends ConsumerWidget {
       child: Row(
         children: [
           if (showBackButton) ...[
-            GestureDetector(
-              onTap: onBack ?? () {
-                final nav = Navigator.of(context);
-                if (nav.canPop()) nav.pop();
-              },
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: SevaCareColors.border, width: 1),
-                ),
-                child: const Center(
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      size: 13, color: SevaCareColors.text),
+            Semantics(
+              label: 'Go back',
+              button: true,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: GestureDetector(
+                  onTap: onBack ?? () {
+                    final nav = Navigator.of(context);
+                    if (nav.canPop()) nav.pop();
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: SevaCareColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: SevaCareColors.border, width: 1),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
+                            size: 13, color: SevaCareColors.text),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 2),
           ],
           Container(
             width: 32,
@@ -245,24 +263,74 @@ class _TopBar extends ConsumerWidget {
               foregroundColor: _roleFg(role!),
               icon: _roleIcon(role!),
             ),
-          if (showBell) ...[
-            const SizedBox(width: 6),
-            const _NotificationBell(),
-          ],
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => context.go('/help'),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: SevaCareColors.surfaceMuted,
-                shape: BoxShape.circle,
-                border: Border.all(color: SevaCareColors.border, width: 1),
+          // Search — available for all authenticated roles
+          if (role != null && role != UserRole.platformAdmin) ...[
+            const SizedBox(width: 2),
+            Semantics(
+              label: 'Search doctors and patients',
+              button: true,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: GestureDetector(
+                  onTap: () => context.push('/global-search'),
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: SevaCareColors.surfaceMuted,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: SevaCareColors.border, width: 1),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.search_rounded,
+                            size: 14, color: SevaCareColors.textMuted),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: const Center(
-                child: Icon(Icons.help_outline_rounded,
-                    size: 14, color: SevaCareColors.textMuted),
+            ),
+          ],
+          if (showBell) ...[
+            const SizedBox(width: 2),
+            Semantics(
+              label: 'Notifications',
+              button: true,
+              child: const SizedBox(
+                width: 44,
+                height: 44,
+                child: Center(child: _NotificationBell()),
+              ),
+            ),
+          ],
+          const SizedBox(width: 2),
+          Semantics(
+            label: 'Help and support',
+            button: true,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: GestureDetector(
+                onTap: () => context.go('/help'),
+                behavior: HitTestBehavior.opaque,
+                child: Center(
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.surfaceMuted,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: SevaCareColors.border, width: 1),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.help_outline_rounded,
+                          size: 14, color: SevaCareColors.textMuted),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

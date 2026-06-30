@@ -27,6 +27,7 @@ import 'screens/profile/settings_screen.dart';
 import 'screens/qr/qr_appointment_form_screen.dart';
 import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
+import 'screens/search/global_search_screen.dart';
 
 /// Shared slide+fade page transition used by every GoRoute.
 CustomTransitionPage<void> _slidePage(
@@ -258,6 +259,10 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(
           path: '/notifications',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const NotificationScreen()),
+        ),
+        GoRoute(
+          path: '/global-search',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const GlobalSearchScreen()),
         ),
       ],
       errorBuilder: (ctx, state) => Scaffold(

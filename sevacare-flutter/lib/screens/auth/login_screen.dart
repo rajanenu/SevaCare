@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -57,22 +58,92 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _roleSelected = false;
   int _resendCountdown = 0;
 
+  // Biometric state
+  bool _biometricAvailable = false;
+  bool _biometricEnabled  = false;
+  String _biometricLabel  = 'Biometric';
+
   @override
   void initState() {
     super.initState();
-    // Always reset to patient on entry (clears stale role from previous hospital visit)
     final startRole = widget.platformAdminMode ? UserRole.platformAdmin : UserRole.patient;
     _mobileCtrl = TextEditingController(text: _defaultMobile(startRole));
-    _emailCtrl = TextEditingController();
-    _otpCtrl = TextEditingController(text: '0000');
-    // Send OTP is enabled from the start — patient tab is pre-selected by default
+    _emailCtrl  = TextEditingController();
+    _otpCtrl    = TextEditingController(text: '0000');
     _roleSelected = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(activeRoleProvider.notifier).state = startRole;
       ref.read(loginFormProvider.notifier).reset();
+      _checkBiometric();
     });
+  }
+
+  Future<void> _checkBiometric() async {
+    final available = await BiometricService.isAvailable();
+    final enabled   = await BiometricService.isEnabled();
+    final label     = await BiometricService.biometricLabel();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _biometricEnabled   = enabled;
+      _biometricLabel     = label;
+    });
+  }
+
+  /// Called after successful OTP verification — offers to enable biometric.
+  Future<void> _promptEnableBiometric() async {
+    if (!_biometricAvailable || _biometricEnabled) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        title: Text('Enable $_biometricLabel?',
+            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        content: Text(
+          'Use $_biometricLabel to unlock SevaCare next time — '
+          'OTP will always be available as a fallback.',
+          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Not now',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: SevaCareColors.primary),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Enable',
+                style: AppTextStyles.label(Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await BiometricService.setEnabled(true);
+  }
+
+  /// Unlock using stored biometric credentials.
+  Future<void> _loginWithBiometric() async {
+    final ok = await BiometricService.authenticate(
+        reason: 'Unlock SevaCare with $_biometricLabel');
+    if (!ok || !mounted) return;
+
+    final restored = await ref.read(authProvider.notifier).restore();
+    if (!mounted) return;
+    if (restored) {
+      final role = ref.read(authProvider).role;
+      if (role != null) {
+        context.go(_routeForRole(role));
+        return;
+      }
+    }
+    // Token expired or not found — fall back to OTP
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Session expired. Please log in with OTP.'),
+    ));
   }
 
   @override
@@ -169,7 +240,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(authProvider.notifier).setSession(session);
       ref.read(loginMobileProvider.notifier).state = mobile;
       if (mounted) {
-        context.go(_routeForRole(role));
+        await _promptEnableBiometric();
+        if (mounted) context.go(_routeForRole(role));
       }
     } catch (e) {
       notifier.setError(_friendlyError(e));
@@ -254,6 +326,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ],
             const SizedBox(height: 20),
           ],
+          // ── Biometric quick-unlock (shown when enabled + token exists) ──
+          if (_biometricEnabled && !widget.platformAdminMode) ...[
+            _BiometricUnlockCard(
+              label: _biometricLabel,
+              onTap: _loginWithBiometric,
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ── Login card ───────────────────────────────────────────────────
           AppCard(
             padding: const EdgeInsets.all(20),
@@ -364,6 +445,79 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 16),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Biometric Unlock Card ─────────────────────────────────────────────────────
+
+class _BiometricUnlockCard extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _BiometricUnlockCard({required this.label, required this.onTap});
+
+  IconData get _icon {
+    if (label == 'Face ID') return Icons.face_retouching_natural_rounded;
+    if (label == 'Fingerprint') return Icons.fingerprint_rounded;
+    return Icons.lock_open_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Unlock with $label',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3F39A8), Color(0xFF7C6FE0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            boxShadow: [
+              BoxShadow(
+                color: SevaCareColors.primary.withValues(alpha: 0.30),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(child: Icon(_icon, size: 24, color: Colors.white)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Quick Unlock',
+                        style: AppTextStyles.cardTitle(Colors.white)),
+                    const SizedBox(height: 2),
+                    Text('Use $label to sign in instantly',
+                        style: AppTextStyles.label(
+                            Colors.white.withValues(alpha: 0.75))),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: Colors.white70),
+            ],
+          ),
+        ),
       ),
     );
   }

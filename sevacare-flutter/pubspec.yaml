@@ -41,6 +41,12 @@ dependencies:
   # Shimmer skeleton loading
   shimmer: ^3.0.0
 
+  # Biometric authentication (Face ID / fingerprint / PIN fallback)
+  local_auth: ^2.3.0
+
+  # Network connectivity monitoring
+  connectivity_plus: ^6.1.1
+
   # PDF generation and download
   pdf: ^3.10.8
   printing: ^5.13.2
