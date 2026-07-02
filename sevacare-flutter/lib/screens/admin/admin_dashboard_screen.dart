@@ -12,11 +12,11 @@ import 'admin_requests_screen.dart';
 // ── Admin bottom nav items ────────────────────────────────────────────────────
 
 List<BottomNavItem> _adminNavItems() => const [
-  BottomNavItem(label: 'Dashboard', icon: Icons.dashboard_outlined, route: '/admin'),
-  BottomNavItem(label: 'Admins', icon: Icons.manage_accounts_outlined, route: '/admin/users'),
-  BottomNavItem(label: 'Doctors', icon: Icons.medical_services_outlined, route: '/admin/doctors'),
-  BottomNavItem(label: 'Reports', icon: Icons.bar_chart_outlined, route: '/admin/reports'),
-  BottomNavItem(label: 'Profile', icon: Icons.person_outline, route: '/admin/profile'),
+  BottomNavItem(label: 'Dashboard', icon: Icons.dashboard_outlined,       route: '/admin'),
+  BottomNavItem(label: 'Admins',    icon: Icons.manage_accounts_outlined,  route: '/admin/users'),
+  BottomNavItem(label: 'Doctors',   icon: Icons.medical_services_outlined, route: '/admin/doctors'),
+  BottomNavItem(label: 'Staff',     icon: Icons.badge_outlined,            route: '/admin/staff'),
+  BottomNavItem(label: 'Profile',   icon: Icons.person_outline,            route: '/admin/profile'),
 ];
 
 // ── Root screen with tab controller ──────────────────────────────────────────
@@ -90,7 +90,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       (0, Icons.dashboard_outlined,        'Dashboard'),
       (1, Icons.inbox_outlined,            'Requests'),
       (2, Icons.manage_accounts_outlined,  'Admins'),
-      (3, Icons.medical_services_outlined, 'Doctors'),
+      (3, Icons.groups_outlined,           'Team'),
       (4, Icons.bar_chart_outlined,        'Reports'),
     ];
 
@@ -98,7 +98,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     switch (_tabIndex) {
       case 1:  tabBody = const AdminRequestsScreen();   break;
       case 2:  tabBody = const _AdminUsersTab();        break;
-      case 3:  tabBody = const _DoctorManagementTab();  break;
+      case 3:  tabBody = const _TeamManagementTab();    break;
       case 4:  tabBody = const _ReportsTab();           break;
       default: tabBody = const _DashboardTab();
     }
@@ -107,7 +107,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
       role: UserRole.admin,
       bottomNavItems: _adminNavItems(),
-      currentNavIndex: widget.initialTab,
+      currentNavIndex: const {0:0, 1:0, 2:1, 3:2, 4:3}[_tabIndex] ?? 0,
       onNavTap: _handleNavTap,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +128,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 children: [
                   const AnimatedHealthcareBg(
                     variant: HealthcareBgVariant.admin,
-                    height: 110,
+                    height: 130,
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1416,7 +1416,47 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
   }
 }
 
-// ── TAB 2: Doctor Management ──────────────────────────────────────────────────
+// ── TAB 3: Team Management (Doctor + Staff merged) ────────────────────────────
+
+class _TeamManagementTab extends StatefulWidget {
+  const _TeamManagementTab();
+
+  @override
+  State<_TeamManagementTab> createState() => _TeamManagementTabState();
+}
+
+class _TeamManagementTabState extends State<_TeamManagementTab> {
+  int _segment = 0; // 0 = Doctors, 1 = Staff
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = [
+      SegmentItem<int>(value: 0, label: 'Doctors'),
+      SegmentItem<int>(value: 1, label: 'Staff'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedControl<int>(
+          items: segments,
+          selected: _segment,
+          onChanged: (v) => setState(() => _segment = v),
+        ),
+        const SizedBox(height: 16),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+          child: _segment == 0
+              ? const KeyedSubtree(key: ValueKey('doc'), child: _DoctorManagementTab())
+              : const KeyedSubtree(key: ValueKey('staff'), child: _StaffManagementTab()),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Doctor Management (inner tab) ─────────────────────────────────────────────
 
 class _DoctorManagementTab extends ConsumerStatefulWidget {
   const _DoctorManagementTab();
@@ -1610,6 +1650,48 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Delete failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateDoctorAvailability(DoctorRecord doctor, String newAvailability) async {
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final repo = ref.read(repositoryProvider);
+      await repo.upsertDoctorRecord(
+        hospital.tenantPublicId,
+        doctor.doctorPublicId,
+        auth.token ?? '',
+        DoctorUpsertRequest(
+          fullName: doctor.fullName,
+          specialty: doctor.specialty,
+          availability: newAvailability,
+          fee: doctor.fee,
+          active: doctor.active,
+          age: doctor.age,
+          address: doctor.address,
+          aboutMe: doctor.aboutMe,
+          experience: doctor.experience,
+          mobileNumber: doctor.mobileNumber,
+          email: doctor.email,
+        ),
+      );
+      await _loadDoctors();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${doctor.fullName} marked as $newAvailability.'),
+          backgroundColor: newAvailability == 'On Leave' ? SevaCareColors.peach : SevaCareColors.mint,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: SevaCareColors.danger),
         );
       }
     }
@@ -1871,6 +1953,54 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
+                              // Quick availability toggle
+                              if (doctor.availability != 'On Leave')
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () => _updateDoctorAvailability(doctor, 'On Leave'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF4EE),
+                                        borderRadius: BorderRadius.circular(99),
+                                        border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.5)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.event_busy_outlined, size: 13, color: SevaCareColors.peach),
+                                          const SizedBox(width: 4),
+                                          Text('Mark Leave', style: AppTextStyles.label(SevaCareColors.peach)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () => _updateDoctorAvailability(doctor, 'Available'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: SevaCareColors.mintSoft,
+                                        borderRadius: BorderRadius.circular(99),
+                                        border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.5)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.event_available_outlined, size: 13, color: SevaCareColors.mint),
+                                          const SizedBox(width: 4),
+                                          Text('Mark Available', style: AppTextStyles.label(SevaCareColors.mintForeground)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              const Spacer(),
                               IconBtn(
                                 icon: Icons.delete_outline,
                                 iconColor: SevaCareColors.danger,
@@ -1965,21 +2095,26 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
     }
 
     final ov = _overview;
-    final totalVisits = ov?.metrics.isNotEmpty == true ? ov!.metrics[0].value : '0';
-    final upcoming = ov != null && ov.metrics.length > 1 ? ov.metrics[1].value : '0';
-    final completed = ov != null && ov.metrics.length > 2 ? ov.metrics[2].value : '0';
+    final totalVisits = int.tryParse(ov?.metrics.isNotEmpty == true ? ov!.metrics[0].value : '0') ?? 0;
+    final upcoming = int.tryParse(ov != null && ov.metrics.length > 1 ? ov.metrics[1].value : '0') ?? 0;
+    final completed = int.tryParse(ov != null && ov.metrics.length > 2 ? ov.metrics[2].value : '0') ?? 0;
 
-    final filterSegments = [
-      SegmentItem<int>(value: 0, label: 'Today'),
-      SegmentItem<int>(value: 1, label: 'This Week'),
-      SegmentItem<int>(value: 2, label: 'This Month'),
-      SegmentItem<int>(value: 3, label: 'This Year'),
-    ];
+    // Estimate revenue: completed visits × average fee (₹500 baseline)
+    const avgFee = 500;
+    final estRevenue = completed * avgFee;
+    final revenueLabel = estRevenue >= 1000
+        ? '₹${(estRevenue / 1000).toStringAsFixed(1)}K'
+        : '₹$estRevenue';
+
+    final periods = ['Today', 'This Week', 'This Month', 'This Year'];
+    final filterSegments = periods.asMap().entries
+        .map((e) => SegmentItem<int>(value: e.key, label: e.value))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Appointment Reports', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        Text('Clinic Performance', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         const SizedBox(height: 12),
         SegmentedControl<int>(
           items: filterSegments,
@@ -1987,39 +2122,575 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
           onChanged: (v) => setState(() => _timeFilter = v),
         ),
         const SizedBox(height: 16),
+
+        // Revenue highlight card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6C63FF), Color(0xFF4A42CC)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Est. Revenue', style: AppTextStyles.label(Colors.white.withValues(alpha: 0.75))),
+                    const SizedBox(height: 4),
+                    Text(revenueLabel,
+                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${periods[_timeFilter]}  ·  $completed completed visits × ₹$avgFee avg',
+                      style: AppTextStyles.label(Colors.white.withValues(alpha: 0.65)),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
+                child: const Icon(Icons.currency_rupee, color: Colors.white, size: 28),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Appointment metrics
         MetricRow(
           tiles: [
-            MetricTile(value: totalVisits, label: 'Total Visits', variant: MetricVariant.primary),
-            MetricTile(value: upcoming, label: 'Upcoming', variant: MetricVariant.mint),
+            MetricTile(value: totalVisits.toString(), label: 'Total Visits', variant: MetricVariant.primary),
+            MetricTile(value: upcoming.toString(), label: 'Upcoming', variant: MetricVariant.mint),
           ],
         ),
         const SizedBox(height: 8),
         MetricRow(
           tiles: [
-            MetricTile(value: completed, label: 'Completed', variant: MetricVariant.peach),
-            MetricTile(value: '0', label: 'Cancelled', variant: MetricVariant.danger),
+            MetricTile(value: completed.toString(), label: 'Completed', variant: MetricVariant.peach),
+            MetricTile(
+              value: '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(0) : 0}%',
+              label: 'Completion',
+              variant: MetricVariant.danger,
+            ),
           ],
         ),
-        const SizedBox(height: 24),
-        Text('Summary', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        const SizedBox(height: 20),
+
+        // Clinic health tips section
+        Text('Clinic Insights', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         const SizedBox(height: 12),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              InfoRow(label: 'Total Appointments', value: totalVisits),
-              InfoRow(label: 'Upcoming / Booked', value: upcoming),
-              InfoRow(label: 'Completed', value: completed),
-              InfoRow(label: 'Cancelled', value: '0'),
-              InfoRow(
-                label: 'Period',
-                value: ['Today', 'This Week', 'This Month', 'This Year'][_timeFilter],
+              InfoRow(label: 'Period', value: periods[_timeFilter]),
+              InfoRow(label: 'Total Appointments', value: totalVisits.toString()),
+              InfoRow(label: 'Upcoming / Booked', value: upcoming.toString()),
+              InfoRow(label: 'Completed Consultations', value: completed.toString()),
+              InfoRow(label: 'Completion Rate',
+                  value: '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(1) : 0}%'),
+              InfoRow(label: 'Est. Revenue (₹500/visit)', value: revenueLabel),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Tip card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: SevaCareColors.mintSoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.lightbulb_outline, size: 18, color: SevaCareColors.mint),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Revenue shown is an estimate. Update each doctor\'s fee in the Doctors tab for accurate reporting.',
+                  style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+// ── TAB 4: Staff Management ───────────────────────────────────────────────────
+
+class _StaffManagementTab extends ConsumerStatefulWidget {
+  const _StaffManagementTab();
+
+  @override
+  ConsumerState<_StaffManagementTab> createState() => _StaffManagementTabState();
+}
+
+class _StaffManagementTabState extends ConsumerState<_StaffManagementTab> {
+  List<AdminUserRecord> _staff = [];
+  List<StaffBookingStat> _stats = [];
+  bool _loading = false;
+  bool _loadingStats = false;
+  String? _error;
+  bool _showAddForm = false;
+  bool _saving = false;
+  String? _formError;
+  String? _formSuccess;
+  int _statsPeriod = 1; // 0=Today 1=Week 2=Month 3=Year
+
+  final _nameCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStaff();
+      _loadStats();
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _mobileCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStaff() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final list = await ref.read(repositoryProvider).listStaff(
+        hospital.tenantPublicId, auth.token ?? '',
+      );
+      if (mounted) {
+        list.sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+        setState(() { _staff = list; _loading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = extractErrorMessage(e, fallback: 'Failed to load staff.'); _loading = false; });
+    }
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _loadingStats = true);
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final stats = await ref.read(repositoryProvider).getStaffBookingStats(
+        hospital.tenantPublicId, auth.token ?? '',
+      );
+      if (mounted) setState(() { _stats = stats; _loadingStats = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingStats = false);
+    }
+  }
+
+  Future<void> _saveStaff() async {
+    final name = _nameCtrl.text.trim();
+    final mobile = _mobileCtrl.text.trim();
+    if (name.isEmpty) { setState(() => _formError = 'Name is required.'); return; }
+    if (mobile.isEmpty || mobile.length < 10) { setState(() => _formError = 'Valid 10-digit mobile number is required.'); return; }
+
+    setState(() { _saving = true; _formError = null; _formSuccess = null; });
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      await ref.read(repositoryProvider).createStaff(
+        hospital.tenantPublicId,
+        auth.token ?? '',
+        AdminUserUpsertRequest(fullName: name, mobileNumber: mobile, userType: 'STAFF'),
+      );
+      if (mounted) {
+        _nameCtrl.clear();
+        _mobileCtrl.clear();
+        setState(() {
+          _formSuccess = 'Staff member "$name" added. They can now log in with mobile $mobile.';
+          _showAddForm = false;
+          _saving = false;
+        });
+        await _loadStaff();
+      }
+    } catch (e) {
+      if (mounted) setState(() { _formError = extractErrorMessage(e, fallback: 'Failed to add staff.'); _saving = false; });
+    }
+  }
+
+  Future<void> _deactivate(AdminUserRecord s) async {
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      await ref.read(repositoryProvider).deactivateStaff(hospital.tenantPublicId, s.adminPublicId, auth.token ?? '');
+      if (mounted) await _loadStaff();
+    } catch (e) {
+      if (mounted) setState(() => _error = extractErrorMessage(e, fallback: 'Failed to deactivate.'));
+    }
+  }
+
+  Future<void> _delete(AdminUserRecord s) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove Staff'),
+        content: Text('Remove "${s.fullName}" (${s.mobileNumber ?? ''}) from staff? They will no longer be able to log in.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      await ref.read(repositoryProvider).deleteStaff(hospital.tenantPublicId, s.adminPublicId, auth.token ?? '');
+      if (mounted) await _loadStaff();
+    } catch (e) {
+      if (mounted) setState(() => _error = extractErrorMessage(e, fallback: 'Failed to remove staff.'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PageHeader(
+          title: 'IP-Staff',
+          subtitle: 'Manage hospital staff who can register patients and book appointments.',
+        ),
+        const SizedBox(height: 4),
+
+        // Info banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: SevaCareColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 16, color: SevaCareColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Only registered staff members can log in as IP-Staff. '
+                  'Add a staff member here, then they can log in using their mobile number.',
+                  style: AppTextStyles.label(SevaCareColors.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Success / error banners
+        if (_formSuccess != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SevaCareColors.mintSoft,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.check_circle_outline, size: 16, color: SevaCareColors.mint),
+              const SizedBox(width: 8),
+              Expanded(child: Text(_formSuccess!, style: AppTextStyles.label(SevaCareColors.mintForeground))),
+              GestureDetector(
+                onTap: () => setState(() => _formSuccess = null),
+                child: const Icon(Icons.close, size: 14, color: SevaCareColors.mintForeground),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (_error != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SevaCareColors.danger.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: SevaCareColors.danger.withValues(alpha: 0.3)),
+            ),
+            child: Text(_error!, style: AppTextStyles.label(SevaCareColors.danger)),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Add Staff button / form
+        if (!_showAddForm)
+          PrimaryButton(
+            label: 'Add Staff Member',
+            icon: Icons.person_add_outlined,
+            fullWidth: true,
+            onPressed: () => setState(() { _showAddForm = true; _formError = null; }),
+          )
+        else
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.badge_outlined, size: 18, color: SevaCareColors.primary),
+                    const SizedBox(width: 8),
+                    Text('New Staff Member', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() { _showAddForm = false; _formError = null; _nameCtrl.clear(); _mobileCtrl.clear(); }),
+                      child: const Icon(Icons.close, size: 18, color: SevaCareColors.textMuted),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                AppFormField(
+                  label: 'Full Name',
+                  controller: _nameCtrl,
+                  placeholder: 'e.g. Ravi Kumar',
+                ),
+                AppFormField(
+                  label: 'Mobile Number',
+                  controller: _mobileCtrl,
+                  placeholder: '10-digit mobile',
+                  keyboardType: TextInputType.phone,
+                ),
+                if (_formError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(_formError!, style: AppTextStyles.label(SevaCareColors.danger)),
+                ],
+                const SizedBox(height: 12),
+                PrimaryButton(
+                  label: 'Add Staff',
+                  icon: Icons.check_rounded,
+                  isLoading: _saving,
+                  fullWidth: true,
+                  onPressed: _saving ? null : _saveStaff,
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 20),
+
+        // ── Booking Metrics Section ────────────────────────────────────────
+        if (_loadingStats)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          ),
+        if (_stats.isNotEmpty) ...[
+          Text('Staff Booking Metrics', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          const SizedBox(height: 8),
+          SegmentedControl<int>(
+            items: const [
+              SegmentItem(value: 0, label: 'Today'),
+              SegmentItem(value: 1, label: 'Week'),
+              SegmentItem(value: 2, label: 'Month'),
+              SegmentItem(value: 3, label: 'Year'),
+            ],
+            selected: _statsPeriod,
+            onChanged: (v) => setState(() => _statsPeriod = v),
+          ),
+          const SizedBox(height: 10),
+          ..._stats.map((stat) {
+            final count = switch (_statsPeriod) {
+              0 => stat.todayCount,
+              1 => stat.weekCount,
+              2 => stat.monthCount,
+              _ => stat.yearCount,
+            };
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: AppCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: SevaCareColors.primarySoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(child: Text(
+                        stat.staffName.isNotEmpty ? stat.staffName[0].toUpperCase() : '?',
+                        style: AppTextStyles.body(size: 14, weight: FontWeight.w700, color: SevaCareColors.primary),
+                      )),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(stat.staffName, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                        if (stat.mobileNumber != null)
+                          Text(stat.mobileNumber!, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      ],
+                    )),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
+                            color: count > 0 ? SevaCareColors.primary : SevaCareColors.textMuted)),
+                        Text('bookings', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 16),
+        ],
+
+        // Staff list
+        if (_loading)
+          const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+        else if (_staff.isEmpty)
+          AppCard(
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
+                Icon(Icons.badge_outlined, size: 48, color: SevaCareColors.textMuted.withValues(alpha: 0.4)),
+                const SizedBox(height: 12),
+                Text('No staff registered yet', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+                const SizedBox(height: 6),
+                Text(
+                  'Add a staff member above so they can log in as IP-Staff and help patients book appointments.',
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          )
+        else ...[
+          Text('${_staff.length} staff member${_staff.length == 1 ? '' : 's'}',
+              style: AppTextStyles.label(SevaCareColors.textMuted)),
+          const SizedBox(height: 8),
+          ..._staff.map((s) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _StaffTile(staff: s, onDeactivate: () => _deactivate(s), onDelete: () => _delete(s)),
+          )),
+        ],
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _StaffTile extends StatelessWidget {
+  final AdminUserRecord staff;
+  final VoidCallback onDeactivate;
+  final VoidCallback onDelete;
+
+  const _StaffTile({required this.staff, required this.onDeactivate, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = staff.fullName.trim().isNotEmpty
+        ? staff.fullName.trim().split(' ').take(2).map((w) => w[0].toUpperCase()).join()
+        : '?';
+
+    return AppCard(
+      child: Row(
+        children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: staff.active
+                  ? SevaCareColors.primary.withValues(alpha: 0.12)
+                  : SevaCareColors.surfaceMuted,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: staff.active ? SevaCareColors.primary : SevaCareColors.textMuted,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(staff.fullName, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                if (staff.mobileNumber != null && staff.mobileNumber!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(staff.mobileNumber!, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ],
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: staff.active
+                        ? SevaCareColors.mint.withValues(alpha: 0.15)
+                        : SevaCareColors.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    staff.active ? 'Active · Can login' : 'Inactive',
+                    style: AppTextStyles.badgeText(
+                      staff.active ? SevaCareColors.mintForeground : SevaCareColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (staff.active)
+                GestureDetector(
+                  onTap: onDeactivate,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.block_outlined, size: 16, color: Colors.amber),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: SevaCareColors.danger.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.delete_outline, size: 16, color: SevaCareColors.danger),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

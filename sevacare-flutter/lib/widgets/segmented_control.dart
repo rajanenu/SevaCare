@@ -45,20 +45,41 @@ class SegmentedControl<T> extends StatelessWidget {
                   boxShadow: isActive
                       ? [
                           BoxShadow(
-                            color: SevaCareColors.primary.withValues(alpha: 0.25),
+                            color: SevaCareColors.primary.withValues(
+                              alpha: 0.25,
+                            ),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ]
                       : null,
                 ),
-                child: Center(
-                  child: Text(
-                    item.label,
-                    style: AppTextStyles.chipLabel(
-                      isActive ? SevaCareColors.textOnPrimary : SevaCareColors.textMuted,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (item.icon != null) ...[
+                      Icon(
+                        item.icon,
+                        size: 13,
+                        color: isActive
+                            ? SevaCareColors.textOnPrimary
+                            : SevaCareColors.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.chipLabel(
+                          isActive
+                              ? SevaCareColors.textOnPrimary
+                              : SevaCareColors.textMuted,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -72,5 +93,6 @@ class SegmentedControl<T> extends StatelessWidget {
 class SegmentItem<T> {
   final T value;
   final String label;
-  const SegmentItem({required this.value, required this.label});
+  final IconData? icon;
+  const SegmentItem({required this.value, required this.label, this.icon});
 }

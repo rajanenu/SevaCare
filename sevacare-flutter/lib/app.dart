@@ -28,6 +28,7 @@ import 'screens/qr/qr_appointment_form_screen.dart';
 import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/search/global_search_screen.dart';
+import 'screens/staff/staff_dashboard_screen.dart';
 
 /// Shared slide+fade page transition used by every GoRoute.
 CustomTransitionPage<void> _slidePage(
@@ -111,7 +112,8 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         final isPatientPath = path.startsWith('/patient');
         final isDoctorPath = path.startsWith('/doctor');
         final isPlatformPath = path.startsWith('/platform-admin');
-        final isProtected = isPatientPath || isDoctorPath || path.startsWith('/admin') || isPlatformPath;
+        final isStaffPath = path.startsWith('/staff');
+        final isProtected = isPatientPath || isDoctorPath || path.startsWith('/admin') || isPlatformPath || isStaffPath;
 
         // Unauthenticated user hitting a protected page → welcome
         if (isProtected && !isAuthed) return '/';
@@ -128,7 +130,8 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           // Wrong role accessing a protected path → their correct home
           if (isPatientPath && role != UserRole.patient) return home;
           if (isDoctorPath && role != UserRole.doctor) return home;
-          if (path.startsWith('/admin') && role != UserRole.admin) return home;
+          if (path.startsWith('/admin') && role != UserRole.admin && role != UserRole.staff) return home;
+          if (path.startsWith('/staff') && role != UserRole.staff) return home;
           if (isPlatformPath && role != UserRole.platformAdmin) return home;
         }
 
@@ -223,19 +226,33 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         ),
         GoRoute(
           path: '/admin/users',
-          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 1)),
-        ),
-        GoRoute(
-          path: '/admin/doctors',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 2)),
         ),
         GoRoute(
-          path: '/admin/reports',
+          path: '/admin/doctors',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 3)),
+        ),
+        GoRoute(
+          path: '/admin/staff',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 4)),
+        ),
+        GoRoute(
+          path: '/admin/reports',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 5)),
         ),
         GoRoute(
           path: '/admin/profile',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.admin)),
+        ),
+
+        // ── Staff (IP-Staff) ──────────────────────────────────────────────────
+        GoRoute(
+          path: '/staff',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const StaffDashboardScreen()),
+        ),
+        GoRoute(
+          path: '/staff/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.staff)),
         ),
 
         // ── Platform Admin ────────────────────────────────────────────────────
@@ -299,6 +316,7 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
     UserRole.patient => '/patient',
     UserRole.doctor => '/doctor',
     UserRole.admin => '/admin',
+    UserRole.staff => '/staff',
     UserRole.platformAdmin => '/platform-admin',
   };
 }

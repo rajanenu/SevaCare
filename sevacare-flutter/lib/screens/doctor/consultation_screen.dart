@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
@@ -29,6 +30,19 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   // Notes controller
   final _notesCtrl = TextEditingController();
 
+  // Vitals controllers
+  final _systolicCtrl = TextEditingController();
+  final _diastolicCtrl = TextEditingController();
+  final _tempCtrl = TextEditingController();
+  final _pulseCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
+  final _spo2Ctrl = TextEditingController();
+  final _sugarCtrl = TextEditingController();
+  bool _vitalsExpanded = false;
+
+  // Medicine autocomplete
+  List<String> _medicineSuggestions = [];
+
   bool _submitting = false;
   String? _error;
 
@@ -41,17 +55,58 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPatientHistory());
+    _medNameCtrl.addListener(_onMedicineNameChanged);
   }
 
   @override
   void dispose() {
+    _medNameCtrl.removeListener(_onMedicineNameChanged);
     _medNameCtrl.dispose();
     _medStrengthCtrl.dispose();
     _medFreqCtrl.dispose();
     _medDurationCtrl.dispose();
     _medInstructionsCtrl.dispose();
     _notesCtrl.dispose();
+    _systolicCtrl.dispose();
+    _diastolicCtrl.dispose();
+    _tempCtrl.dispose();
+    _pulseCtrl.dispose();
+    _weightCtrl.dispose();
+    _spo2Ctrl.dispose();
+    _sugarCtrl.dispose();
     super.dispose();
+  }
+
+  void _onMedicineNameChanged() {
+    final query = _medNameCtrl.text.trim().toLowerCase();
+    if (query.length < 2) {
+      if (_medicineSuggestions.isNotEmpty) setState(() => _medicineSuggestions = []);
+      return;
+    }
+    final matches = _kCommonMedicines
+        .where((m) => m.toLowerCase().contains(query))
+        .take(6)
+        .toList();
+    setState(() => _medicineSuggestions = matches);
+  }
+
+  String? _buildVitalsString() {
+    final sys = _systolicCtrl.text.trim();
+    final dia = _diastolicCtrl.text.trim();
+    final temp = _tempCtrl.text.trim();
+    final pulse = _pulseCtrl.text.trim();
+    final weight = _weightCtrl.text.trim();
+    final spo2 = _spo2Ctrl.text.trim();
+    final sugar = _sugarCtrl.text.trim();
+    final parts = <String>[
+      if (sys.isNotEmpty && dia.isNotEmpty) 'BP: $sys/$dia mmHg',
+      if (temp.isNotEmpty) 'Temp: $temp°C',
+      if (pulse.isNotEmpty) 'Pulse: $pulse bpm',
+      if (weight.isNotEmpty) 'Wt: $weight kg',
+      if (spo2.isNotEmpty) 'SpO₂: $spo2%',
+      if (sugar.isNotEmpty) 'Sugar: $sugar mg/dL',
+    ];
+    return parts.isEmpty ? null : '[Vitals] ${parts.join(' | ')}';
   }
 
   Future<void> _loadPatientHistory() async {
@@ -219,6 +274,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       final doctorId = auth.subjectPublicId ?? '';
 
       final doctorName = auth.subjectName.isNotEmpty ? auth.subjectName : 'Doctor';
+      final vitalsStr = _buildVitalsString();
+      final userNotes = _notesCtrl.text.trim();
+      final combinedNotes = [
+        if (vitalsStr != null) vitalsStr,
+        if (userNotes.isNotEmpty) userNotes,
+      ].join('\n');
       final result = await repo.uploadPrescription(
         hospital.tenantPublicId,
         doctorId,
@@ -229,7 +290,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           doctorName: doctorName,
           appointmentPublicId: appointmentId,
           medicines: List.unmodifiable(_medicines),
-          notes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+          notes: combinedNotes.isNotEmpty ? combinedNotes : null,
         ),
       );
 
@@ -308,6 +369,51 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: SevaCareColors.border),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.event_repeat, size: 16, color: SevaCareColors.peach),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Schedule Follow-up?',
+                      style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.peach),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [3, 7, 14, 30].map((days) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Follow-up in $days days noted in prescription.'),
+                          backgroundColor: SevaCareColors.peach,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          duration: const Duration(seconds: 3),
+                        ));
+                        context.go('/doctor');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF4EE),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          '$days days',
+                          style: AppTextStyles.label(SevaCareColors.peach),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             ),
@@ -418,9 +524,23 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // ── Feature #2: Quick Prescription Templates ──────────────────────
+          // ── Vitals Recording ──────────────────────────────────────────────
+          _VitalsSection(
+            expanded: _vitalsExpanded,
+            onToggle: () => setState(() => _vitalsExpanded = !_vitalsExpanded),
+            systolicCtrl: _systolicCtrl,
+            diastolicCtrl: _diastolicCtrl,
+            tempCtrl: _tempCtrl,
+            pulseCtrl: _pulseCtrl,
+            weightCtrl: _weightCtrl,
+            spo2Ctrl: _spo2Ctrl,
+            sugarCtrl: _sugarCtrl,
+          ),
+          const SizedBox(height: 12),
+
+          // ── Quick Prescription Templates ──────────────────────────────────
           _QuickTemplatesBar(
             onApply: (medicines, notes) {
               setState(() {
@@ -514,6 +634,44 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                   required: true,
                   placeholder: 'e.g. Paracetamol',
                 ),
+                if (_medicineSuggestions.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(
+                      children: _medicineSuggestions.asMap().entries.map((e) {
+                        final isLast = e.key == _medicineSuggestions.length - 1;
+                        return Column(
+                          children: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                _medNameCtrl.text = e.value;
+                                setState(() => _medicineSuggestions = []);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.medication_outlined, size: 14, color: SevaCareColors.primary),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(e.value, style: AppTextStyles.bodyText(SevaCareColors.text))),
+                                    const Icon(Icons.north_west, size: 12, color: SevaCareColors.textMuted),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (!isLast) const Divider(height: 1, indent: 38, color: SevaCareColors.border),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 AppFormField(
                   label: 'Strength',
                   controller: _medStrengthCtrl,
@@ -1041,4 +1199,178 @@ class _TemplateChip extends StatelessWidget {
     );
   }
 }
+
+// ── Vitals Section ────────────────────────────────────────────────────────────
+
+class _VitalsSection extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final TextEditingController systolicCtrl;
+  final TextEditingController diastolicCtrl;
+  final TextEditingController tempCtrl;
+  final TextEditingController pulseCtrl;
+  final TextEditingController weightCtrl;
+  final TextEditingController spo2Ctrl;
+  final TextEditingController sugarCtrl;
+
+  const _VitalsSection({
+    required this.expanded,
+    required this.onToggle,
+    required this.systolicCtrl,
+    required this.diastolicCtrl,
+    required this.tempCtrl,
+    required this.pulseCtrl,
+    required this.weightCtrl,
+    required this.spo2Ctrl,
+    required this.sugarCtrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onToggle,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: expanded ? const Color(0xFFF0FBF7) : SevaCareColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: expanded ? SevaCareColors.mint : SevaCareColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: expanded ? SevaCareColors.mint.withValues(alpha: 0.15) : SevaCareColors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.monitor_heart_outlined, size: 16,
+                      color: expanded ? SevaCareColors.mint : SevaCareColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Record Patient Vitals',
+                          style: AppTextStyles.body(size: 13, weight: FontWeight.w600,
+                              color: expanded ? SevaCareColors.mintForeground : SevaCareColors.primary)),
+                      Text('BP · Temperature · Weight · Pulse · SpO₂',
+                          style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    ],
+                  ),
+                ),
+                Icon(expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20, color: SevaCareColors.textMuted),
+              ],
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: 8),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(child: _VitalInput(label: 'Systolic BP', unit: 'mmHg', ctrl: systolicCtrl, hint: '120')),
+                  const SizedBox(width: 12),
+                  Expanded(child: _VitalInput(label: 'Diastolic BP', unit: 'mmHg', ctrl: diastolicCtrl, hint: '80')),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: _VitalInput(label: 'Temperature', unit: '°C', ctrl: tempCtrl, hint: '37.0')),
+                  const SizedBox(width: 12),
+                  Expanded(child: _VitalInput(label: 'Pulse Rate', unit: 'bpm', ctrl: pulseCtrl, hint: '72')),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: _VitalInput(label: 'Weight', unit: 'kg', ctrl: weightCtrl, hint: '70')),
+                  const SizedBox(width: 12),
+                  Expanded(child: _VitalInput(label: 'SpO₂', unit: '%', ctrl: spo2Ctrl, hint: '98')),
+                ]),
+                const SizedBox(height: 10),
+                _VitalInput(label: 'Blood Sugar', unit: 'mg/dL', ctrl: sugarCtrl, hint: '110'),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _VitalInput extends StatelessWidget {
+  final String label;
+  final String unit;
+  final TextEditingController ctrl;
+  final String hint;
+
+  const _VitalInput({required this.label, required this.unit, required this.ctrl, required this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: ctrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+          style: AppTextStyles.inputText(SevaCareColors.text),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppTextStyles.inputHint(SevaCareColors.textMuted.withValues(alpha: 0.5)),
+            suffixText: unit,
+            suffixStyle: AppTextStyles.label(SevaCareColors.mint),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: SevaCareColors.mint, width: 2)),
+            filled: true,
+            fillColor: SevaCareColors.surface,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Common Indian medicines for autocomplete ──────────────────────────────────
+
+const _kCommonMedicines = <String>[
+  'Paracetamol', 'Ibuprofen', 'Diclofenac', 'Aspirin', 'Tramadol', 'Mefenamic Acid',
+  'Dolo 650', 'Crocin', 'Combiflam', 'Ketorolac',
+  'Amoxicillin', 'Azithromycin', 'Ciprofloxacin', 'Doxycycline', 'Cefixime', 'Ceftriaxone',
+  'Metronidazole', 'Clarithromycin', 'Levofloxacin', 'Clindamycin', 'Amoxicillin-Clavulanate',
+  'Cefuroxime', 'Co-Amoxiclav', 'Ofloxacin', 'Tinidazole',
+  'Pantoprazole', 'Omeprazole', 'Rabeprazole', 'Esomeprazole', 'Metoclopramide', 'Domperidone',
+  'Ondansetron', 'Sucralfate', 'Lactulose', 'Bisacodyl', 'Loperamide', 'Pan 40', 'Domstal',
+  'Gelusil', 'Digene',
+  'Ambroxol', 'Bromhexine', 'Salbutamol', 'Montelukast', 'Cetirizine', 'Loratadine',
+  'Fexofenadine', 'Beclomethasone', 'Budesonide', 'Dextromethorphan', 'Guaifenesin',
+  'Levocetrizine', 'Chlorpheniramine',
+  'Amlodipine', 'Telmisartan', 'Losartan', 'Enalapril', 'Ramipril', 'Atenolol', 'Metoprolol',
+  'Carvedilol', 'Furosemide', 'Hydrochlorothiazide', 'Spironolactone', 'Atorvastatin',
+  'Rosuvastatin', 'Clopidogrel',
+  'Metformin', 'Glimepiride', 'Glipizide', 'Sitagliptin', 'Vildagliptin', 'Dapagliflozin',
+  'Empagliflozin', 'Insulin Glargine', 'Insulin Regular',
+  'Levothyroxine', 'Prednisolone', 'Methylprednisolone', 'Dexamethasone', 'Hydrocortisone',
+  'Vitamin D3', 'Vitamin B12', 'Calcium Carbonate', 'Ferrous Sulphate', 'Folic Acid', 'Zinc',
+  'Vitamin C', 'Multivitamin', 'Becosules', 'Zincovit', 'Neurobion', 'Shelcal',
+  'Sertraline', 'Escitalopram', 'Fluoxetine', 'Alprazolam', 'Clonazepam', 'Zolpidem',
+  'Pregabalin', 'Gabapentin', 'Amitriptyline', 'Levetiracetam',
+  'Fluconazole', 'Itraconazole', 'Clotrimazole', 'Acyclovir', 'Oseltamivir',
+  'Etoricoxib', 'Celecoxib', 'Tizanidine', 'Baclofen', 'Diclofenac Gel',
+  'Hydrocortisone Cream', 'Betamethasone Cream', 'Calamine', 'Ketoconazole Cream',
+  'Tamsulosin', 'Finasteride', 'Sildenafil',
+];
 

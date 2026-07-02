@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/role_style.dart';
 import '../data/models/models.dart';
 import '../providers/app_state.dart';
-import 'app_avatar.dart';
 import 'bottom_nav.dart';
 import 'connectivity_banner.dart';
 import 'orb_background.dart';
@@ -41,9 +41,10 @@ class AppShell extends StatelessWidget {
   });
 
   String _homeFor(UserRole r) => switch (r) {
-    UserRole.patient      => '/patient',
-    UserRole.doctor       => '/doctor',
-    UserRole.admin        => '/admin',
+    UserRole.patient => '/patient',
+    UserRole.doctor => '/doctor',
+    UserRole.admin => '/admin',
+    UserRole.staff => '/staff',
     UserRole.platformAdmin => '/platform-admin',
   };
 
@@ -79,7 +80,9 @@ class AppShell extends StatelessWidget {
                 bottom: false,
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: _kMaxContentWidth,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -99,11 +102,18 @@ class AppShell extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
+                    constraints: const BoxConstraints(
+                      maxWidth: _kMaxContentWidth,
+                    ),
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, hasBottomNav ? 8 : 32),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          16,
+                          16,
+                          hasBottomNav ? 8 : 32,
+                        ),
                         child: body,
                       ),
                     ),
@@ -115,7 +125,9 @@ class AppShell extends StatelessWidget {
                   top: false,
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _kMaxContentWidth,
+                      ),
                       child: AppBottomNav(
                         items: bottomNavItems!,
                         currentIndex: currentNavIndex ?? 0,
@@ -151,7 +163,9 @@ class _TopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logoLetter = hospitalName.isNotEmpty ? hospitalName[0].toUpperCase() : 'S';
+    final logoLetter = hospitalName.isNotEmpty
+        ? hospitalName[0].toUpperCase()
+        : 'S';
     final showBell = role != null && role != UserRole.platformAdmin;
 
     return Container(
@@ -186,10 +200,12 @@ class _TopBar extends ConsumerWidget {
                 width: 44,
                 height: 44,
                 child: GestureDetector(
-                  onTap: onBack ?? () {
-                    final nav = Navigator.of(context);
-                    if (nav.canPop()) nav.pop();
-                  },
+                  onTap:
+                      onBack ??
+                      () {
+                        final nav = Navigator.of(context);
+                        if (nav.canPop()) nav.pop();
+                      },
                   behavior: HitTestBehavior.opaque,
                   child: Center(
                     child: Container(
@@ -198,11 +214,17 @@ class _TopBar extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: SevaCareColors.surfaceMuted,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: SevaCareColors.border, width: 1),
+                        border: Border.all(
+                          color: SevaCareColors.border,
+                          width: 1,
+                        ),
                       ),
                       child: const Center(
-                        child: Icon(Icons.arrow_back_ios_new_rounded,
-                            size: 13, color: SevaCareColors.text),
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 13,
+                          color: SevaCareColors.text,
+                        ),
                       ),
                     ),
                   ),
@@ -257,11 +279,20 @@ class _TopBar extends ConsumerWidget {
           if (actions != null && actions!.isNotEmpty)
             ...actions!
           else if (role != null)
-            PersonaChip(
-              label: role!.label,
-              backgroundColor: _roleBg(role!),
-              foregroundColor: _roleFg(role!),
-              icon: _roleIcon(role!),
+            Semantics(
+              label: '${role!.label} account',
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: role!.bgColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: role!.fgColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Icon(role!.icon, size: 14, color: role!.fgColor),
+              ),
             ),
           // Search — available for all authenticated roles
           if (role != null && role != UserRole.platformAdmin) ...[
@@ -282,11 +313,17 @@ class _TopBar extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: SevaCareColors.surfaceMuted,
                         shape: BoxShape.circle,
-                        border: Border.all(color: SevaCareColors.border, width: 1),
+                        border: Border.all(
+                          color: SevaCareColors.border,
+                          width: 1,
+                        ),
                       ),
                       child: const Center(
-                        child: Icon(Icons.search_rounded,
-                            size: 14, color: SevaCareColors.textMuted),
+                        child: Icon(
+                          Icons.search_rounded,
+                          size: 14,
+                          color: SevaCareColors.textMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -323,11 +360,17 @@ class _TopBar extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: SevaCareColors.surfaceMuted,
                       shape: BoxShape.circle,
-                      border: Border.all(color: SevaCareColors.border, width: 1),
+                      border: Border.all(
+                        color: SevaCareColors.border,
+                        width: 1,
+                      ),
                     ),
                     child: const Center(
-                      child: Icon(Icons.help_outline_rounded,
-                          size: 14, color: SevaCareColors.textMuted),
+                      child: Icon(
+                        Icons.help_outline_rounded,
+                        size: 14,
+                        color: SevaCareColors.textMuted,
+                      ),
                     ),
                   ),
                 ),
@@ -338,27 +381,6 @@ class _TopBar extends ConsumerWidget {
       ),
     );
   }
-
-  Color _roleBg(UserRole r) => switch (r) {
-    UserRole.patient      => SevaCareColors.primarySoft,
-    UserRole.doctor       => SevaCareColors.mintSoft,
-    UserRole.admin        => SevaCareColors.peachSoft,
-    UserRole.platformAdmin => SevaCareColors.surfaceMuted,
-  };
-
-  Color _roleFg(UserRole r) => switch (r) {
-    UserRole.patient      => SevaCareColors.primary,
-    UserRole.doctor       => SevaCareColors.mintForeground,
-    UserRole.admin        => SevaCareColors.peachForeground,
-    UserRole.platformAdmin => SevaCareColors.textMuted,
-  };
-
-  IconData? _roleIcon(UserRole r) => switch (r) {
-    UserRole.patient      => Icons.person_outline,
-    UserRole.doctor       => Icons.medical_services_outlined,
-    UserRole.admin        => Icons.admin_panel_settings_outlined,
-    UserRole.platformAdmin => Icons.settings_outlined,
-  };
 }
 
 // ── Notification bell with unread badge ───────────────────────────────────────
@@ -383,8 +405,8 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
     final role = ref.read(authProvider).role;
     return switch (role) {
       UserRole.doctor => 'DOCTOR',
-      UserRole.admin  => 'ADMIN',
-      _               => 'PATIENT',
+      UserRole.admin => 'ADMIN',
+      _ => 'PATIENT',
     };
   }
 
@@ -393,13 +415,17 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
       final auth = ref.read(authProvider);
       if (auth.tenantPublicId == null ||
           auth.subjectPublicId == null ||
-          auth.token == null) { return; }
-      final data = await ref.read(repositoryProvider).getNotifications(
-        auth.tenantPublicId!,
-        auth.subjectPublicId!,
-        _recipientType,
-        auth.token!,
-      );
+          auth.token == null) {
+        return;
+      }
+      final data = await ref
+          .read(repositoryProvider)
+          .getNotifications(
+            auth.tenantPublicId!,
+            auth.subjectPublicId!,
+            _recipientType,
+            auth.token!,
+          );
       if (mounted) setState(() => _unreadCount = data.unreadCount);
     } catch (_) {}
   }

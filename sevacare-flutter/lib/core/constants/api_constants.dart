@@ -18,6 +18,8 @@ class ApiConstants {
   // Patient
   static String patientHome(String tenantId, String patientId) => '/patients/$tenantId/$patientId/home';
   static String bookingSetup(String tenantId, String patientId) => '/patients/$tenantId/$patientId/booking/setup';
+  static String bookedSlots(String tenantId, String doctorId, String date) =>
+      '/patients/$tenantId/booking/booked-slots?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
   static String bookAppointment(String tenantId, String patientId) => '/patients/$tenantId/$patientId/appointments';
   static String patientPrescriptions(String tenantId, String patientId) => '/patients/$tenantId/$patientId/prescriptions';
   static String patientMedicalHistory(String tenantId, String patientId) => '/patients/$tenantId/$patientId/medical-history';
@@ -54,6 +56,19 @@ class ApiConstants {
   static String adminUser(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId';
   static String nextAdminId(String tenantId) => '/admin/$tenantId/users/next-public-id';
   static String deactivateAdmin(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/deactivate';
+
+  // Staff
+  static String adminStaff(String tenantId, {bool activeOnly = false}) =>
+      '/admin/$tenantId/staff${activeOnly ? '?activeOnly=true' : ''}';
+  static String adminStaffMember(String tenantId, String staffId) => '/admin/$tenantId/staff/$staffId';
+  static String deactivateStaff(String tenantId, String staffId) => '/admin/$tenantId/staff/$staffId/deactivate';
+  static String staffBookingStats(String tenantId) => '/admin/$tenantId/staff-booking-stats';
+  static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search}) {
+    final buf = StringBuffer('/admin/$tenantId/patients?page=$page&size=$size');
+    if (search != null && search.isNotEmpty) buf.write('&search=${Uri.encodeComponent(search)}');
+    return buf.toString();
+  }
+  static String adminDeletePatient(String tenantId, String patientId) => '/admin/$tenantId/patients/$patientId';
 
   // Leave Requests
   static String leaveRequests(String tenantId, String doctorId) => '/$tenantId/doctors/$doctorId/leave-requests';

@@ -8,16 +8,16 @@ enum MetricVariant { primary, mint, peach, danger }
 extension _MetricVariantX on MetricVariant {
   List<Color> get gradient => switch (this) {
     MetricVariant.primary => SevaCareColors.buttonGradient,
-    MetricVariant.mint => SevaCareColors.mintGradient,
-    MetricVariant.peach => SevaCareColors.peachGradient,
-    MetricVariant.danger => SevaCareColors.dangerGradient,
+    MetricVariant.mint    => SevaCareColors.mintGradient,
+    MetricVariant.peach   => SevaCareColors.peachGradient,
+    MetricVariant.danger  => SevaCareColors.dangerGradient,
   };
 
   Color get valueColor => switch (this) {
     MetricVariant.primary => SevaCareColors.primary,
-    MetricVariant.mint => SevaCareColors.mint,
-    MetricVariant.peach => SevaCareColors.peach,
-    MetricVariant.danger => SevaCareColors.danger,
+    MetricVariant.mint    => SevaCareColors.mint,
+    MetricVariant.peach   => SevaCareColors.peach,
+    MetricVariant.danger  => SevaCareColors.danger,
   };
 }
 
@@ -54,53 +54,54 @@ class MetricTile extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 4px gradient accent bar
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: variant.gradient,
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+        // Row with CrossAxisAlignment.stretch so the accent bar fills full tile height.
+        // MetricRow wraps all tiles in IntrinsicHeight, making every tile in a row equal height.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 4 px gradient accent bar
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: variant.gradient,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-              // Content
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            ),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label.toUpperCase(),
+                      style: AppTextStyles.metricLabel(SevaCareColors.textMuted),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: AppTextStyles.metricValue(variant.valueColor),
+                    ),
+                    if (trend != null && trend!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        label.toUpperCase(),
-                        style: AppTextStyles.metricLabel(SevaCareColors.textMuted),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: AppTextStyles.metricValue(variant.valueColor),
-                      ),
-                      if (trend != null && trend!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          trend!,
-                          style: AppTextStyles.body(
-                            size: 11,
-                            color: SevaCareColors.textMuted,
-                          ),
+                        trend!,
+                        style: AppTextStyles.body(
+                          size: 11,
+                          color: SevaCareColors.textMuted,
                         ),
-                      ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -112,24 +113,28 @@ class MetricTile extends StatelessWidget {
   }
 }
 
-// Row of metric tiles that wraps
+// Wraps tiles in IntrinsicHeight so every tile in the row is the same height,
+// regardless of how long the label text is.
 class MetricRow extends StatelessWidget {
   final List<MetricTile> tiles;
   const MetricRow({super.key, required this.tiles});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: tiles
-          .asMap()
-          .entries
-          .map((e) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(left: e.key == 0 ? 0 : 8),
-                  child: e.value,
-                ),
-              ))
-          .toList(),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: tiles
+            .asMap()
+            .entries
+            .map((e) => Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: e.key == 0 ? 0 : 8),
+                    child: e.value,
+                  ),
+                ))
+            .toList(),
+      ),
     );
   }
 }

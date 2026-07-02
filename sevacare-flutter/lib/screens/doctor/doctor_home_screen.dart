@@ -328,12 +328,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 ),
                 MetricTile(
                   value: '${queueView?.pendingNotes ?? 0}',
-                  label: 'Pending Notes',
+                  label: 'Pending',
                   variant: MetricVariant.peach,
                 ),
                 MetricTile(
-                  value: '${queueView?.avgConsultMinutes ?? 0} min',
-                  label: 'Avg Consult',
+                  value: '${queueView?.avgConsultMinutes ?? 0}m',
+                  label: 'Avg',
                   variant: MetricVariant.mint,
                 ),
               ],
@@ -408,12 +408,19 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                           ),
 
                           // Chips row
-                          if (facet.medicines.isNotEmpty || facet.followUp) ...[
+                          if (facet.medicines.isNotEmpty || facet.followUp ||
+                              (facet.symptoms?.startsWith('Booked by IP-Staff') == true)) ...[
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 6,
                               runSpacing: 4,
                               children: [
+                                if (facet.symptoms?.startsWith('Booked by IP-Staff') == true)
+                                  _Chip(
+                                    label: 'IP-Staff Booking',
+                                    color: const Color(0xFFFFF4EE),
+                                    textColor: SevaCareColors.peachForeground,
+                                  ),
                                 if (facet.medicines.isNotEmpty)
                                   _Chip(
                                     label: '${facet.medicines.length} medicine(s)',

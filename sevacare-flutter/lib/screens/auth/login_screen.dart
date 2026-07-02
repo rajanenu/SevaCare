@@ -7,6 +7,7 @@ import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/role_style.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -14,31 +15,29 @@ import '../../widgets/widgets.dart';
 
 // Default mobile numbers per role (local dev convenience)
 String _defaultMobile(UserRole role) => switch (role) {
-      UserRole.patient => '9000000001',
-      UserRole.doctor => '9000000002',
-      UserRole.admin => '9000000003',
-      UserRole.platformAdmin => '9000000999',
-    };
+  UserRole.patient => '9000000001',
+  UserRole.doctor => '9000000002',
+  UserRole.admin || UserRole.staff => '9000000003',
+  UserRole.platformAdmin => '9000000999',
+};
 
-// Role description blurbs
+// Role description blurbs — short by design; the icon + card color carry the rest
 String _roleDescription(UserRole role) => switch (role) {
-      UserRole.patient =>
-        'Book care, manage appointments, and access prescriptions.',
-      UserRole.doctor =>
-        'Review today\'s list, complete consults, and manage schedules.',
-      UserRole.admin =>
-        'Manage one hospital: doctors, hospital admins, patients, and reports.',
-      UserRole.platformAdmin =>
-        'Manage the SevaCare platform, onboard hospitals, and administer platform users.',
-    };
+  UserRole.patient => 'Book visits & view prescriptions.',
+  UserRole.doctor => 'Consult, prescribe & manage your queue.',
+  UserRole.admin => 'Run your hospital, staff & reports.',
+  UserRole.staff => 'Register patients & book appointments.',
+  UserRole.platformAdmin => 'Onboard hospitals & manage the platform.',
+};
 
 // Where to navigate after a successful login
 String _routeForRole(UserRole role) => switch (role) {
-      UserRole.patient => '/patient',
-      UserRole.doctor => '/doctor',
-      UserRole.admin => '/admin',
-      UserRole.platformAdmin => '/platform-admin',
-    };
+  UserRole.patient => '/patient',
+  UserRole.doctor => '/doctor',
+  UserRole.admin => '/admin',
+  UserRole.staff => '/staff',
+  UserRole.platformAdmin => '/platform-admin',
+};
 
 class LoginScreen extends ConsumerStatefulWidget {
   /// When true, only the Platform Admin segment is shown and pre-selected.
@@ -57,19 +56,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _roleSelected = false;
   int _resendCountdown = 0;
+  bool _isIpStaff = false; // sub-type within Hospital Staff tab
 
   // Biometric state
   bool _biometricAvailable = false;
-  bool _biometricEnabled  = false;
-  String _biometricLabel  = 'Biometric';
+  bool _biometricEnabled = false;
+  String _biometricLabel = 'Biometric';
 
   @override
   void initState() {
     super.initState();
-    final startRole = widget.platformAdminMode ? UserRole.platformAdmin : UserRole.patient;
+    final startRole = widget.platformAdminMode
+        ? UserRole.platformAdmin
+        : UserRole.patient;
     _mobileCtrl = TextEditingController(text: _defaultMobile(startRole));
-    _emailCtrl  = TextEditingController();
-    _otpCtrl    = TextEditingController(text: '0000');
+    _emailCtrl = TextEditingController();
+    _otpCtrl = TextEditingController(text: '0000');
     _roleSelected = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,13 +84,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _checkBiometric() async {
     final available = await BiometricService.isAvailable();
-    final enabled   = await BiometricService.isEnabled();
-    final label     = await BiometricService.biometricLabel();
+    final enabled = await BiometricService.isEnabled();
+    final label = await BiometricService.biometricLabel();
     if (!mounted) return;
     setState(() {
       _biometricAvailable = available;
-      _biometricEnabled   = enabled;
-      _biometricLabel     = label;
+      _biometricEnabled = enabled;
+      _biometricLabel = label;
     });
   }
 
@@ -99,8 +101,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: SevaCareColors.surface,
-        title: Text('Enable $_biometricLabel?',
-            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        title: Text(
+          'Enable $_biometricLabel?',
+          style: AppTextStyles.cardTitle(SevaCareColors.text),
+        ),
         content: Text(
           'Use $_biometricLabel to unlock SevaCare next time — '
           'OTP will always be available as a fallback.',
@@ -109,15 +113,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Not now',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text(
+              'Not now',
+              style: AppTextStyles.label(SevaCareColors.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: SevaCareColors.primary),
+              backgroundColor: SevaCareColors.primary,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Enable',
-                style: AppTextStyles.label(Colors.white)),
+            child: Text('Enable', style: AppTextStyles.label(Colors.white)),
           ),
         ],
       ),
@@ -128,7 +134,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// Unlock using stored biometric credentials.
   Future<void> _loginWithBiometric() async {
     final ok = await BiometricService.authenticate(
-        reason: 'Unlock SevaCare with $_biometricLabel');
+      reason: 'Unlock SevaCare with $_biometricLabel',
+    );
     if (!ok || !mounted) return;
 
     final restored = await ref.read(authProvider.notifier).restore();
@@ -145,9 +152,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
     if (!mounted) return;
     setState(() => _biometricEnabled = false);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Session expired — please log in with OTP. Biometric has been disabled.'),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Session expired — please log in with OTP. Biometric has been disabled.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -188,12 +199,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     notifier.setSending(true);
     notifier.setIdentifier(mobile);
 
-    final tenantId = role == UserRole.platformAdmin ? 'platform' : hospitalState.tenantPublicId;
+    final tenantId = role == UserRole.platformAdmin
+        ? 'platform'
+        : hospitalState.tenantPublicId;
+    // IP-Staff sub-type uses distinct role 'staff' so backend validates against staff-only records
+    final effectiveRole = (_isIpStaff && role == UserRole.admin)
+        ? 'staff'
+        : role.apiValue;
     try {
-      await ref.read(repositoryProvider).requestOtp(
+      await ref
+          .read(repositoryProvider)
+          .requestOtp(
             OtpRequest(
               tenantPublicId: tenantId,
-              role: role.apiValue,
+              role: effectiveRole,
               mobileNumber: mobile,
             ),
           );
@@ -231,12 +250,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     notifier.setSending(true);
 
-    final tenantId = role == UserRole.platformAdmin ? 'platform' : hospitalState.tenantPublicId;
+    final tenantId = role == UserRole.platformAdmin
+        ? 'platform'
+        : hospitalState.tenantPublicId;
+    final effectiveRole = (_isIpStaff && role == UserRole.admin)
+        ? 'staff'
+        : role.apiValue;
     try {
-      final session = await ref.read(repositoryProvider).verifyOtp(
+      final session = await ref
+          .read(repositoryProvider)
+          .verifyOtp(
             OtpVerifyRequest(
               tenantPublicId: tenantId,
-              role: role.apiValue,
+              role: effectiveRole,
               mobileNumber: mobile,
               otp: otp,
             ),
@@ -245,7 +271,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(loginMobileProvider.notifier).state = mobile;
       if (mounted) {
         await _promptEnableBiometric();
-        if (mounted) context.go(_routeForRole(role));
+        final sessionRole = ref.read(authProvider).role ?? role;
+        if (mounted) context.go(_routeForRole(sessionRole));
       }
     } catch (e) {
       notifier.setError(_friendlyError(e));
@@ -276,13 +303,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   List<SegmentItem<UserRole>> get _segments {
     if (widget.platformAdminMode) {
       return [
-        SegmentItem(value: UserRole.platformAdmin, label: 'Platform Admin'),
+        SegmentItem(
+          value: UserRole.platformAdmin,
+          label: 'Platform Admin',
+          icon: UserRole.platformAdmin.icon,
+        ),
       ];
     }
     return [
-      SegmentItem(value: UserRole.patient, label: 'Patient'),
-      SegmentItem(value: UserRole.doctor, label: 'Doctor'),
-      SegmentItem(value: UserRole.admin, label: 'Hospital Admin'),
+      SegmentItem(
+        value: UserRole.patient,
+        label: 'Patient',
+        icon: UserRole.patient.icon,
+      ),
+      SegmentItem(
+        value: UserRole.doctor,
+        label: 'Doctor',
+        icon: UserRole.doctor.icon,
+      ),
+      SegmentItem(
+        value: UserRole.admin,
+        label: 'Hospital Staff',
+        icon: UserRole.admin.icon,
+      ),
     ];
   }
 
@@ -296,8 +339,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final headerName = isPlatformAdmin
         ? 'SevaCare'
         : (hospitalState.hospitalName.isNotEmpty
-            ? hospitalState.hospitalName
-            : 'SevaCare');
+              ? hospitalState.hospitalName
+              : 'SevaCare');
 
     return AppShell(
       hospitalName: headerName,
@@ -310,7 +353,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           // ── Page header ──────────────────────────────────────────────────
           PageHeader(
             title: isPlatformAdmin ? 'SevaCare Administration' : headerName,
-            subtitle: isPlatformAdmin ? 'Platform Admin Access' : 'Login to continue',
+            subtitle: isPlatformAdmin
+                ? 'Platform Admin Access'
+                : 'Login to continue',
           ),
           const SizedBox(height: 16),
           // ── Role segmented control ───────────────────────────────────────
@@ -326,6 +371,87 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 'Please select your role above to continue',
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                 textAlign: TextAlign.center,
+              ),
+            ],
+            // ── Admin / IP-Staff sub-radio (only when Hospital Staff tab active)
+            if (role == UserRole.admin) ...[
+              const SizedBox(height: 8),
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isIpStaff = false),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: false,
+                                groupValue: _isIpStaff,
+                                activeColor: SevaCareColors.primary,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                onChanged: (_) =>
+                                    setState(() => _isIpStaff = false),
+                              ),
+                              Icon(
+                                UserRole.admin.icon,
+                                size: 15,
+                                color: UserRole.admin.fgColor,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Admin',
+                                style: AppTextStyles.label(SevaCareColors.text),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isIpStaff = true),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: true,
+                                groupValue: _isIpStaff,
+                                activeColor: SevaCareColors.primary,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                onChanged: (_) =>
+                                    setState(() => _isIpStaff = true),
+                              ),
+                              Icon(
+                                UserRole.staff.icon,
+                                size: 15,
+                                color: UserRole.staff.fgColor,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'IP-Staff',
+                                style: AppTextStyles.label(SevaCareColors.text),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 20),
@@ -345,16 +471,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Card title
-                Text(
-                  '${role.label} access',
-                  style: AppTextStyles.sectionTitle(SevaCareColors.text),
-                ),
-                const SizedBox(height: 6),
-                // Role description
-                Text(
-                  _roleDescription(role),
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                // Card header — role icon badge + title, colored per persona
+                Builder(
+                  builder: (context) {
+                    final effectiveRole = (_isIpStaff && role == UserRole.admin)
+                        ? UserRole.staff
+                        : role;
+                    return Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: effectiveRole.bgColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            effectiveRole.icon,
+                            size: 22,
+                            color: effectiveRole.fgColor,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${effectiveRole.label} access',
+                                style: AppTextStyles.sectionTitle(
+                                  SevaCareColors.text,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _roleDescription(effectiveRole),
+                                style: AppTextStyles.label(
+                                  SevaCareColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 // ── Mobile number field ──────────────────────────────────
@@ -381,8 +542,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   required: false,
                   readOnly: formState.otpSent,
                   onChanged: ref.read(loginFormProvider.notifier).setEmail,
-                  textInputAction:
-                      formState.otpSent ? TextInputAction.next : TextInputAction.done,
+                  textInputAction: formState.otpSent
+                      ? TextInputAction.next
+                      : TextInputAction.done,
                 ),
                 // ── OTP sent success banner ──────────────────────────────
                 if (formState.otpSent) ...[
@@ -416,7 +578,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: 'Send OTP',
                     isLoading: formState.sending,
                     fullWidth: true,
-                    onPressed: (formState.sending || !_roleSelected) ? null : _sendOtp,
+                    onPressed: (formState.sending || !_roleSelected)
+                        ? null
+                        : _sendOtp,
                   )
                 else ...[
                   PrimaryButton(
@@ -431,7 +595,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? 'Resend in ${_resendCountdown}s'
                         : 'Resend OTP',
                     fullWidth: true,
-                    onPressed: (formState.sending || _resendCountdown > 0) ? null : _resendOtp,
+                    onPressed: (formState.sending || _resendCountdown > 0)
+                        ? null
+                        : _resendOtp,
                   ),
                 ],
               ],
@@ -501,24 +667,34 @@ class _BiometricUnlockCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Center(child: Icon(_icon, size: 24, color: Colors.white)),
+                child: Center(
+                  child: Icon(_icon, size: 24, color: Colors.white),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quick Unlock',
-                        style: AppTextStyles.cardTitle(Colors.white)),
+                    Text(
+                      'Quick Unlock',
+                      style: AppTextStyles.cardTitle(Colors.white),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Use $label to sign in instantly',
-                        style: AppTextStyles.label(
-                            Colors.white.withValues(alpha: 0.75))),
+                    Text(
+                      'Use $label to sign in instantly',
+                      style: AppTextStyles.label(
+                        Colors.white.withValues(alpha: 0.75),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded,
-                  size: 14, color: Colors.white70),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Colors.white70,
+              ),
             ],
           ),
         ),
@@ -590,7 +766,11 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline, size: 18, color: SevaCareColors.danger),
+          const Icon(
+            Icons.error_outline,
+            size: 18,
+            color: SevaCareColors.danger,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

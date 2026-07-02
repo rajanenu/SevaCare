@@ -2,13 +2,14 @@
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-enum UserRole { patient, doctor, admin, platformAdmin }
+enum UserRole { patient, doctor, admin, staff, platformAdmin }
 
 extension UserRoleX on UserRole {
   String get apiValue => switch (this) {
     UserRole.patient => 'patient',
     UserRole.doctor => 'doctor',
     UserRole.admin => 'admin',
+    UserRole.staff => 'admin',
     UserRole.platformAdmin => 'platform_admin',
   };
 
@@ -16,16 +17,20 @@ extension UserRoleX on UserRole {
     UserRole.patient => 'Patient',
     UserRole.doctor => 'Doctor',
     UserRole.admin => 'Hospital Admin',
+    UserRole.staff => 'IP-Staff',
     UserRole.platformAdmin => 'Platform Admin',
   };
 
-  static UserRole fromApi(String value) => switch (value) {
-    'patient' => UserRole.patient,
-    'doctor' => UserRole.doctor,
-    'admin' => UserRole.admin,
-    'platform_admin' => UserRole.platformAdmin,
-    _ => UserRole.patient,
-  };
+  static UserRole fromApi(String role, {String? userType}) {
+    if (role == 'admin' && userType == 'STAFF') return UserRole.staff;
+    return switch (role) {
+      'patient' => UserRole.patient,
+      'doctor' => UserRole.doctor,
+      'admin' => UserRole.admin,
+      'platform_admin' => UserRole.platformAdmin,
+      _ => UserRole.patient,
+    };
+  }
 }
 
 class OtpRequest {
@@ -74,6 +79,7 @@ class AuthenticatedSession {
   final String token;
   final bool isGeneric;
   final String subjectName;
+  final String userType;
 
   const AuthenticatedSession({
     required this.tenantPublicId,
@@ -82,6 +88,7 @@ class AuthenticatedSession {
     required this.token,
     this.isGeneric = false,
     this.subjectName = '',
+    this.userType = 'ADMIN',
   });
 
   factory AuthenticatedSession.fromJson(Map<String, dynamic> json) => AuthenticatedSession(
@@ -91,6 +98,7 @@ class AuthenticatedSession {
     token: json['token'] as String,
     isGeneric: json['isGeneric'] as bool? ?? false,
     subjectName: json['subjectName'] as String? ?? '',
+    userType: json['userType'] as String? ?? 'ADMIN',
   );
 }
 
@@ -471,6 +479,33 @@ class PatientRecord {
   );
 }
 
+class PatientSummary {
+  final String patientPublicId;
+  final String fullName;
+  final String mobileNumber;
+  final String? gender;
+  final int? age;
+  final String? lastAppointment;
+
+  const PatientSummary({
+    required this.patientPublicId,
+    required this.fullName,
+    required this.mobileNumber,
+    this.gender,
+    this.age,
+    this.lastAppointment,
+  });
+
+  factory PatientSummary.fromJson(Map<String, dynamic> json) => PatientSummary(
+    patientPublicId: json['patientPublicId'] as String? ?? '',
+    fullName: json['fullName'] as String? ?? '',
+    mobileNumber: json['mobileNumber'] as String? ?? '',
+    gender: json['gender'] as String?,
+    age: json['age'] as int?,
+    lastAppointment: json['lastAppointment'] as String?,
+  );
+}
+
 class PatientUpsertRequest {
   final String fullName;
   final String mobileNumber;
@@ -568,6 +603,7 @@ class AppointmentBookingRequest {
   final String specialty;
   final String doctorPublicId;
   final String slot;
+  final String? note;
 
   const AppointmentBookingRequest({
     required this.tenantPublicId,
@@ -580,6 +616,7 @@ class AppointmentBookingRequest {
     required this.specialty,
     required this.doctorPublicId,
     required this.slot,
+    this.note,
   });
 
   Map<String, dynamic> toJson() => {
@@ -593,7 +630,38 @@ class AppointmentBookingRequest {
     'specialty': specialty,
     'doctorPublicId': doctorPublicId,
     'slot': slot,
+    if (note != null) 'note': note,
   };
+}
+
+class StaffBookingStat {
+  final String staffId;
+  final String staffName;
+  final String? mobileNumber;
+  final int todayCount;
+  final int weekCount;
+  final int monthCount;
+  final int yearCount;
+
+  const StaffBookingStat({
+    required this.staffId,
+    required this.staffName,
+    this.mobileNumber,
+    required this.todayCount,
+    required this.weekCount,
+    required this.monthCount,
+    required this.yearCount,
+  });
+
+  factory StaffBookingStat.fromJson(Map<String, dynamic> json) => StaffBookingStat(
+    staffId: json['staffId'] as String? ?? '',
+    staffName: json['staffName'] as String? ?? '',
+    mobileNumber: json['mobileNumber'] as String?,
+    todayCount: json['todayCount'] as int? ?? 0,
+    weekCount: json['weekCount'] as int? ?? 0,
+    monthCount: json['monthCount'] as int? ?? 0,
+    yearCount: json['yearCount'] as int? ?? 0,
+  );
 }
 
 class BookingSetupView {
@@ -847,6 +915,7 @@ class AdminUserRecord {
   final String? mobileNumber;
   final bool active;
   final String? createdAt;
+  final String userType;
 
   const AdminUserRecord({
     required this.adminPublicId,
@@ -856,7 +925,10 @@ class AdminUserRecord {
     this.mobileNumber,
     required this.active,
     this.createdAt,
+    this.userType = 'ADMIN',
   });
+
+  bool get isStaff => userType == 'STAFF';
 
   factory AdminUserRecord.fromJson(Map<String, dynamic> json) => AdminUserRecord(
     adminPublicId: json['adminPublicId'] as String? ?? '',
@@ -866,6 +938,7 @@ class AdminUserRecord {
     mobileNumber: json['mobileNumber'] as String?,
     active: json['active'] as bool? ?? true,
     createdAt: json['createdAt'] as String?,
+    userType: json['userType'] as String? ?? 'ADMIN',
   );
 }
 
@@ -874,12 +947,14 @@ class AdminUserUpsertRequest {
   final String? email;
   final String? mobileNumber;
   final bool? active;
+  final String? userType;
 
   const AdminUserUpsertRequest({
     required this.fullName,
     this.email,
     this.mobileNumber,
     this.active,
+    this.userType,
   });
 
   Map<String, dynamic> toJson() => {
@@ -887,6 +962,7 @@ class AdminUserUpsertRequest {
     if (email != null && email!.isNotEmpty) 'email': email,
     if (mobileNumber != null && mobileNumber!.isNotEmpty) 'mobileNumber': mobileNumber,
     if (active != null) 'active': active,
+    if (userType != null) 'userType': userType,
   };
 }
 

@@ -24,4 +24,10 @@ public interface AdminUserRepository extends JpaRepository<AdminUser, String> {
     Optional<AdminUser> findByTenantPublicIdAndEmailIgnoreCase(String tenantPublicId, String email);
 
     boolean existsByTenantPublicIdAndMobileNumber(String tenantPublicId, String mobileNumber);
+
+    List<AdminUser> findByTenantPublicIdAndUserTypeOrderByAdminPublicIdAsc(String tenantPublicId, String userType);
+
+    List<AdminUser> findByTenantPublicIdAndUserTypeAndActiveTrueOrderByAdminPublicIdAsc(String tenantPublicId, String userType);
+
+    Optional<AdminUser> findFirstByTenantPublicIdAndMobileNumberAndUserTypeAndActiveTrueOrderByAdminPublicIdAsc(String tenantPublicId, String mobileNumber, String userType);
 }

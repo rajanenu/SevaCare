@@ -164,7 +164,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final hospital = ref.watch(hospitalProvider);
-    final tabs = ['Leave Request', 'Message Admin', 'History'];
+    final tabs = ['Leave', 'Message', 'History'];
 
     return AppShell(
       hospitalName: hospital.hospitalName,

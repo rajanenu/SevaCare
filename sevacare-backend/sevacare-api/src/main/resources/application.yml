@@ -4,6 +4,9 @@ spring:
   threads:
     virtual:
       enabled: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   datasource:
     url: ${SEVACARE_DB_URL:jdbc:postgresql://localhost:5432/seva_care}
     username: ${SEVACARE_DB_USERNAME:postgres}

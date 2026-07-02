@@ -54,6 +54,8 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".admin_user ADD COLUMN IF NOT EXISTS full_name VARCHAR(160)");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".admin_user ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".admin_user ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".admin_user ADD COLUMN IF NOT EXISTS user_type VARCHAR(16) DEFAULT 'ADMIN'");
+        jdbcTemplate.update("UPDATE " + schemaName + ".admin_user SET user_type = 'ADMIN' WHERE user_type IS NULL");
         jdbcTemplate.update(
                 "UPDATE " + schemaName + ".admin_user SET full_name = COALESCE(NULLIF(full_name, ''), NULLIF(name, ''), 'Admin User'), " +
                         "name = COALESCE(NULLIF(name, ''), NULLIF(full_name, ''), 'Admin User'), " +
@@ -89,6 +91,8 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS appointment_slot VARCHAR(80)");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS appointment_status VARCHAR(24)");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS tenant_public_id VARCHAR(24)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS consultation_fee INTEGER DEFAULT 0");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS vitals_summary VARCHAR(1000)");
 
         if (hasColumn(schemaName, "appointment", "slot")) {
             jdbcTemplate.update(

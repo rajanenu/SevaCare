@@ -124,6 +124,24 @@ public class PatientDomainService {
                 return new PatientDtos.BookingSetupView(tenantPublicId, 15, normalized, availableDates, morningSlots, eveningSlots);
         }
 
+        @Transactional(readOnly = true)
+        public List<String> getBookedSlots(String tenantPublicId, String doctorPublicId, String date) {
+                String schema = TenantContext.tenantSchema();
+                // Slots are stored as "yyyy-MM-dd HH:mm" — filter by date prefix and extract HH:mm
+                List<String> slots = jdbcTemplate.queryForList(
+                        "SELECT appointment_slot FROM " + schema + ".appointment " +
+                        "WHERE doctor_public_id = ? AND appointment_slot LIKE ? AND appointment_status = 'upcoming'",
+                        String.class,
+                        doctorPublicId,
+                        date + "%"
+                );
+                return slots.stream()
+                        .map(s -> s.length() >= 16 ? s.substring(11, 16) : s)
+                        .distinct()
+                        .sorted()
+                        .toList();
+        }
+
         @Transactional
         public PatientDtos.AppointmentBookingResult bookAppointment(String tenantPublicId, String patientPublicId, PatientDtos.AppointmentBookingRequest request) {
                 if (!tenantPublicId.equals(request.tenantPublicId()) || !patientPublicId.equals(request.patientPublicId())) {
@@ -165,7 +183,8 @@ public class PatientDomainService {
                 appointment.setDoctorPublicId(request.doctorPublicId());
                 appointment.setAppointmentSlot(request.slot());
                 appointment.setAppointmentStatus("upcoming");
-                appointment.setNotes("Booked via patient app");
+                appointment.setNotes(request.note() != null && !request.note().isBlank()
+                        ? request.note() : "Booked via patient app");
 
                 Appointment saved = appointmentRepository.save(appointment);
                 log.info("patient_book_appointment tenantPublicId={} patientPublicId={} appointmentPublicId={} doctorPublicId={} slot={}",

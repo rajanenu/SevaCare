@@ -33,8 +33,19 @@ public class AdminUser {
     @Column(name = "active", nullable = false)
     private boolean active;
 
+    @Column(name = "user_type", length = 16)
+    private String userType;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    public String getUserType() {
+        return userType != null ? userType : "ADMIN";
+    }
+
+    public void setUserType(String userType) {
+        this.userType = userType;
+    }
 
     public String getAdminPublicId() {
         return adminPublicId;

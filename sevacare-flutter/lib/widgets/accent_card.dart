@@ -56,7 +56,7 @@ class AccentCard extends StatelessWidget {
                     bottomRight: Radius.circular(AppTheme.radius),
                   ),
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: child,
               ),
             ),

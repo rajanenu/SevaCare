@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 /// Animated healthcare background — plays smooth floating orbs + medical
 /// symbols. Use [variant] to pick a role-themed palette.
-enum HealthcareBgVariant { welcome, doctor, patient, admin }
+enum HealthcareBgVariant { welcome, doctor, patient, admin, staff }
 
 class AnimatedHealthcareBg extends StatefulWidget {
   final HealthcareBgVariant variant;
@@ -127,6 +127,15 @@ class _BgConfig {
             symbolColor: const Color(0xFFF0A86B).withValues(alpha: 0.12),
             waveColor: const Color(0xFF5148CC).withValues(alpha: 0.04),
           ),
+        HealthcareBgVariant.staff => _BgConfig(
+            orbColors: [
+              const Color(0xFF4C9FE0).withValues(alpha: 0.13),
+              const Color(0xFF2D6FA8).withValues(alpha: 0.09),
+              const Color(0xFF52C499).withValues(alpha: 0.08),
+            ],
+            symbolColor: const Color(0xFF4C9FE0).withValues(alpha: 0.12),
+            waveColor: const Color(0xFF2D6FA8).withValues(alpha: 0.05),
+          ),
       };
 }
 
@@ -160,6 +169,9 @@ class _HealthcareBgPainter extends CustomPainter {
     }
     if (variant == HealthcareBgVariant.admin) {
       _drawNetworkNodes(canvas, size);
+    }
+    if (variant == HealthcareBgVariant.staff) {
+      _drawIdBadges(canvas, size);
     }
   }
 
@@ -393,6 +405,64 @@ class _HealthcareBgPainter extends CustomPainter {
       final r = 7.0 + math.sin(pulse * math.pi * 2) * 2;
       canvas.drawCircle(nodes[i], r, nodePaint);
     }
+  }
+
+  void _drawIdBadges(Canvas canvas, Size size) {
+    // Staff: floating ID-badge + checklist shapes — ward duty motif
+    final badgeColor = const Color(0xFF4C9FE0).withValues(alpha: 0.16);
+    final lineColor = const Color(0xFF4C9FE0).withValues(alpha: 0.22);
+
+    void drawBadge(double cx, double cy, double s) {
+      final rect = Rect.fromCenter(center: Offset(cx, cy), width: s, height: s * 1.3);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(s * 0.18)),
+        Paint()..color = badgeColor,
+      );
+      // Lanyard clip
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy - s * 0.75), width: s * 0.3, height: s * 0.22),
+          Radius.circular(s * 0.06),
+        ),
+        Paint()..color = badgeColor,
+      );
+      // Two text lines inside the badge
+      final lineY = cy - s * 0.15;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, lineY), width: s * 0.55, height: s * 0.08),
+          Radius.circular(s * 0.04),
+        ),
+        Paint()..color = lineColor,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, lineY + s * 0.22), width: s * 0.4, height: s * 0.08),
+          Radius.circular(s * 0.04),
+        ),
+        Paint()..color = lineColor,
+      );
+    }
+
+    final scale = 1.0 + math.sin(pulseT * math.pi * 2) * 0.06;
+    drawBadge(size.width * 0.16, size.height * 0.30, 26 * scale);
+    drawBadge(size.width * 0.85, size.height * 0.62, 22 * scale);
+    drawBadge(size.width * 0.55, size.height * 0.16, 16 * scale);
+
+    // A drifting checkmark to suggest task completion
+    final checkPaint = Paint()
+      ..color = const Color(0xFF4C9FE0).withValues(alpha: 0.20)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final ccx = size.width * 0.72 + math.sin(orbT * math.pi * 2) * 6;
+    final ccy = size.height * 0.20 + math.cos(orbT * math.pi * 2) * 4;
+    final checkPath = Path()
+      ..moveTo(ccx - 7, ccy)
+      ..lineTo(ccx - 2, ccy + 6)
+      ..lineTo(ccx + 8, ccy - 8);
+    canvas.drawPath(checkPath, checkPaint);
   }
 
   void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint, double offset) {

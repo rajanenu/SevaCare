@@ -25,6 +25,6 @@ public final class AuthDtos {
     ) {
     }
 
-    public record AuthenticatedSession(String tenantPublicId, String role, String subjectPublicId, String token, boolean isGeneric, String subjectName) {
+    public record AuthenticatedSession(String tenantPublicId, String role, String subjectPublicId, String token, boolean isGeneric, String subjectName, String userType) {
     }
 }

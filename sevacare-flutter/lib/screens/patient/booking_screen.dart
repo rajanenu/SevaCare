@@ -28,6 +28,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   bool _loadingSetup = true;
   String? _setupError;
 
+  // Booked slots for current doctor+date
+  List<String> _bookedSlots = [];
+
   // Booking submission
   bool _booking = false;
   String? _bookingError;
@@ -118,6 +121,26 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       if (mounted) setState(() => _setupError = extractErrorMessage(e, fallback: 'Failed to load booking setup. Please try again.'));
     } finally {
       if (mounted) setState(() => _loadingSetup = false);
+    }
+  }
+
+  Future<void> _loadBookedSlots(String doctorId, String date) async {
+    if (doctorId.isEmpty || date.isEmpty) {
+      setState(() => _bookedSlots = []);
+      return;
+    }
+    try {
+      final auth = ref.read(authProvider);
+      final repo = ref.read(repositoryProvider);
+      final slots = await repo.getBookedSlots(
+        auth.tenantPublicId ?? '',
+        doctorId,
+        date,
+        auth.token ?? '',
+      );
+      if (mounted) setState(() => _bookedSlots = slots);
+    } catch (_) {
+      if (mounted) setState(() => _bookedSlots = []);
     }
   }
 
@@ -459,7 +482,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             return StaggeredItem(
                               index: index,
                               child: GestureDetector(
-                              onTap: () => notifier.updateDoctorId(doc.doctorPublicId),
+                              onTap: () {
+                                notifier.updateDoctorId(doc.doctorPublicId);
+                                notifier.updateSlot('');
+                                final currentDate = ref.read(bookingFormProvider).selectedDate;
+                                _loadBookedSlots(doc.doctorPublicId, currentDate);
+                              },
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: SevaCareColors.surface,
@@ -616,6 +644,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                   onTap: () {
                                     notifier.updateDate(date);
                                     notifier.updateSlot('');
+                                    _loadBookedSlots(form.selectedDoctorId, date);
                                   },
                                   child: AnimatedContainer(
                                     duration:
@@ -667,6 +696,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           _SlotGrid(
                             slots: _setup!.morningSlots,
                             selectedSlot: form.selectedSlot,
+                            bookedSlots: _bookedSlots,
+                            selectedDate: form.selectedDate,
                             onSelect: notifier.updateSlot,
                           ),
                           const SizedBox(height: 16),
@@ -681,6 +712,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           _SlotGrid(
                             slots: _setup!.eveningSlots,
                             selectedSlot: form.selectedSlot,
+                            bookedSlots: _bookedSlots,
+                            selectedDate: form.selectedDate,
                             onSelect: notifier.updateSlot,
                           ),
                           const SizedBox(height: 24),
@@ -707,13 +740,30 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 class _SlotGrid extends StatelessWidget {
   final List<String> slots;
   final String selectedSlot;
+  final List<String> bookedSlots;
+  final String selectedDate;
   final ValueChanged<String> onSelect;
 
   const _SlotGrid({
     required this.slots,
     required this.selectedSlot,
+    required this.bookedSlots,
+    required this.selectedDate,
     required this.onSelect,
   });
+
+  bool _isPast(String slot) {
+    final today = DateTime.now();
+    final todayStr = '${today.year.toString().padLeft(4, '0')}-'
+        '${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+    if (selectedDate != todayStr) return false;
+    final parts = slot.split(':');
+    if (parts.length != 2) return false;
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = int.tryParse(parts[1]) ?? 0;
+    return h < today.hour || (h == today.hour && m <= today.minute);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -721,19 +771,45 @@ class _SlotGrid extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: slots.map((slot) {
-        final isSelected = selectedSlot == slot;
+        final isBooked = bookedSlots.contains(slot);
+        final isPast = _isPast(slot);
+        final isDisabled = isBooked || isPast;
+        final isSelected = !isDisabled && selectedSlot == slot;
+
         String label;
         try {
           label = AppDateUtils.formatSlot(slot);
         } catch (_) {
           label = slot;
         }
+
+        Color bgColor;
+        Color borderColor;
+        Color textColor;
+
+        if (isBooked) {
+          bgColor = const Color(0xFFFFEDED);
+          borderColor = SevaCareColors.danger;
+          textColor = SevaCareColors.danger;
+        } else if (isPast) {
+          bgColor = SevaCareColors.border;
+          borderColor = SevaCareColors.border;
+          textColor = SevaCareColors.textMuted;
+        } else if (isSelected) {
+          bgColor = SevaCareColors.primary;
+          borderColor = SevaCareColors.primary;
+          textColor = SevaCareColors.textOnPrimary;
+        } else {
+          bgColor = SevaCareColors.surface;
+          borderColor = SevaCareColors.border;
+          textColor = SevaCareColors.text;
+        }
+
         return GestureDetector(
-          onTap: () => onSelect(slot),
+          onTap: isDisabled ? null : () => onSelect(slot),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
               gradient: isSelected
                   ? const LinearGradient(
@@ -742,13 +818,9 @@ class _SlotGrid extends StatelessWidget {
                       end: Alignment.centerRight,
                     )
                   : null,
-              color: isSelected ? null : SevaCareColors.surface,
+              color: isSelected ? null : bgColor,
               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              border: Border.all(
-                color:
-                    isSelected ? SevaCareColors.primary : SevaCareColors.border,
-                width: isSelected ? 2 : 1,
-              ),
+              border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
@@ -761,9 +833,7 @@ class _SlotGrid extends StatelessWidget {
             ),
             child: Text(
               label,
-              style: AppTextStyles.chipLabel(
-                isSelected ? SevaCareColors.textOnPrimary : SevaCareColors.text,
-              ),
+              style: AppTextStyles.chipLabel(textColor),
             ),
           ),
         );

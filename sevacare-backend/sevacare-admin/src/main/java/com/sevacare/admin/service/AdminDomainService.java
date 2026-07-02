@@ -1,6 +1,8 @@
 package com.sevacare.admin.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -82,6 +84,18 @@ public class AdminDomainService {
     }
 
     @Transactional(readOnly = true)
+    public AdminUser findStaffForLogin(String tenantPublicId, String mobileNumber) {
+        String normalizedMobileNumber = normalize(mobileNumber);
+        if (normalizedMobileNumber == null) {
+            throw new IllegalArgumentException("Staff mobile number is required");
+        }
+        return adminUserRepository.findFirstByTenantPublicIdAndMobileNumberAndUserTypeAndActiveTrueOrderByAdminPublicIdAsc(
+                        tenantPublicId, normalizedMobileNumber, "STAFF")
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "This mobile number is not registered as IP-Staff for this hospital. Please contact your hospital admin."));
+    }
+
+    @Transactional(readOnly = true)
     public AdminDtos.AdminOverview overview(String tenantPublicId) {
         long totalPatients = patientRepository.findByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId).size();
         long upcomingAppointments = countUpcomingAppointments(tenantPublicId);
@@ -108,8 +122,66 @@ public class AdminDomainService {
 
         return new AdminDtos.AdminUserCollection(
                 tenantPublicId,
-                admins.stream().map(this::toAdminUserView).toList()
+                admins.stream()
+                      .filter(a -> !"STAFF".equals(a.getUserType()))
+                      .map(this::toAdminUserView).toList()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminDtos.StaffUserCollection listStaff(String tenantPublicId, boolean activeOnly) {
+        List<AdminUser> staff = activeOnly
+                ? adminUserRepository.findByTenantPublicIdAndUserTypeAndActiveTrueOrderByAdminPublicIdAsc(tenantPublicId, "STAFF")
+                : adminUserRepository.findByTenantPublicIdAndUserTypeOrderByAdminPublicIdAsc(tenantPublicId, "STAFF");
+        return new AdminDtos.StaffUserCollection(tenantPublicId, staff.stream().map(this::toAdminUserView).toList());
+    }
+
+    @Transactional
+    public AdminDtos.AdminUserView createStaff(String tenantPublicId, AdminDtos.AdminUserUpsertRequest request) {
+        String mobile = normalize(request.mobileNumber());
+        if (mobile == null || mobile.isBlank()) {
+            throw new IllegalArgumentException("Mobile number is required for staff");
+        }
+        if (adminUserRepository.existsByTenantPublicIdAndMobileNumber(tenantPublicId, mobile)) {
+            throw new IllegalStateException("Mobile number already registered for this hospital");
+        }
+        AdminUser staffUser = new AdminUser();
+        staffUser.setAdminPublicId(tenantRegistryService.nextAdminPublicId());
+        staffUser.setTenantPublicId(tenantPublicId);
+        staffUser.setUserType("STAFF");
+        applyAdminUserUpdates(staffUser, request, true);
+        staffUser.setCreatedAt(LocalDateTime.now());
+        AdminUser saved = adminUserRepository.save(staffUser);
+        log.info("staff_created tenantPublicId={} adminPublicId={}", tenantPublicId, saved.getAdminPublicId());
+        return toAdminUserView(saved);
+    }
+
+    @Transactional
+    public AdminDtos.DeleteActorResult deleteStaff(String tenantPublicId, String staffPublicId) {
+        AdminUser staffUser = adminUserRepository.findById(staffPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Staff not found: " + staffPublicId));
+        if (!tenantPublicId.equals(staffUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Staff does not belong to tenant");
+        }
+        if (!"STAFF".equals(staffUser.getUserType())) {
+            throw new IllegalArgumentException("User is not a staff member");
+        }
+        adminUserRepository.delete(staffUser);
+        log.info("staff_deleted tenantPublicId={} staffPublicId={}", tenantPublicId, staffPublicId);
+        return new AdminDtos.DeleteActorResult(staffPublicId, tenantPublicId, "deleted");
+    }
+
+    @Transactional
+    public AdminDtos.AdminUserView deactivateStaff(String tenantPublicId, String staffPublicId) {
+        AdminUser staffUser = adminUserRepository.findById(staffPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Staff not found: " + staffPublicId));
+        if (!tenantPublicId.equals(staffUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Staff does not belong to tenant");
+        }
+        staffUser.setActive(false);
+        AdminUser saved = adminUserRepository.save(staffUser);
+        log.info("staff_deactivated tenantPublicId={} staffPublicId={}", tenantPublicId, staffPublicId);
+        return toAdminUserView(saved);
     }
 
     @Transactional(readOnly = true)
@@ -252,7 +324,9 @@ public class AdminDomainService {
         patient.setPatientPublicId(tenantRegistryService.nextPatientPublicId());
         patient.setTenantPublicId(request.tenantPublicId());
         patient.setFullName(request.name());
-        patient.setMobileNumber("9000000000");
+        String mobile = request.mobileNumber() != null && !request.mobileNumber().isBlank()
+                ? request.mobileNumber().trim() : "0000000000";
+        patient.setMobileNumber(mobile);
         patient.setStatus("active");
         patientDomainService.save(patient);
         log.info("admin_create_patient tenantPublicId={} patientPublicId={} name={}",
@@ -289,6 +363,11 @@ public class AdminDomainService {
         } else if (isCreate) {
             adminUser.setActive(true);
         }
+        // Only set userType if not already set (createStaff pre-sets it to STAFF)
+        if (adminUser.getUserType() == null) {
+            String requestedType = request.userType();
+            adminUser.setUserType(requestedType != null && !requestedType.isBlank() ? requestedType.toUpperCase() : "ADMIN");
+        }
     }
 
     private AdminDtos.AdminUserView toAdminUserView(AdminUser adminUser) {
@@ -302,8 +381,93 @@ public class AdminDomainService {
                 adminUser.getMobileNumber(),
                 adminUser.isActive(),
                 adminUser.getCreatedAt(),
-                isGeneric
+                isGeneric,
+                adminUser.getUserType()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDtos.StaffBookingStat> getStaffBookingStats(String tenantPublicId) {
+        String schemaName = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        List<AdminUser> staffList = adminUserRepository.findByTenantPublicIdAndUserTypeOrderByAdminPublicIdAsc(tenantPublicId, "STAFF");
+        List<AdminDtos.StaffBookingStat> stats = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        String todayStr = today.toString();
+        String weekStart = today.minusDays(6).toString();
+        String monthStart = today.withDayOfMonth(1).toString();
+        String yearStart = today.withDayOfYear(1).toString();
+        for (AdminUser staff : staffList) {
+            String marker = "Booked by IP-Staff: " + staff.getAdminPublicId();
+            int todayCount = countStaffBookings(schemaName, tenantPublicId, marker, todayStr, todayStr);
+            int weekCount = countStaffBookings(schemaName, tenantPublicId, marker, weekStart, todayStr);
+            int monthCount = countStaffBookings(schemaName, tenantPublicId, marker, monthStart, todayStr);
+            int yearCount = countStaffBookings(schemaName, tenantPublicId, marker, yearStart, todayStr);
+            stats.add(new AdminDtos.StaffBookingStat(
+                    staff.getAdminPublicId(), staff.getFullName(), staff.getMobileNumber(),
+                    todayCount, weekCount, monthCount, yearCount));
+        }
+        return stats;
+    }
+
+    private int countStaffBookings(String schemaName, String tenantPublicId, String marker, String fromDate, String toDate) {
+        try {
+            Long count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM " + schemaName + ".appointment WHERE tenant_public_id = ? AND notes LIKE ? " +
+                    "AND appointment_slot >= ? AND appointment_slot <= ?",
+                    Long.class, tenantPublicId, "%" + marker + "%", fromDate, toDate + " 23:59");
+            return count == null ? 0 : count.intValue();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public AdminDtos.PatientPage listPatientsWithLastAppointment(
+            String tenantPublicId, int page, int size, String search) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        int safeSize   = Math.max(1, Math.min(size, 100));
+        int safeOffset = Math.max(0, page) * safeSize;
+        boolean hasSearch = search != null && !search.isBlank();
+        String like = hasSearch ? "%" + search.trim().toLowerCase() + "%" : null;
+
+        // Total count
+        String countSql = "SELECT COUNT(*) FROM " + schema + ".patient WHERE tenant_public_id = ?" +
+                (hasSearch ? " AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "");
+        Object[] countArgs = hasSearch
+                ? new Object[]{tenantPublicId, like, like}
+                : new Object[]{tenantPublicId};
+        Long total = jdbcTemplate.queryForObject(countSql, Long.class, countArgs);
+
+        // Paginated patients with last appointment slot via correlated sub-select
+        String dataSql = """
+                SELECT p.patient_public_id, p.full_name, p.mobile_number, p.gender, p.age,
+                       (SELECT a.appointment_slot FROM %s.appointment a
+                        WHERE a.patient_public_id = p.patient_public_id
+                          AND a.tenant_public_id  = p.tenant_public_id
+                        ORDER BY a.appointment_slot DESC LIMIT 1) AS last_appointment
+                FROM %s.patient p
+                WHERE p.tenant_public_id = ?
+                %s
+                ORDER BY p.patient_public_id DESC
+                LIMIT ? OFFSET ?
+                """.formatted(schema, schema,
+                hasSearch ? "AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "");
+
+        Object[] dataArgs = hasSearch
+                ? new Object[]{tenantPublicId, like, like, safeSize, safeOffset}
+                : new Object[]{tenantPublicId, safeSize, safeOffset};
+
+        List<AdminDtos.PatientSummary> patients = jdbcTemplate.query(dataSql, dataArgs, (rs, i) ->
+                new AdminDtos.PatientSummary(
+                        rs.getString("patient_public_id"),
+                        rs.getString("full_name"),
+                        rs.getString("mobile_number"),
+                        rs.getString("gender"),
+                        rs.getObject("age", Integer.class),
+                        rs.getString("last_appointment")
+                ));
+
+        return new AdminDtos.PatientPage(patients, total == null ? 0 : total, page, safeSize);
     }
 
     private String normalize(String value) {

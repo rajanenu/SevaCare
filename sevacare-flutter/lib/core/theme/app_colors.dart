@@ -32,6 +32,11 @@ class SevaCareColors {
   static const Color peachSoft = Color(0xFFFEF3E8);
   static const Color peachForeground = Color(0xFF7C3B18);
 
+  // ── Sky — cool blue, used for the IP-Staff persona
+  static const Color sky = Color(0xFF4C9FE0);
+  static const Color skySoft = Color(0xFFE8F3FC);
+  static const Color skyForeground = Color(0xFF1B527D);
+
   // ── Borders & decorations
   static const Color border = Color(0xFFE5E3F0);
   static const Color overlay = Color(0x145148CC);
@@ -51,6 +56,7 @@ class SevaCareColors {
   static const List<Color> heroGradient = [Color(0xFF3F39A8), Color(0xFF7C6FE0)];
   static const List<Color> mintGradient = [Color(0xFF52C499), Color(0xFF3BAE85)];
   static const List<Color> peachGradient = [Color(0xFFF2C072), Color(0xFFE8805A)];
+  static const List<Color> skyGradient = [Color(0xFF4C9FE0), Color(0xFF2D6FA8)];
   static const List<Color> dangerGradient = [Color(0xFFDB4E2D), Color(0xFFB83A1E)];
   static const List<Color> screenGradient = [Color(0xFFFAF9F6), Color(0xFFF2F0FA), Color(0xFFF6FAF8)];
 

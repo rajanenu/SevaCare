@@ -65,15 +65,22 @@ public class AuthController {
             tenantRegistryService.mustFindActiveTenant(request.tenantPublicId());
         }
 
-        // Fail fast: validate registered mobile for doctor and admin roles before sending OTP
-        if ("doctor".equals(request.role()) || "admin".equals(request.role())) {
+        // Fail fast: validate registered mobile for doctor, admin, and staff roles before sending OTP
+        if ("doctor".equals(request.role()) || "admin".equals(request.role()) || "staff".equals(request.role())) {
             String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());
             try {
                 TenantContext.set(request.tenantPublicId(), schema);
                 if ("doctor".equals(request.role())) {
                     doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber());
-                } else {
+                } else if ("admin".equals(request.role())) {
                     adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
+                } else {
+                    // 'staff' role: find admin_user record and enforce user_type = STAFF
+                    var a = adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
+                    if (!"STAFF".equals(a.getUserType())) {
+                        throw new IllegalArgumentException(
+                                "This mobile number is not registered as IP-Staff for this hospital. Please contact your hospital admin.");
+                    }
                 }
             } finally {
                 TenantContext.clear();
@@ -100,7 +107,7 @@ public class AuthController {
             String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
             String subjectName = platformAdminService.findPlatformAdminNameByMobile(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName, "ADMIN"));
         }
 
         if (!LOCAL_OTP.equals(request.otp())) {
@@ -110,26 +117,37 @@ public class AuthController {
         String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());
         try {
             TenantContext.set(request.tenantPublicId(), schema);
-            record SubjectInfo(String publicId, String name) {}
+            record SubjectInfo(String publicId, String name, String userType) {}
             SubjectInfo subject = switch (request.role()) {
                 case "patient" -> {
                     var p = patientDomainService.findOrCreatePatientForLogin(request.tenantPublicId(), request.mobileNumber());
-                    yield new SubjectInfo(p.getPatientPublicId(), p.getFullName() != null ? p.getFullName() : "Patient");
+                    yield new SubjectInfo(p.getPatientPublicId(), p.getFullName() != null ? p.getFullName() : "Patient", "PATIENT");
                 }
                 case "doctor" -> {
                     var d = doctorDomainService.findDoctorForLogin(request.tenantPublicId(), request.mobileNumber());
-                    yield new SubjectInfo(d.getDoctorPublicId(), d.getFullName() != null ? d.getFullName() : "Doctor");
+                    yield new SubjectInfo(d.getDoctorPublicId(), d.getFullName() != null ? d.getFullName() : "Doctor", "DOCTOR");
                 }
                 case "admin" -> {
                     var a = adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
-                    yield new SubjectInfo(a.getAdminPublicId(), a.getFullName() != null ? a.getFullName() : "Admin");
+                    yield new SubjectInfo(a.getAdminPublicId(), a.getFullName() != null ? a.getFullName() : "Admin", a.getUserType());
+                }
+                case "staff" -> {
+                    // IP-Staff: reuse findAdminForLogin + enforce user_type = STAFF
+                    var a = adminDomainService.findAdminForLogin(request.tenantPublicId(), request.mobileNumber());
+                    if (!"STAFF".equals(a.getUserType())) {
+                        throw new IllegalArgumentException(
+                                "This mobile number is not registered as IP-Staff for this hospital. Please contact your hospital admin.");
+                    }
+                    yield new SubjectInfo(a.getAdminPublicId(), a.getFullName() != null ? a.getFullName() : "IP-Staff", a.getUserType());
                 }
                 default -> throw new IllegalArgumentException("Unsupported role");
             };
+            // Staff logs in via 'staff' role request but carries 'admin' JWT role so security gates work
+            String jwtRole = "staff".equals(request.role()) ? "admin" : request.role();
             boolean isGenericAdmin = "admin".equals(request.role())
                     && AdminDomainService.GENERIC_ADMIN_MOBILE.equals(request.mobileNumber());
-            String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), request.role(), subject.publicId()));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), request.role(), subject.publicId(), token, isGenericAdmin, subject.name()));
+            String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), jwtRole, subject.publicId()));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), jwtRole, subject.publicId(), token, isGenericAdmin, subject.name(), subject.userType()));
         } finally {
             TenantContext.clear();
         }

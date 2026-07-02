@@ -13,7 +13,8 @@ class PrescriptionsScreen extends ConsumerStatefulWidget {
   const PrescriptionsScreen({super.key});
 
   @override
-  ConsumerState<PrescriptionsScreen> createState() => _PrescriptionsScreenState();
+  ConsumerState<PrescriptionsScreen> createState() =>
+      _PrescriptionsScreenState();
 }
 
 class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
@@ -64,14 +65,31 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
       hospitalName: hospital.hospitalName,
       role: UserRole.patient,
       bottomNavItems: const [
-        BottomNavItem(label: 'Dashboard', icon: Icons.grid_view_rounded, route: '/patient'),
-        BottomNavItem(label: 'Doctors', icon: Icons.people_outline, route: '/patient/doctors'),
         BottomNavItem(
-            label: 'Appointments',
-            icon: Icons.calendar_today_outlined,
-            route: '/patient/appointments'),
-        BottomNavItem(label: 'Rx', icon: Icons.medication_outlined, route: '/patient/prescriptions'),
-        BottomNavItem(label: 'Profile', icon: Icons.person_outline, route: '/patient/profile'),
+          label: 'Dashboard',
+          icon: Icons.grid_view_rounded,
+          route: '/patient',
+        ),
+        BottomNavItem(
+          label: 'Doctors',
+          icon: Icons.people_outline,
+          route: '/patient/doctors',
+        ),
+        BottomNavItem(
+          label: 'Appointments',
+          icon: Icons.calendar_today_outlined,
+          route: '/patient/appointments',
+        ),
+        BottomNavItem(
+          label: 'Rx',
+          icon: Icons.medication_outlined,
+          route: '/patient/prescriptions',
+        ),
+        BottomNavItem(
+          label: 'Profile',
+          icon: Icons.person_outline,
+          route: '/patient/profile',
+        ),
       ],
       currentNavIndex: 3,
       onNavTap: (i) {
@@ -86,124 +104,156 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
       },
       body: RefreshIndicator(
         onRefresh: _load,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            BackBtn(onPressed: () => context.go('/patient')),
-            const SizedBox(height: 8),
-            PageHeader(
-              title: 'My Prescriptions',
-              subtitle: _loading ? null : 'Total: ${prescriptions.length}',
-            ),
-            const SizedBox(height: 8),
-            if (_loading)
-              const SizedBox(
-                height: 400,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              SizedBox(
-                height: 400,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, color: SevaCareColors.danger, size: 40),
-                      const SizedBox(height: 12),
-                      Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                      const SizedBox(height: 16),
-                      PrimaryButton(label: 'Retry', onPressed: _load),
-                    ],
-                  ),
-                ),
-              )
-            else if (prescriptions.isEmpty)
-              SizedBox(
-                height: 400,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.medication_outlined,
-                          color: SevaCareColors.textMuted, size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No prescriptions found',
-                        style: AppTextStyles.sectionTitle(SevaCareColors.textMuted),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Your prescriptions will appear here once issued by a doctor.',
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: prescriptions.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final rx = prescriptions[index];
-                  return AppCard(
-                    onTap: () => context.push('/patient/prescriptions/${rx.prescriptionPublicId}'),
-                    padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BackBtn(onPressed: () => context.go('/patient')),
+              const SizedBox(height: 8),
+              PageHeader(
+                title: 'My Prescriptions',
+                subtitle: _loading ? null : 'Total: ${prescriptions.length}',
+              ),
+              const SizedBox(height: 8),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: ShimmerList(count: 4, cardHeight: 96),
+                )
+              else if (_error != null)
+                SizedBox(
+                  height: 400,
+                  child: Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Top row: ID + doctor + status
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _rxLabel(rx.prescriptionPublicId),
-                                    style: AppTextStyles.cardTitle(SevaCareColors.text),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Dr. ${rx.doctorName}',
-                                    style: AppTextStyles.label(SevaCareColors.textMuted),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            StatusBadge(status: rx.status),
-                          ],
+                        const Icon(
+                          Icons.error_outline,
+                          color: SevaCareColors.danger,
+                          size: 40,
                         ),
                         const SizedBox(height: 12),
-                        // Bottom chips: medicine count + date
-                        Row(
-                          children: [
-                            _Chip(
-                              label: '${rx.medicines.length} medicine${rx.medicines.length == 1 ? '' : 's'}',
-                              icon: Icons.medication_outlined,
-                              bgColor: SevaCareColors.primarySoft,
-                              fgColor: SevaCareColors.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            _Chip(
-                              label: AppDateUtils.formatDisplay(rx.issuedOn),
-                              icon: Icons.calendar_today_outlined,
-                              bgColor: SevaCareColors.surfaceMuted,
-                              fgColor: SevaCareColors.textMuted,
-                            ),
-                          ],
+                        Text(
+                          _error!,
+                          style: AppTextStyles.bodyText(
+                            SevaCareColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        PrimaryButton(label: 'Retry', onPressed: _load),
+                      ],
+                    ),
+                  ),
+                )
+              else if (prescriptions.isEmpty)
+                SizedBox(
+                  height: 400,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.medication_outlined,
+                          color: SevaCareColors.textMuted,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No prescriptions found',
+                          style: AppTextStyles.sectionTitle(
+                            SevaCareColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Your prescriptions will appear here once issued by a doctor.',
+                          style: AppTextStyles.bodyText(
+                            SevaCareColors.textMuted,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
-            const SizedBox(height: 24),
-          ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: prescriptions.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final rx = prescriptions[index];
+                    return StaggeredItem(
+                      index: index,
+                      child: AppCard(
+                        onTap: () => context.push(
+                          '/patient/prescriptions/${rx.prescriptionPublicId}',
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top row: ID + doctor + status
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _rxLabel(rx.prescriptionPublicId),
+                                        style: AppTextStyles.cardTitle(
+                                          SevaCareColors.text,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Dr. ${rx.doctorName}',
+                                        style: AppTextStyles.label(
+                                          SevaCareColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StatusBadge(status: rx.status),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            // Bottom chips: medicine count + date
+                            Row(
+                              children: [
+                                _Chip(
+                                  label:
+                                      '${rx.medicines.length} medicine${rx.medicines.length == 1 ? '' : 's'}',
+                                  icon: Icons.medication_outlined,
+                                  bgColor: SevaCareColors.primarySoft,
+                                  fgColor: SevaCareColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                _Chip(
+                                  label: AppDateUtils.formatDisplay(
+                                    rx.issuedOn,
+                                  ),
+                                  icon: Icons.calendar_today_outlined,
+                                  bgColor: SevaCareColors.surfaceMuted,
+                                  fgColor: SevaCareColors.textMuted,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

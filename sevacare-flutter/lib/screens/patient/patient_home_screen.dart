@@ -16,13 +16,32 @@ import '../../widgets/widgets.dart';
 // ── Patient bottom nav items (shared) ────────────────────────────────────────
 
 List<BottomNavItem> patientNavItems(BuildContext context) => [
-      const BottomNavItem(label: 'Dashboard', icon: Icons.grid_view_rounded, route: '/patient'),
-      const BottomNavItem(label: 'Doctors', icon: Icons.people_outline, route: '/patient/doctors'),
-      const BottomNavItem(
-          label: 'Appointments', icon: Icons.calendar_today_outlined, route: '/patient/appointments'),
-      const BottomNavItem(label: 'Rx', icon: Icons.medication_outlined, route: '/patient/prescriptions'),
-      const BottomNavItem(label: 'Profile', icon: Icons.person_outline, route: '/patient/profile'),
-    ];
+  const BottomNavItem(
+    label: 'Dashboard',
+    icon: Icons.grid_view_rounded,
+    route: '/patient',
+  ),
+  const BottomNavItem(
+    label: 'Doctors',
+    icon: Icons.people_outline,
+    route: '/patient/doctors',
+  ),
+  const BottomNavItem(
+    label: 'Appointments',
+    icon: Icons.calendar_today_outlined,
+    route: '/patient/appointments',
+  ),
+  const BottomNavItem(
+    label: 'Rx',
+    icon: Icons.medication_outlined,
+    route: '/patient/prescriptions',
+  ),
+  const BottomNavItem(
+    label: 'Profile',
+    icon: Icons.person_outline,
+    route: '/patient/profile',
+  ),
+];
 
 // ── Patient Home Screen ───────────────────────────────────────────────────────
 
@@ -46,7 +65,10 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final auth = ref.read(authProvider);
       final repo = ref.read(repositoryProvider);
@@ -57,7 +79,13 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       );
       if (mounted) setState(() => _homeData = data);
     } catch (e) {
-      if (mounted) setState(() => _error = extractErrorMessage(e, fallback: 'Failed to load dashboard.'));
+      if (mounted)
+        setState(
+          () => _error = extractErrorMessage(
+            e,
+            fallback: 'Failed to load dashboard.',
+          ),
+        );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -69,9 +97,13 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     final targetDate = AppDateUtils.offsetDay(offset);
     return data.appointments.where((a) {
       try {
-        final slotDate = DateFormat('yyyy-MM-dd').format(DateTime.parse(a.slot).toLocal());
+        final slotDate = DateFormat(
+          'yyyy-MM-dd',
+        ).format(DateTime.parse(a.slot).toLocal());
         return slotDate == targetDate;
-      } catch (_) { return false; }
+      } catch (_) {
+        return false;
+      }
     }).toList();
   }
 
@@ -91,10 +123,12 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to cancel: $e'),
-          backgroundColor: SevaCareColors.danger,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel: $e'),
+            backgroundColor: SevaCareColors.danger,
+          ),
+        );
       }
     }
   }
@@ -105,7 +139,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     final dayAppts = _appointmentsForDay(_dayOffset);
     final totalRx = _homeData?.prescriptions.length ?? 0;
     final allAppts = _homeData?.appointments ?? [];
-    final completedAll = allAppts.where((a) => a.status.toLowerCase() == 'completed').length;
+    final completedAll = allAppts
+        .where((a) => a.status.toLowerCase() == 'completed')
+        .length;
 
     final segmentItems = <SegmentItem<int>>[
       const SegmentItem(value: -1, label: 'Yesterday'),
@@ -118,7 +154,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     try {
       final dt = DateTime.parse(timelineDateStr).toLocal();
       timelineLabel = DateFormat('EEE d MMM').format(dt);
-    } catch (_) { timelineLabel = timelineDateStr; }
+    } catch (_) {
+      timelineLabel = timelineDateStr;
+    }
 
     return AppShell(
       hospitalName: hospital.hospitalName,
@@ -130,180 +168,237 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         if (i < items.length) context.go(items[i].route);
       },
       body: _loading
-          ? const SizedBox(height: 400, child: Center(child: CircularProgressIndicator()))
+          ? const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: ShimmerList(count: 4, cardHeight: 100),
+            )
           : _error != null
-              ? SizedBox(
-                  height: 400,
-                  child: Center(
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.error_outline, color: SevaCareColors.danger, size: 40),
-                      const SizedBox(height: 12),
-                      Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                      const SizedBox(height: 16),
-                      PrimaryButton(label: 'Retry', onPressed: _load),
-                    ]),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── NOVEL: HealthPulse hero banner ──────────────────────
-                      _PatientHeroBanner(
-                        patientId: ref.read(authProvider).subjectPublicId ?? '',
-                        completedAppointments: completedAll,
-                        totalAppointments: allAppts.length,
-                      ),
-                      const SizedBox(height: 12),
+          ? SizedBox(
+              height: 400,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: SevaCareColors.danger,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _error!,
+                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(label: 'Retry', onPressed: _load),
+                  ],
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── NOVEL: HealthPulse hero banner ──────────────────────
+                    _PatientHeroBanner(
+                      patientId: ref.read(authProvider).subjectPublicId ?? '',
+                      completedAppointments: completedAll,
+                      totalAppointments: allAppts.length,
+                    ),
+                    const SizedBox(height: 12),
 
-                      // ── Countdown to next appointment ───────────────────────
-                      _AppointmentCountdownBanner(
-                        todayAppointments: _appointmentsForDay(0),
-                      ),
+                    // ── Countdown to next appointment ───────────────────────
+                    _AppointmentCountdownBanner(
+                      todayAppointments: _appointmentsForDay(0),
+                    ),
 
-                      // ── Live queue position ─────────────────────────────────
-                      _LiveQueueBanner(
-                        todayAppointments: _appointmentsForDay(0),
-                      ),
-                      const SizedBox(height: 16),
+                    // ── Live queue position ─────────────────────────────────
+                    _LiveQueueBanner(todayAppointments: _appointmentsForDay(0)),
+                    const SizedBox(height: 16),
 
-                      // ── #3: Colour-differentiated quick actions ─────────────
-                      GridView.count(
-                        crossAxisCount: 2,
+                    // ── #3: Colour-differentiated quick actions ─────────────
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.40,
+                      children: [
+                        _QuickActionTile(
+                          label: 'Book Appointment',
+                          icon: Icons.add_circle_outline,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF5148CC), Color(0xFF7C6FE0)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => context.push('/patient/booking'),
+                        ),
+                        _QuickActionTile(
+                          label: 'View Appointments',
+                          icon: Icons.calendar_today_outlined,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D9488), Color(0xFF52C499)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => context.go('/patient/appointments'),
+                        ),
+                        _QuickActionTile(
+                          label: 'View Prescriptions',
+                          icon: Icons.medication_outlined,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFD97706), Color(0xFFF0A86B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => context.go('/patient/prescriptions'),
+                        ),
+                        _QuickActionTile(
+                          label: 'Medical History',
+                          icon: Icons.history_edu_outlined,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onTap: () => context.push('/patient/medical-history'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Day selector ────────────────────────────────────────
+                    Row(
+                      children: [
+                        _DayNavBtn(
+                          label: 'Previous',
+                          icon: Icons.chevron_left,
+                          onTap: () => setState(() => _dayOffset--),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              'Timeline: $timelineLabel',
+                              style: AppTextStyles.label(
+                                SevaCareColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                        _DayNavBtn(
+                          label: 'Next',
+                          icon: Icons.chevron_right,
+                          iconTrailing: true,
+                          onTap: () => setState(() => _dayOffset++),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (_dayOffset >= -1 && _dayOffset <= 1)
+                      SegmentedControl<int>(
+                        items: segmentItems,
+                        selected: _dayOffset,
+                        onChanged: (v) => setState(() => _dayOffset = v),
+                      )
+                    else
+                      Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: SevaCareColors.primarySoft,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill,
+                          ),
+                        ),
+                        child: Text(
+                          AppDateUtils.dayLabel(_dayOffset),
+                          style: AppTextStyles.chipLabel(
+                            SevaCareColors.primary,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // ── Metrics ─────────────────────────────────────────────
+                    MetricRow(
+                      tiles: [
+                        MetricTile(
+                          value: '${dayAppts.length}',
+                          label: 'APPOINTMENTS',
+                          variant: MetricVariant.primary,
+                        ),
+                        MetricTile(
+                          value: '${_completedCount(dayAppts)}',
+                          label: 'COMPLETED',
+                          variant: MetricVariant.mint,
+                        ),
+                        MetricTile(
+                          value: '$totalRx',
+                          label: 'PRESCRIPTIONS',
+                          variant: MetricVariant.peach,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── #2: Journey appointment cards ───────────────────────
+                    Text(
+                      'Patient Queue',
+                      style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                    ),
+                    const SizedBox(height: 12),
+                    if (dayAppts.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today_outlined,
+                              color: SevaCareColors.textMuted,
+                              size: 36,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No appointments for ${AppDateUtils.dayLabel(_dayOffset)}',
+                              style: AppTextStyles.bodyText(
+                                SevaCareColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.40,
-                        children: [
-                          _QuickActionTile(
-                            label: 'Book Appointment',
-                            icon: Icons.add_circle_outline,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF5148CC), Color(0xFF7C6FE0)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            onTap: () => context.push('/patient/booking'),
-                          ),
-                          _QuickActionTile(
-                            label: 'View Appointments',
-                            icon: Icons.calendar_today_outlined,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0D9488), Color(0xFF52C499)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            onTap: () => context.go('/patient/appointments'),
-                          ),
-                          _QuickActionTile(
-                            label: 'View Prescriptions',
-                            icon: Icons.medication_outlined,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFD97706), Color(0xFFF0A86B)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            onTap: () => context.go('/patient/prescriptions'),
-                          ),
-                          _QuickActionTile(
-                            label: 'Medical History',
-                            icon: Icons.history_edu_outlined,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            onTap: () => context.push('/patient/medical-history'),
-                          ),
-                        ],
+                        itemCount: dayAppts.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final appt = dayAppts[index];
+                          final isCancellable = ![
+                            'cancelled',
+                            'canceled',
+                            'completed',
+                          ].contains(appt.status.toLowerCase());
+                          return _JourneyCard(
+                            appt: appt,
+                            isCancellable: isCancellable,
+                            onCancel: () => _cancelAppointment(appt),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 24),
-
-                      // ── Day selector ────────────────────────────────────────
-                      Row(
-                        children: [
-                          _DayNavBtn(label: 'Previous', icon: Icons.chevron_left,
-                              onTap: () => setState(() => _dayOffset--)),
-                          Expanded(
-                            child: Center(
-                              child: Text('Timeline: $timelineLabel',
-                                  style: AppTextStyles.label(SevaCareColors.textMuted)),
-                            ),
-                          ),
-                          _DayNavBtn(label: 'Next', icon: Icons.chevron_right,
-                              iconTrailing: true,
-                              onTap: () => setState(() => _dayOffset++)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      if (_dayOffset >= -1 && _dayOffset <= 1)
-                        SegmentedControl<int>(
-                          items: segmentItems,
-                          selected: _dayOffset,
-                          onChanged: (v) => setState(() => _dayOffset = v),
-                        )
-                      else
-                        Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: SevaCareColors.primarySoft,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                          ),
-                          child: Text(AppDateUtils.dayLabel(_dayOffset),
-                              style: AppTextStyles.chipLabel(SevaCareColors.primary)),
-                        ),
-                      const SizedBox(height: 16),
-
-                      // ── Metrics ─────────────────────────────────────────────
-                      MetricRow(
-                        tiles: [
-                          MetricTile(value: '${dayAppts.length}', label: 'APPOINTMENTS', variant: MetricVariant.primary),
-                          MetricTile(value: '${_completedCount(dayAppts)}', label: 'COMPLETED', variant: MetricVariant.mint),
-                          MetricTile(value: '$totalRx', label: 'PRESCRIPTIONS', variant: MetricVariant.peach),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ── #2: Journey appointment cards ───────────────────────
-                      Text('Patient Queue', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-                      const SizedBox(height: 12),
-                      if (dayAppts.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(32),
-                          alignment: Alignment.center,
-                          child: Column(children: [
-                            const Icon(Icons.calendar_today_outlined,
-                                color: SevaCareColors.textMuted, size: 36),
-                            const SizedBox(height: 12),
-                            Text('No appointments for ${AppDateUtils.dayLabel(_dayOffset)}',
-                                style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                          ]),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: dayAppts.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final appt = dayAppts[index];
-                            final isCancellable = !['cancelled', 'canceled', 'completed']
-                                .contains(appt.status.toLowerCase());
-                            return _JourneyCard(
-                              appt: appt,
-                              isCancellable: isCancellable,
-                              onCancel: () => _cancelAppointment(appt),
-                            );
-                          },
-                        ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 }
@@ -349,7 +444,10 @@ class _PatientHeroBanner extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            const AnimatedHealthcareBg(variant: HealthcareBgVariant.patient, height: 120),
+            const AnimatedHealthcareBg(
+              variant: HealthcareBgVariant.patient,
+              height: 120,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               child: Row(
@@ -361,29 +459,51 @@ class _PatientHeroBanner extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_greeting,
-                            style: AppTextStyles.label(Colors.white.withValues(alpha: 0.80))),
+                        Text(
+                          _greeting,
+                          style: AppTextStyles.label(
+                            Colors.white.withValues(alpha: 0.80),
+                          ),
+                        ),
                         const SizedBox(height: 3),
-                        Text('Stay Healthy Today',
-                            style: AppTextStyles.cardTitle(Colors.white)),
+                        Text(
+                          'Stay Healthy Today',
+                          style: AppTextStyles.cardTitle(Colors.white),
+                        ),
                         const SizedBox(height: 5),
                         if (totalAppointments > 0)
-                          Text('$completedAppointments of $totalAppointments visits complete',
-                              style: AppTextStyles.label(Colors.white.withValues(alpha: 0.65)))
+                          Text(
+                            '$completedAppointments of $totalAppointments visits complete',
+                            style: AppTextStyles.label(
+                              Colors.white.withValues(alpha: 0.65),
+                            ),
+                          )
                         else
-                          Text(patientId,
-                              style: AppTextStyles.label(Colors.white.withValues(alpha: 0.65))),
+                          Text(
+                            patientId,
+                            style: AppTextStyles.label(
+                              Colors.white.withValues(alpha: 0.65),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.30),
+                      ),
                     ),
-                    child: Text('Patient', style: AppTextStyles.label(Colors.white)),
+                    child: Text(
+                      'Patient',
+                      style: AppTextStyles.label(Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -429,7 +549,10 @@ class _HealthPulseRingAvatarState extends State<_HealthPulseRingAvatar>
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, _) {
-        final t = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic).value;
+        final t = CurvedAnimation(
+          parent: _ctrl,
+          curve: Curves.easeOutCubic,
+        ).value;
         return CustomPaint(
           size: const Size(60, 60),
           painter: _RingPainter(
@@ -440,7 +563,11 @@ class _HealthPulseRingAvatarState extends State<_HealthPulseRingAvatar>
             width: 60,
             height: 60,
             child: Center(
-              child: Icon(Icons.favorite_rounded, color: Colors.white, size: 24),
+              child: Icon(
+                Icons.favorite_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
           ),
         );
@@ -533,7 +660,8 @@ class _JourneyCard extends StatelessWidget {
   int get _activeStep {
     final s = appt.status.toLowerCase();
     if (s == 'completed') return 4;
-    if (s.contains('consult') || s == 'in_progress' || s == 'in progress') return 2;
+    if (s.contains('consult') || s == 'in_progress' || s == 'in progress')
+      return 2;
     if (s == 'confirmed') return 1;
     return 0;
   }
@@ -555,12 +683,16 @@ class _JourneyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      appt.doctorName.isNotEmpty ? 'Dr. ${appt.doctorName}' : 'Doctor',
+                      appt.doctorName.isNotEmpty
+                          ? 'Dr. ${appt.doctorName}'
+                          : 'Doctor',
                       style: AppTextStyles.cardTitle(SevaCareColors.text),
                     ),
                     const SizedBox(height: 4),
-                    Text(AppDateUtils.formatSlot(appt.slot),
-                        style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    Text(
+                      AppDateUtils.formatSlot(appt.slot),
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                    ),
                     const SizedBox(height: 8),
                     StatusBadge(status: appt.status),
                   ],
@@ -611,7 +743,8 @@ class _JourneyTimeline extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: (done || active)
                       ? const LinearGradient(
-                          colors: [SevaCareColors.primary, SevaCareColors.mint])
+                          colors: [SevaCareColors.primary, SevaCareColors.mint],
+                        )
                       : null,
                   color: (done || active) ? null : SevaCareColors.border,
                   borderRadius: BorderRadius.circular(1),
@@ -639,14 +772,20 @@ class _JourneyTimeline extends StatelessWidget {
                         end: Alignment.bottomRight,
                       )
                     : null,
-                color: done ? null : (active ? null : SevaCareColors.surfaceMuted),
+                color: done
+                    ? null
+                    : (active ? null : SevaCareColors.surfaceMuted),
                 border: active
                     ? Border.all(color: SevaCareColors.primary, width: 2)
                     : null,
                 boxShadow: done
-                    ? [BoxShadow(
-                        color: SevaCareColors.primary.withValues(alpha: 0.30),
-                        blurRadius: 6, offset: const Offset(0, 2))]
+                    ? [
+                        BoxShadow(
+                          color: SevaCareColors.primary.withValues(alpha: 0.30),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
                     : null,
               ),
               child: Icon(
@@ -654,7 +793,9 @@ class _JourneyTimeline extends StatelessWidget {
                 size: 13,
                 color: done
                     ? Colors.white
-                    : (active ? SevaCareColors.primary : SevaCareColors.textMuted),
+                    : (active
+                          ? SevaCareColors.primary
+                          : SevaCareColors.textMuted),
               ),
             ),
             const SizedBox(height: 4),
@@ -667,7 +808,9 @@ class _JourneyTimeline extends StatelessWidget {
                   weight: (done || active) ? FontWeight.w700 : FontWeight.w500,
                   color: done
                       ? SevaCareColors.primary
-                      : (active ? SevaCareColors.primary : SevaCareColors.textMuted),
+                      : (active
+                            ? SevaCareColors.primary
+                            : SevaCareColors.textMuted),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -702,14 +845,16 @@ class _QuickActionTile extends StatefulWidget {
 class _QuickActionTileState extends State<_QuickActionTile> {
   bool _pressed = false;
 
-  Color get _accentColor =>
-      (widget.gradient as LinearGradient).colors.first;
+  Color get _accentColor => (widget.gradient as LinearGradient).colors.first;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
         scale: _pressed ? 0.94 : 1.0,
@@ -720,10 +865,11 @@ class _QuickActionTileState extends State<_QuickActionTile> {
             color: SevaCareColors.surface,
             borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
-                color: _pressed
-                    ? _accentColor.withValues(alpha: 0.30)
-                    : SevaCareColors.border,
-                width: 1),
+              color: _pressed
+                  ? _accentColor.withValues(alpha: 0.30)
+                  : SevaCareColors.border,
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -804,14 +950,20 @@ class _DayNavBtn extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: iconTrailing
               ? [
-                  Text(label, style: AppTextStyles.label(const Color(0xFFDC2626))),
+                  Text(
+                    label,
+                    style: AppTextStyles.label(const Color(0xFFDC2626)),
+                  ),
                   const SizedBox(width: 4),
                   Icon(icon, size: 16, color: const Color(0xFFDC2626)),
                 ]
               : [
                   Icon(icon, size: 16, color: const Color(0xFFDC2626)),
                   const SizedBox(width: 4),
-                  Text(label, style: AppTextStyles.label(const Color(0xFFDC2626))),
+                  Text(
+                    label,
+                    style: AppTextStyles.label(const Color(0xFFDC2626)),
+                  ),
                 ],
         ),
       ),
@@ -843,17 +995,30 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
   }
 
   @override
-  void dispose() { _pulse.dispose(); super.dispose(); }
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
-  ({int position, int waitMins, String doctorName, String slot})? get _queueInfo {
+  ({int position, int waitMins, String doctorName, String slot})?
+  get _queueInfo {
     final now = DateTime.now();
     final upcoming = widget.todayAppointments
-        .where((a) => !['completed', 'cancelled', 'canceled']
-            .contains(a.status.toLowerCase()))
+        .where(
+          (a) => ![
+            'completed',
+            'cancelled',
+            'canceled',
+          ].contains(a.status.toLowerCase()),
+        )
         .where((a) {
-          try { return DateTime.parse(a.slot).toLocal().isAfter(now); }
-          catch (_) { return true; }
-        }).toList();
+          try {
+            return DateTime.parse(a.slot).toLocal().isAfter(now);
+          } catch (_) {
+            return true;
+          }
+        })
+        .toList();
     if (upcoming.isEmpty) return null;
     final first = upcoming.first;
     return (
@@ -879,58 +1044,88 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
             color: SevaCareColors.primarySoft,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: SevaCareColors.primary.withValues(alpha: 0.20 + glow * 0.15),
+              color: SevaCareColors.primary.withValues(
+                alpha: 0.20 + glow * 0.15,
+              ),
               width: 1.5,
             ),
-            boxShadow: [BoxShadow(
-              color: SevaCareColors.primary.withValues(alpha: 0.06 + glow * 0.06),
-              blurRadius: 12, offset: const Offset(0, 4),
-            )],
+            boxShadow: [
+              BoxShadow(
+                color: SevaCareColors.primary.withValues(
+                  alpha: 0.06 + glow * 0.06,
+                ),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              Stack(alignment: Alignment.center, children: [
-                Container(
-                  width: 32 + glow * 10,
-                  height: 32 + glow * 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: SevaCareColors.primary.withValues(alpha: 0.08 + glow * 0.06),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 32 + glow * 10,
+                    height: 32 + glow * 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SevaCareColors.primary.withValues(
+                        alpha: 0.08 + glow * 0.06,
+                      ),
+                    ),
                   ),
-                ),
-                Container(
-                  width: 32, height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: SevaCareColors.primarySoft,
-                    border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.30)),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SevaCareColors.primarySoft,
+                      border: Border.all(
+                        color: SevaCareColors.primary.withValues(alpha: 0.30),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '#${info.position}',
+                        style: AppTextStyles.body(
+                          size: 12,
+                          weight: FontWeight.w800,
+                          color: SevaCareColors.primary,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Center(
-                    child: Text('#${info.position}',
-                        style: AppTextStyles.body(size: 12, weight: FontWeight.w800, color: SevaCareColors.primary)),
-                  ),
-                ),
-              ]),
+                ],
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      Container(
-                        width: 7, height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: SevaCareColors.mint.withValues(alpha: 0.5 + glow * 0.5),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: SevaCareColors.mint.withValues(
+                              alpha: 0.5 + glow * 0.5,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text('LIVE · Your Queue Position',
-                          style: AppTextStyles.label(SevaCareColors.primary)),
-                    ]),
+                        const SizedBox(width: 5),
+                        Text(
+                          'LIVE · Your Queue Position',
+                          style: AppTextStyles.label(SevaCareColors.primary),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 3),
                     Text(
-                      info.doctorName.isNotEmpty ? 'Dr. ${info.doctorName}' : 'Upcoming Appointment',
+                      info.doctorName.isNotEmpty
+                          ? 'Dr. ${info.doctorName}'
+                          : 'Upcoming Appointment',
                       style: AppTextStyles.cardTitle(SevaCareColors.text),
                     ),
                   ],
@@ -939,9 +1134,18 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('~${info.waitMins} min',
-                      style: AppTextStyles.body(size: 16, weight: FontWeight.w700, color: SevaCareColors.primary)),
-                  Text('est. wait', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                  Text(
+                    '~${info.waitMins} min',
+                    style: AppTextStyles.body(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: SevaCareColors.primary,
+                    ),
+                  ),
+                  Text(
+                    'est. wait',
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
                 ],
               ),
             ],
@@ -985,23 +1189,38 @@ class _AppointmentCountdownBannerState
   }
 
   @override
-  void dispose() { _timer?.cancel(); super.dispose(); }
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   void _computeNext() {
     final now = DateTime.now();
     AppointmentView? nearest;
     Duration nearestDiff = const Duration(days: 999);
     for (final appt in widget.todayAppointments) {
-      if (['cancelled', 'canceled', 'completed'].contains(appt.status.toLowerCase())) continue;
+      if ([
+        'cancelled',
+        'canceled',
+        'completed',
+      ].contains(appt.status.toLowerCase()))
+        continue;
       try {
         final slot = DateTime.parse(appt.slot).toLocal();
         final diff = slot.difference(now);
         if (diff.isNegative) continue;
-        if (diff < nearestDiff) { nearestDiff = diff; nearest = appt; }
-      } catch (_) { continue; }
+        if (diff < nearestDiff) {
+          nearestDiff = diff;
+          nearest = appt;
+        }
+      } catch (_) {
+        continue;
+      }
     }
     _next = nearest;
-    _remaining = nearestDiff == const Duration(days: 999) ? Duration.zero : nearestDiff;
+    _remaining = nearestDiff == const Duration(days: 999)
+        ? Duration.zero
+        : nearestDiff;
   }
 
   void _tick() {
@@ -1034,7 +1253,8 @@ class _AppointmentCountdownBannerState
 
   @override
   Widget build(BuildContext context) {
-    if (_next == null || _remaining.inSeconds <= 0) return const SizedBox.shrink();
+    if (_next == null || _remaining.inSeconds <= 0)
+      return const SizedBox.shrink();
     final color = _urgencyColor;
 
     return Container(
@@ -1048,8 +1268,12 @@ class _AppointmentCountdownBannerState
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
             child: Icon(Icons.timer_outlined, color: color, size: 22),
           ),
           const SizedBox(width: 14),
@@ -1060,7 +1284,9 @@ class _AppointmentCountdownBannerState
                 Text(_urgencyLabel, style: AppTextStyles.label(color)),
                 const SizedBox(height: 2),
                 Text(
-                  _next!.doctorName.isNotEmpty ? 'Dr. ${_next!.doctorName}' : 'Doctor appointment',
+                  _next!.doctorName.isNotEmpty
+                      ? 'Dr. ${_next!.doctorName}'
+                      : 'Doctor appointment',
                   style: AppTextStyles.cardTitle(SevaCareColors.text),
                 ),
               ],
@@ -1078,7 +1304,10 @@ class _AppointmentCountdownBannerState
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
-              Text('remaining', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text(
+                'remaining',
+                style: AppTextStyles.label(SevaCareColors.textMuted),
+              ),
             ],
           ),
         ],

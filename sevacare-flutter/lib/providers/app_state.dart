@@ -13,6 +13,7 @@ const _kSubjectId = 'seva_subject_id';
 const _kRole = 'seva_role';
 const _kIsGeneric = 'seva_is_generic';
 const _kSubjectName = 'seva_subject_name';
+const _kUserType = 'seva_user_type';
 const _kHospitalId = 'seva_hospital_id';
 const _kTheme = 'seva_theme';
 
@@ -49,6 +50,7 @@ class AuthState {
   final UserRole? role;
   final bool isGenericAdmin;
   final String subjectName;
+  final String userType;
 
   const AuthState({
     this.token,
@@ -57,6 +59,7 @@ class AuthState {
     this.role,
     this.isGenericAdmin = false,
     this.subjectName = '',
+    this.userType = 'ADMIN',
   });
 
   bool get isAuthenticated =>
@@ -160,7 +163,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(AuthState.unauthenticated);
 
   Future<void> setSession(AuthenticatedSession session) async {
-    final role = UserRoleX.fromApi(session.role);
+    final role = UserRoleX.fromApi(session.role, userType: session.userType);
     state = AuthState(
       token: session.token,
       tenantPublicId: session.tenantPublicId,
@@ -168,6 +171,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       role: role,
       isGenericAdmin: session.isGeneric,
       subjectName: session.subjectName,
+      userType: session.userType,
     );
     await _storage.write(key: _kToken, value: session.token);
     await _storage.write(key: _kTenantId, value: session.tenantPublicId);
@@ -175,6 +179,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _storage.write(key: _kRole, value: session.role);
     await _storage.write(key: _kIsGeneric, value: session.isGeneric ? '1' : '0');
     await _storage.write(key: _kSubjectName, value: session.subjectName);
+    await _storage.write(key: _kUserType, value: session.userType);
   }
 
   /// Clears in-memory session.
@@ -195,6 +200,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.delete(key: _kRole);
       await _storage.delete(key: _kIsGeneric);
       await _storage.delete(key: _kSubjectName);
+      await _storage.delete(key: _kUserType);
     }
     // When wipeStorage is false, credentials stay encrypted in secure storage.
     // Only biometric auth can re-activate the session (via restore()).
@@ -207,14 +213,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final roleStr = await _storage.read(key: _kRole);
     final isGeneric = await _storage.read(key: _kIsGeneric);
     final subjectName = await _storage.read(key: _kSubjectName);
+    final userType = await _storage.read(key: _kUserType) ?? 'ADMIN';
     if (token != null && token.isNotEmpty) {
       state = AuthState(
         token: token,
         tenantPublicId: tenantId,
         subjectPublicId: subjectId,
-        role: roleStr != null ? UserRoleX.fromApi(roleStr) : null,
+        role: roleStr != null ? UserRoleX.fromApi(roleStr, userType: userType) : null,
         isGenericAdmin: isGeneric == '1',
         subjectName: subjectName ?? '',
+        userType: userType,
       );
       return true;
     }

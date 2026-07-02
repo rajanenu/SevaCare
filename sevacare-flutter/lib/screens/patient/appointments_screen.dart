@@ -22,11 +22,31 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   String _filter = 'all';
 
   static const _patientBottomNav = [
-    BottomNavItem(label: 'Dashboard', icon: Icons.grid_view_rounded, route: '/patient'),
-    BottomNavItem(label: 'Booking', icon: Icons.add_circle_outline, route: '/patient/booking'),
-    BottomNavItem(label: 'Appointments', icon: Icons.calendar_today_outlined, route: '/patient/appointments'),
-    BottomNavItem(label: 'Rx', icon: Icons.medication_outlined, route: '/patient/prescriptions'),
-    BottomNavItem(label: 'Profile', icon: Icons.person_outline, route: '/patient/profile'),
+    BottomNavItem(
+      label: 'Dashboard',
+      icon: Icons.grid_view_rounded,
+      route: '/patient',
+    ),
+    BottomNavItem(
+      label: 'Booking',
+      icon: Icons.add_circle_outline,
+      route: '/patient/booking',
+    ),
+    BottomNavItem(
+      label: 'Appointments',
+      icon: Icons.calendar_today_outlined,
+      route: '/patient/appointments',
+    ),
+    BottomNavItem(
+      label: 'Rx',
+      icon: Icons.medication_outlined,
+      route: '/patient/prescriptions',
+    ),
+    BottomNavItem(
+      label: 'Profile',
+      icon: Icons.person_outline,
+      route: '/patient/profile',
+    ),
   ];
 
   @override
@@ -36,17 +56,31 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final auth = ref.read(authProvider);
-      final home = await ref.read(repositoryProvider).getPatientHome(
-        auth.tenantPublicId ?? '',
-        auth.subjectPublicId ?? '',
-        auth.token ?? '',
-      );
-      setState(() { _appointments = home.appointments; _loading = false; });
+      final home = await ref
+          .read(repositoryProvider)
+          .getPatientHome(
+            auth.tenantPublicId ?? '',
+            auth.subjectPublicId ?? '',
+            auth.token ?? '',
+          );
+      setState(() {
+        _appointments = home.appointments;
+        _loading = false;
+      });
     } catch (e) {
-      setState(() { _error = extractErrorMessage(e, fallback: 'Failed to load appointments.'); _loading = false; });
+      setState(() {
+        _error = extractErrorMessage(
+          e,
+          fallback: 'Failed to load appointments.',
+        );
+        _loading = false;
+      });
     }
   }
 
@@ -71,7 +105,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
         children: [
           BackBtn(onPressed: () => context.go('/patient')),
           const SizedBox(height: 8),
-          PageHeader(title: 'My Appointments', subtitle: 'All your scheduled visits'),
+          PageHeader(
+            title: 'My Appointments',
+            subtitle: 'All your scheduled visits',
+          ),
           const SizedBox(height: 12),
           SegmentedControl<String>(
             items: const [
@@ -85,7 +122,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           ),
           const SizedBox(height: 16),
           if (_loading)
-            const Center(child: CircularProgressIndicator())
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: ShimmerList(count: 4, cardHeight: 96),
+            )
           else if (_error != null)
             _ErrorState(error: _error!, onRetry: _load)
           else if (_filtered.isEmpty)
@@ -96,9 +136,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _filtered.length,
               separatorBuilder: (_, idx) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _AppointmentCard(
-                appointment: _filtered[i],
-                onCancelled: _load,
+              itemBuilder: (_, i) => StaggeredItem(
+                index: i,
+                child: _AppointmentCard(
+                  appointment: _filtered[i],
+                  onCancelled: _load,
+                ),
               ),
             ),
         ],
@@ -111,7 +154,10 @@ class _AppointmentCard extends ConsumerWidget {
   final AppointmentView appointment;
   final VoidCallback onCancelled;
 
-  const _AppointmentCard({required this.appointment, required this.onCancelled});
+  const _AppointmentCard({
+    required this.appointment,
+    required this.onCancelled,
+  });
 
   bool get _canCancel {
     final s = appointment.status.toLowerCase();
@@ -134,7 +180,10 @@ class _AppointmentCard extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: Text(appointment.doctorName, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                child: Text(
+                  appointment.doctorName,
+                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                ),
               ),
               StatusBadge(status: appointment.status),
             ],
@@ -142,9 +191,16 @@ class _AppointmentCard extends ConsumerWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.access_time, size: 13, color: SevaCareColors.textMuted),
+              Icon(
+                Icons.access_time,
+                size: 13,
+                color: SevaCareColors.textMuted,
+              ),
               const SizedBox(width: 4),
-              Text(appointment.slot, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+              Text(
+                appointment.slot,
+                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -154,7 +210,10 @@ class _AppointmentCard extends ConsumerWidget {
           ),
           if (appointment.note != null && appointment.note!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(appointment.note!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            Text(
+              appointment.note!,
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            ),
           ],
           if (_canCancel) ...[
             const SizedBox(height: 10),
@@ -173,9 +232,14 @@ class _AppointmentCard extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Cancel Appointment'),
-        content: const Text('Are you sure you want to cancel this appointment?'),
+        content: const Text(
+          'Are you sure you want to cancel this appointment?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
@@ -187,17 +251,22 @@ class _AppointmentCard extends ConsumerWidget {
     if (confirm != true || !context.mounted) return;
     try {
       final auth = ref.read(authProvider);
-      await ref.read(repositoryProvider).cancelAppointment(
-        auth.tenantPublicId ?? '',
-        auth.subjectPublicId ?? '',
-        appointment.appointmentPublicId,
-        auth.token ?? '',
-      );
+      await ref
+          .read(repositoryProvider)
+          .cancelAppointment(
+            auth.tenantPublicId ?? '',
+            auth.subjectPublicId ?? '',
+            appointment.appointmentPublicId,
+            auth.token ?? '',
+          );
       onCancelled();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(
+            content: Text('Failed to cancel: $e'),
+            backgroundColor: SevaCareColors.danger,
+          ),
         );
       }
     }
@@ -215,10 +284,16 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.calendar_today_outlined, size: 48, color: SevaCareColors.border),
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 48,
+              color: SevaCareColors.border,
+            ),
             const SizedBox(height: 12),
             Text(
-              filter == 'all' ? 'No appointments yet' : 'No $filter appointments',
+              filter == 'all'
+                  ? 'No appointments yet'
+                  : 'No $filter appointments',
               style: AppTextStyles.bodyText(SevaCareColors.textMuted),
             ),
           ],
@@ -239,7 +314,10 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          Text('Failed to load appointments', style: AppTextStyles.bodyText(SevaCareColors.danger)),
+          Text(
+            'Failed to load appointments',
+            style: AppTextStyles.bodyText(SevaCareColors.danger),
+          ),
           const SizedBox(height: 12),
           SecondaryButton(label: 'Retry', onPressed: onRetry),
         ],

@@ -95,6 +95,14 @@ class SevaCareRepository {
     );
   }
 
+  Future<List<String>> getBookedSlots(String tenantId, String doctorId, String date, String token) async {
+    return _client.get<List<String>>(
+      ApiConstants.bookedSlots(tenantId, doctorId, date),
+      fromJson: (d) => List<String>.from(d as List),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<Map<String, dynamic>> bookAppointment(
       String tenantId, String patientId, String token, AppointmentBookingRequest body) async {
     return _client.post<Map<String, dynamic>>(
@@ -119,6 +127,23 @@ class SevaCareRepository {
       ApiConstants.patientRecord(tenantId, patientId),
       body: body.toJson(),
       fromJson: (d) => PatientRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<Map<String, dynamic>> getAdminPatients(
+      String tenantId, int page, int size, String? search, String token) async {
+    return _client.get<Map<String, dynamic>>(
+      ApiConstants.adminPatients(tenantId, page: page, size: size, search: search),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> deletePatient(String tenantId, String patientId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.adminDeletePatient(tenantId, patientId),
+      fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -345,6 +370,54 @@ class SevaCareRepository {
   Future<void> deleteAdminUser(String tenantId, String adminId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.adminUser(tenantId, adminId),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── Staff ───────────────────────────────────────────────────────────────────
+
+  Future<List<AdminUserRecord>> listStaff(String tenantId, String token,
+      {bool activeOnly = false}) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.adminStaff(tenantId, activeOnly: activeOnly),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final list = data['staff'] as List? ?? [];
+    return list.map((e) => AdminUserRecord.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<AdminUserRecord> createStaff(
+      String tenantId, String token, AdminUserUpsertRequest body) async {
+    return _client.post<AdminUserRecord>(
+      ApiConstants.adminStaff(tenantId),
+      body: body.toJson(),
+      fromJson: (d) => AdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<AdminUserRecord> deactivateStaff(
+      String tenantId, String staffId, String token) async {
+    return _client.put<AdminUserRecord>(
+      ApiConstants.deactivateStaff(tenantId, staffId),
+      fromJson: (d) => AdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<StaffBookingStat>> getStaffBookingStats(String tenantId, String token) async {
+    final data = await _client.get<List<dynamic>>(
+      ApiConstants.staffBookingStats(tenantId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return data.map((e) => StaffBookingStat.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> deleteStaff(String tenantId, String staffId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.adminStaffMember(tenantId, staffId),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }

@@ -19,8 +19,19 @@ public final class AdminDtos {
     public record CreateActorRequest(
             @NotBlank String tenantPublicId,
             @NotBlank String name,
-            @NotBlank String specialtyOrAgeBand,
+            String specialtyOrAgeBand,
             String mobileNumber
+    ) {
+    }
+
+    public record StaffBookingStat(
+            String staffId,
+            String staffName,
+            String mobileNumber,
+            int todayCount,
+            int weekCount,
+            int monthCount,
+            int yearCount
     ) {
     }
 
@@ -39,11 +50,15 @@ public final class AdminDtos {
             String mobileNumber,
             boolean active,
             LocalDateTime createdAt,
-            boolean isGeneric
+            boolean isGeneric,
+            String userType
         ) {
         }
 
         public record AdminUserCollection(String tenantPublicId, List<AdminUserView> admins) {
+        }
+
+        public record StaffUserCollection(String tenantPublicId, List<AdminUserView> staff) {
         }
 
         public record AdminUserUpsertRequest(
@@ -51,7 +66,26 @@ public final class AdminDtos {
             String name,
             String email,
             String mobileNumber,
-            Boolean active
+            Boolean active,
+            String userType
         ) {
         }
+
+    public record PatientSummary(
+            String patientPublicId,
+            String fullName,
+            String mobileNumber,
+            String gender,
+            Integer age,
+            String lastAppointment   // "YYYY-MM-DD HH:MM" or null
+    ) {
+    }
+
+    public record PatientPage(
+            List<PatientSummary> patients,
+            long total,
+            int page,
+            int size
+    ) {
+    }
 }

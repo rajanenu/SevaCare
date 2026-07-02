@@ -32,7 +32,8 @@ public final class PatientDtos {
             String address,
             @NotBlank String specialty,
             @NotBlank String doctorPublicId,
-            @NotBlank String slot
+            @NotBlank String slot,
+            String note
         ) {
         }
 

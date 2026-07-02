@@ -1,5 +1,7 @@
 package com.sevacare.api.controller;
 
+import java.util.List;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -116,6 +118,54 @@ public class AdminController {
         return ContractResponse.of(adminDomainService.deleteAdminUser(tenantPublicId, adminPublicId));
     }
 
+    @GetMapping("/{tenantPublicId}/staff")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.StaffUserCollection> listStaff(
+            @PathVariable String tenantPublicId,
+            @RequestParam(defaultValue = "false") boolean activeOnly
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.listStaff(tenantPublicId, activeOnly));
+    }
+
+    @PostMapping("/{tenantPublicId}/staff")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.AdminUserView> createStaff(
+            @PathVariable String tenantPublicId,
+            @Valid @RequestBody AdminDtos.AdminUserUpsertRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.createStaff(tenantPublicId, request));
+    }
+
+    @PutMapping("/{tenantPublicId}/staff/{staffPublicId}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.AdminUserView> deactivateStaff(
+            @PathVariable String tenantPublicId,
+            @PathVariable String staffPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.deactivateStaff(tenantPublicId, staffPublicId));
+    }
+
+    @DeleteMapping("/{tenantPublicId}/staff/{staffPublicId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.DeleteActorResult> deleteStaff(
+            @PathVariable String tenantPublicId,
+            @PathVariable String staffPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.deleteStaff(tenantPublicId, staffPublicId));
+    }
+
     @PostMapping("/doctors")
     @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<AdminDtos.ManagedActor> createDoctor(@Valid @RequestBody AdminDtos.CreateActorRequest request) {
@@ -132,6 +182,28 @@ public class AdminController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(adminDomainService.deleteDoctor(tenantPublicId, doctorPublicId));
+    }
+
+    @GetMapping("/{tenantPublicId}/staff-booking-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<List<AdminDtos.StaffBookingStat>> getStaffBookingStats(@PathVariable String tenantPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.getStaffBookingStats(tenantPublicId));
+    }
+
+    @GetMapping("/{tenantPublicId}/patients")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.PatientPage> listPatients(
+            @PathVariable String tenantPublicId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.listPatientsWithLastAppointment(tenantPublicId, page, size, search));
     }
 
     @PostMapping("/patients")

@@ -330,6 +330,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       BottomNavItem(label: 'Reports',   icon: Icons.bar_chart_outlined,       route: '/admin/reports'),
       BottomNavItem(label: 'Profile',   icon: Icons.person_outline,           route: '/admin/profile'),
     ],
+    UserRole.staff => const [
+      BottomNavItem(label: 'Portal',   icon: Icons.dashboard_outlined,  route: '/staff'),
+      BottomNavItem(label: 'Profile',  icon: Icons.person_outline,      route: '/staff/profile'),
+    ],
     UserRole.platformAdmin => const [],
   };
 
@@ -337,6 +341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     UserRole.patient       => 4,
     UserRole.doctor        => 4,
     UserRole.admin         => 4,
+    UserRole.staff         => 1,
     UserRole.platformAdmin => 0,
   };
 

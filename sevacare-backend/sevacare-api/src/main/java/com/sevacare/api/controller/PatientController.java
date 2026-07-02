@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,6 +50,19 @@ public class PatientController {
         }
         List<String> specialties = referenceDataService.listSpecializations();
         return ContractResponse.of(patientDomainService.bookingSetup(tenantPublicId, specialties));
+    }
+
+    @GetMapping("/{tenantPublicId}/booking/booked-slots")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<List<String>> bookedSlots(
+            @PathVariable String tenantPublicId,
+            @RequestParam String doctorId,
+            @RequestParam String date
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.getBookedSlots(tenantPublicId, doctorId, date));
     }
 
     @PostMapping("/{tenantPublicId}/{patientPublicId}/appointments")
