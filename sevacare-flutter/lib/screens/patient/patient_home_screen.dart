@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/time_theme.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
+import '../../core/utils/doctor_name.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -730,7 +731,7 @@ class _JourneyCard extends ConsumerWidget {
                   children: [
                     Text(
                       appt.doctorName.isNotEmpty
-                          ? 'Dr. ${appt.doctorName}'
+                          ? 'Dr. ${stripDoctorPrefix(appt.doctorName)}'
                           : 'Doctor',
                       style: AppTextStyles.cardTitle(SevaCareColors.text),
                     ),
@@ -1179,7 +1180,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                     const SizedBox(height: 2),
                     Text(
                       info.doctorName.isNotEmpty
-                          ? 'Dr. ${info.doctorName}'
+                          ? 'Dr. ${stripDoctorPrefix(info.doctorName)}'
                           : 'Upcoming Appointment',
                       style: AppTextStyles.body(
                         size: 13,
@@ -1346,7 +1347,7 @@ class _AppointmentCountdownBannerState
                 const SizedBox(height: 2),
                 Text(
                   _next!.doctorName.isNotEmpty
-                      ? 'Dr. ${_next!.doctorName}'
+                      ? 'Dr. ${stripDoctorPrefix(_next!.doctorName)}'
                       : 'Doctor appointment',
                   style: AppTextStyles.body(
                     size: 13,

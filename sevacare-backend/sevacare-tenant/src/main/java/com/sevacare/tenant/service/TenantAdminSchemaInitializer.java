@@ -128,6 +128,7 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".prescription ADD COLUMN IF NOT EXISTS valid_until DATE");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".prescription ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
         jdbcTemplate.execute("ALTER TABLE " + schemaName + ".prescription ADD COLUMN IF NOT EXISTS tenant_public_id VARCHAR(24)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".prescription ADD COLUMN IF NOT EXISTS appointment_public_id VARCHAR(16)");
 
         if (hasColumn(schemaName, "prescription", "doctor_public_id")) {
             jdbcTemplate.update(

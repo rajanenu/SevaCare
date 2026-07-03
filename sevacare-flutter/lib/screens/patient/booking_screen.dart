@@ -10,6 +10,7 @@ import '../../core/ai/symptom_specialty_engine.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/network/api_client.dart';
 import '../../core/utils/error_utils.dart';
+import '../../core/utils/doctor_name.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -760,19 +761,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    AppAvatar(
-                                      initials: doc.name.isNotEmpty
-                                          ? doc.name
-                                              .trim()
-                                              .split(' ')
-                                              .where((w) => w.isNotEmpty)
-                                              .take(2)
-                                              .map((w) => w[0])
-                                              .join()
-                                          : '?',
+                                    DoctorPhoto.circle(
+                                      doctorId: doc.doctorPublicId,
                                       size: 44,
-                                      hue: AppAvatar.hueFromString(
-                                          doc.doctorPublicId),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(
@@ -781,7 +772,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Dr. ${doc.name}',
+                                            'Dr. ${stripDoctorPrefix(doc.name)}',
                                             style: AppTextStyles.cardTitle(
                                                 SevaCareColors.text),
                                           ),

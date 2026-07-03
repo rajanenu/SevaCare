@@ -488,6 +488,8 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            DoctorPhoto.circle(doctorId: doc.doctorPublicId, size: 20),
+                            const SizedBox(width: 6),
                             if (onLeave) ...[
                               const Icon(Icons.event_busy, size: 12, color: SevaCareColors.danger),
                               const SizedBox(width: 4),
@@ -1831,17 +1833,24 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        doc.name,
-                                        style: AppTextStyles.body(
-                                          size: 13,
-                                          weight: FontWeight.w600,
-                                          color: onLeave
-                                              ? SevaCareColors.textMuted
-                                              : sel
-                                              ? SevaCareColors.textOnPrimary
-                                              : SevaCareColors.text,
-                                        ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          DoctorPhoto.circle(doctorId: doc.doctorPublicId, size: 20),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            doc.name,
+                                            style: AppTextStyles.body(
+                                              size: 13,
+                                              weight: FontWeight.w600,
+                                              color: onLeave
+                                                  ? SevaCareColors.textMuted
+                                                  : sel
+                                                  ? SevaCareColors.textOnPrimary
+                                                  : SevaCareColors.text,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       Text(
                                         onLeave

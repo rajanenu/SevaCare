@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/doctor_name.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -78,7 +79,7 @@ class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 0.78,
+                  childAspectRatio: 0.58,
                 ),
                 itemBuilder: (context, index) => _DoctorProfileCard(doctor: doctors[index]),
               );
@@ -106,61 +107,64 @@ class _DoctorProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = doctor.name.isNotEmpty
-        ? doctor.name.trim().split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0]).join()
-        : '?';
-
     return AppCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppAvatar(
-            initials: initials,
-            size: 56,
-            hue: AppAvatar.hueFromString(doctor.doctorPublicId),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Dr. ${doctor.name}',
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.cardTitle(SevaCareColors.text),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            doctor.specialty,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.label(SevaCareColors.textMuted),
-          ),
-          if (doctor.qualification != null && doctor.qualification!.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              doctor.qualification!,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+          // ── Photo — 60% of the card
+          Expanded(
+            flex: 6,
+            child: DoctorPhoto(
+              doctorId: doctor.doctorPublicId,
+              width: double.infinity,
+              height: double.infinity,
             ),
-          ],
-          if (doctor.experienceYears != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
-                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-              ),
-              child: Text(
-                '${doctor.experienceYears}y Exp',
-                style: AppTextStyles.chipLabel(SevaCareColors.primary),
+          ),
+          // ── Details — 40% of the card
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Dr. ${stripDoctorPrefix(doctor.name)}',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.cardTitle(SevaCareColors.text),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    doctor.experienceYears != null
+                        ? '${doctor.specialty} · ${doctor.experienceYears}y Exp'
+                        : doctor.specialty,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                  if (doctor.qualification != null && doctor.qualification!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      doctor.qualification!,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
+          ),
         ],
+        ),
       ),
     );
   }

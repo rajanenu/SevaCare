@@ -2027,6 +2027,11 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              DoctorPhoto.circle(
+                                doctorId: doctor.doctorPublicId,
+                                size: 44,
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
