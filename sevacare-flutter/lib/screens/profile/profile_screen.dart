@@ -29,8 +29,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _addressCtrl;
   late final TextEditingController _ageCtrl;
 
+  late final TextEditingController _experienceCtrl;
+  late final TextEditingController _qualificationCtrl;
+
   String _gender = 'male';
   String _bloodGroup = '';
+  String _bookingMode = 'BOTH';
+  DoctorRecord? _doctorRecord; // kept to preserve fields this form doesn't edit
   bool _showOptionalFields = false;
   bool _personalInfoExpanded = false; // personal info accordion — closed by default
   bool _loading = true;
@@ -49,6 +54,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _emailCtrl  = TextEditingController();
     _addressCtrl = TextEditingController();
     _ageCtrl    = TextEditingController();
+    _experienceCtrl = TextEditingController();
+    _qualificationCtrl = TextEditingController();
     _loadProfile();
   }
 
@@ -59,6 +66,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _emailCtrl.dispose();
     _addressCtrl.dispose();
     _ageCtrl.dispose();
+    _experienceCtrl.dispose();
+    _qualificationCtrl.dispose();
     super.dispose();
   }
 
@@ -101,7 +110,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     }
 
-    // Doctor / Admin / fallback: use local prefs
+    // For doctor: also fetch the authoritative record (experience/qualification/booking mode)
+    if (widget.role == UserRole.doctor) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        final record = await repo.getDoctorRecord(
+          ref.read(authProvider).tenantPublicId ?? '',
+          userId,
+          ref.read(authProvider).token ?? '',
+        );
+        if (mounted) {
+          setState(() {
+            _doctorRecord = record;
+            _nameCtrl.text = record.fullName.isNotEmpty ? record.fullName : local.name;
+            _mobileCtrl.text = record.mobileNumber?.isNotEmpty == true ? record.mobileNumber! : local.email;
+            _addressCtrl.text = record.address ?? local.address;
+            _ageCtrl.text = record.age != null ? '${record.age}' : local.age;
+            _experienceCtrl.text = record.experienceYears?.toString() ?? '';
+            _qualificationCtrl.text = record.qualification ?? '';
+            _bookingMode = record.bookingMode;
+            _bloodGroup = local.bloodGroup;
+            _savedPhotoB64 = local.photoB64;
+            _loading = false;
+          });
+        }
+        return;
+      } catch (_) {
+        // Fall through to local-only load
+      }
+    }
+
+    // Admin / fallback: use local prefs
     if (mounted) {
       setState(() {
         _nameCtrl.text    = local.name;
@@ -164,6 +203,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             gender:       data.gender,
             age:          data.age.isNotEmpty ? int.tryParse(data.age) : null,
             address:      data.address.isNotEmpty ? data.address : null,
+          ),
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _saving = false;
+            _error  = 'Saved locally. Backend sync failed: ${extractErrorMessage(e)}';
+          });
+          return;
+        }
+      }
+    }
+
+    // For doctor: also push experience/qualification/booking mode to backend
+    if (widget.role == UserRole.doctor && _doctorRecord != null) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        final existing = _doctorRecord!;
+        await repo.upsertDoctorRecord(
+          auth.tenantPublicId ?? '',
+          userId,
+          auth.token ?? '',
+          DoctorUpsertRequest(
+            fullName: data.name,
+            specialty: existing.specialty,
+            availability: existing.availability,
+            fee: existing.fee,
+            active: existing.active,
+            age: data.age.isNotEmpty ? int.tryParse(data.age) : null,
+            address: data.address.isNotEmpty ? data.address : null,
+            aboutMe: existing.aboutMe,
+            mobileNumber: existing.mobileNumber,
+            email: existing.email,
+            bookingMode: _bookingMode,
+            experienceYears: int.tryParse(_experienceCtrl.text.trim()),
+            qualification: _qualificationCtrl.text.trim().isEmpty ? null : _qualificationCtrl.text.trim(),
           ),
         );
       } catch (e) {
@@ -453,6 +528,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         keyboardType: TextInputType.phone,
                         placeholder: 'Mobile number',
                       ),
+                      if (widget.role == UserRole.doctor) ...[
+                        AppFormField(
+                          label: 'Years of Experience',
+                          controller: _experienceCtrl,
+                          keyboardType: TextInputType.number,
+                          placeholder: 'e.g. 10',
+                          onChanged: (_) => setState(() => _saved = false),
+                        ),
+                        AppFormField(
+                          label: 'Qualification',
+                          controller: _qualificationCtrl,
+                          placeholder: 'e.g. MS Cardiology, USA',
+                          onChanged: (_) => setState(() => _saved = false),
+                        ),
+                        AppDropdown<String>(
+                          label: 'Booking Mode',
+                          value: _bookingMode,
+                          items: const [
+                            DropdownMenuItem(value: 'BOTH', child: Text('Slot + Token')),
+                            DropdownMenuItem(value: 'SLOT', child: Text('Slot only')),
+                            DropdownMenuItem(value: 'TOKEN', child: Text('Token only')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() { _bookingMode = v; _saved = false; });
+                          },
+                        ),
+                      ],
                       GestureDetector(
                         onTap: () => setState(() => _showOptionalFields = !_showOptionalFields),
                         child: Padding(

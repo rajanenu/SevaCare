@@ -12,7 +12,9 @@ import com.sevacare.patient.entity.AppNotification;
 
 public interface AppNotificationRepository extends JpaRepository<AppNotification, String> {
 
-    List<AppNotification> findByTenantPublicIdAndRecipientIdAndRecipientTypeOrderByCreatedAtDesc(
+    // Capped so a long-lived account's notification history can't be pulled into memory
+    // in one unbounded query — the inbox UI only ever shows recent notifications anyway.
+    List<AppNotification> findTop200ByTenantPublicIdAndRecipientIdAndRecipientTypeOrderByCreatedAtDesc(
             String tenantPublicId, String recipientId, String recipientType);
 
     long countByTenantPublicIdAndRecipientIdAndRecipientTypeAndReadFalse(

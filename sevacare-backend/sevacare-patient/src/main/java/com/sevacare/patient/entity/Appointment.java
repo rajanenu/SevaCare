@@ -31,6 +31,22 @@ public class Appointment {
     @Column(name = "notes", nullable = false, length = 300)
     private String notes;
 
+    // Intake vitals captured by IP-Staff at booking time (BP, sugar, pulse, …)
+    @Column(name = "vitals_summary", length = 1000)
+    private String vitalsSummary;
+
+    // SLOT (fixed time grid) or TOKEN (unlimited, doctor-called-in-order) booking
+    @Column(name = "booking_type", nullable = false, length = 16)
+    private String bookingType = "SLOT";
+
+    // Only set when bookingType == TOKEN — the patient's position in that session's queue
+    @Column(name = "token_number")
+    private Integer tokenNumber;
+
+    // MORNING or EVENING — only set when bookingType == TOKEN
+    @Column(name = "token_session", length = 16)
+    private String tokenSession;
+
     public String getAppointmentPublicId() {
         return appointmentPublicId;
     }
@@ -85,5 +101,37 @@ public class Appointment {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getVitalsSummary() {
+        return vitalsSummary;
+    }
+
+    public void setVitalsSummary(String vitalsSummary) {
+        this.vitalsSummary = vitalsSummary;
+    }
+
+    public String getBookingType() {
+        return bookingType;
+    }
+
+    public void setBookingType(String bookingType) {
+        this.bookingType = bookingType;
+    }
+
+    public Integer getTokenNumber() {
+        return tokenNumber;
+    }
+
+    public void setTokenNumber(Integer tokenNumber) {
+        this.tokenNumber = tokenNumber;
+    }
+
+    public String getTokenSession() {
+        return tokenSession;
+    }
+
+    public void setTokenSession(String tokenSession) {
+        this.tokenSession = tokenSession;
     }
 }

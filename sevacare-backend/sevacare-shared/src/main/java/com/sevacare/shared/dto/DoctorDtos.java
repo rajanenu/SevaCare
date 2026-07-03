@@ -74,7 +74,11 @@ public final class DoctorDtos {
             String address,
             String aboutMe,
             LocalDate availableFrom,
-            Boolean readyToLookPatients
+            Boolean readyToLookPatients,
+            // SLOT, TOKEN, or BOTH. Null/blank treated as BOTH.
+            String bookingMode,
+            Integer experienceYears,
+            String qualification
     ) {
     }
 
@@ -91,10 +95,52 @@ public final class DoctorDtos {
             String address,
             String aboutMe,
             LocalDate availableFrom,
-            Boolean readyToLookPatients
+            Boolean readyToLookPatients,
+            String bookingMode,
+            Integer experienceYears,
+            String qualification
     ) {
     }
 
     public record DoctorCollection(String tenantPublicId, java.util.List<DoctorView> doctors) {
+    }
+
+    // ── Slot blocking (partial-day unavailability) ────────────────────────────
+
+    public record SlotBlockCreateRequest(
+            @NotBlank @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") String date,
+            @NotBlank @Pattern(regexp = "^\\d{2}:\\d{2}$") String startTime,
+            @NotBlank @Pattern(regexp = "^\\d{2}:\\d{2}$") String endTime,
+            String reason
+    ) {
+    }
+
+    public record SlotBlockView(
+            String blockPublicId,
+            String doctorPublicId,
+            String date,
+            String startTime,
+            String endTime,
+            String reason
+    ) {
+    }
+
+    public record SlotBlockCollection(String tenantPublicId, String doctorPublicId, java.util.List<SlotBlockView> blocks) {
+    }
+
+    // ── Availability overview (leave + blocks) — consumed by IP-Staff booking ──
+
+    public record DoctorAvailabilityView(
+            String doctorPublicId,
+            String fullName,
+            String specialty,
+            String date,
+            boolean onLeave,
+            java.util.List<SlotBlockView> blocks,
+            String status
+    ) {
+    }
+
+    public record DoctorAvailabilityCollection(String tenantPublicId, String date, java.util.List<DoctorAvailabilityView> doctors) {
     }
 }

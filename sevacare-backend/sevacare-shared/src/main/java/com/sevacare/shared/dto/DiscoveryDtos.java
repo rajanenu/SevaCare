@@ -14,7 +14,8 @@ public final class DiscoveryDtos {
     public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty, String themeKey) {
     }
 
-    public record DoctorSummary(String doctorPublicId, String name, String specialty, String availability, String fee) {
+    public record DoctorSummary(String doctorPublicId, String name, String specialty, String availability, String fee,
+            String bookingMode, Integer experienceYears, String qualification) {
     }
 
     public record TenantDirectory(List<TenantSummary> tenants) {

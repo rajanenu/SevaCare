@@ -103,6 +103,42 @@ class SevaCareRepository {
     );
   }
 
+  /// Booked + doctor-blocked slots and leave status in one call.
+  Future<SlotStatusView> getSlotStatus(
+      String tenantId, String doctorId, String date, String token) async {
+    return _client.get<SlotStatusView>(
+      ApiConstants.slotStatus(tenantId, doctorId, date),
+      fromJson: (d) => SlotStatusView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Read-only peek at the next token number for a doctor/date/session — does not reserve it.
+  Future<TokenPreviewView> getTokenPreview(
+      String tenantId, String doctorId, String date, String session, String token) async {
+    return _client.get<TokenPreviewView>(
+      ApiConstants.tokenPreview(tenantId, doctorId, date, session),
+      fromJson: (d) => TokenPreviewView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// IP-Staff/Admin resets a doctor's token counter for a date/session back to zero.
+  Future<void> resetTokenCounter(
+      String tenantId, String doctorId, String date, String session, String token) async {
+    await _client.post<Map<String, dynamic>>(
+      ApiConstants.tokenReset(tenantId),
+      body: {
+        'tenantPublicId': tenantId,
+        'doctorPublicId': doctorId,
+        'date': date,
+        'session': session,
+      },
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<Map<String, dynamic>> bookAppointment(
       String tenantId, String patientId, String token, AppointmentBookingRequest body) async {
     return _client.post<Map<String, dynamic>>(
@@ -298,6 +334,58 @@ class SevaCareRepository {
       fromJson: (d) => d as Map<String, dynamic>,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
+  }
+
+  // ── Slot blocks (partial-day unavailability) ────────────────────────────────
+
+  Future<List<SlotBlockView>> listSlotBlocks(
+      String tenantId, String doctorId, String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.slotBlocks(tenantId, doctorId),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final list = data['blocks'] as List? ?? [];
+    return list.map((e) => SlotBlockView.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<SlotBlockView> createSlotBlock(String tenantId, String doctorId,
+      String token,
+      {required String date,
+      required String startTime,
+      required String endTime,
+      String reason = ''}) async {
+    return _client.post<SlotBlockView>(
+      ApiConstants.slotBlocks(tenantId, doctorId),
+      body: {
+        'date': date,
+        'startTime': startTime,
+        'endTime': endTime,
+        'reason': reason,
+      },
+      fromJson: (d) => SlotBlockView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> deleteSlotBlock(
+      String tenantId, String doctorId, String blockId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.slotBlock(tenantId, doctorId, blockId),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Per-doctor availability (leave + blocked windows) for a date — used by IP-Staff.
+  Future<List<DoctorAvailabilityView>> getDoctorAvailability(
+      String tenantId, String date, String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.doctorAvailability(tenantId, date),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final list = data['doctors'] as List? ?? [];
+    return list.map((e) => DoctorAvailabilityView.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> completeConsultation(
@@ -569,6 +657,24 @@ class SevaCareRepository {
       Map<String, dynamic> body) async {
     return _client.post<LeaveRequestRecord>(
       '${ApiConstants.leaveRequests(tenantId, doctorId)}?adminPublicId=${Uri.encodeComponent(adminPublicId)}',
+      body: body,
+      fromJson: (d) => LeaveRequestRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<LeaveRequestCollection> getStaffLeaveRequests(String tenantId, String staffId, String token) async {
+    return _client.get<LeaveRequestCollection>(
+      ApiConstants.staffLeaveRequests(tenantId, staffId),
+      fromJson: (d) => LeaveRequestCollection.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<LeaveRequestRecord> createStaffLeaveRequest(
+      String tenantId, String staffId, String token, Map<String, dynamic> body) async {
+    return _client.post<LeaveRequestRecord>(
+      ApiConstants.staffLeaveRequests(tenantId, staffId),
       body: body,
       fromJson: (d) => LeaveRequestRecord.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},

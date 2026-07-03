@@ -154,6 +154,9 @@ class DoctorSummary {
   final String? experience;
   final String? imageUrl;
   final String? rating;
+  final String bookingMode;
+  final int? experienceYears;
+  final String? qualification;
 
   const DoctorSummary({
     required this.doctorPublicId,
@@ -164,6 +167,9 @@ class DoctorSummary {
     this.experience,
     this.imageUrl,
     this.rating,
+    this.bookingMode = 'BOTH',
+    this.experienceYears,
+    this.qualification,
   });
 
   factory DoctorSummary.fromJson(Map<String, dynamic> json) => DoctorSummary(
@@ -175,6 +181,9 @@ class DoctorSummary {
     experience: json['experience'] as String?,
     imageUrl: json['imageUrl'] as String?,
     rating: json['rating'] as String?,
+    bookingMode: json['bookingMode'] as String? ?? 'BOTH',
+    experienceYears: json['experienceYears'] as int?,
+    qualification: json['qualification'] as String?,
   );
 }
 
@@ -196,6 +205,9 @@ class DoctorRecord {
   final List<String>? qualifications;
   final String? availableFrom;
   final bool? readyToLookPatients;
+  final String bookingMode;
+  final int? experienceYears;
+  final String? qualification;
 
   const DoctorRecord({
     required this.doctorPublicId,
@@ -215,6 +227,9 @@ class DoctorRecord {
     this.qualifications,
     this.availableFrom,
     this.readyToLookPatients,
+    this.bookingMode = 'BOTH',
+    this.experienceYears,
+    this.qualification,
   });
 
   factory DoctorRecord.fromJson(Map<String, dynamic> json) => DoctorRecord(
@@ -235,6 +250,9 @@ class DoctorRecord {
     qualifications: json['qualifications'] != null ? List<String>.from(json['qualifications'] as List) : null,
     availableFrom: json['availableFrom'] as String?,
     readyToLookPatients: json['readyToLookPatients'] as bool?,
+    bookingMode: json['bookingMode'] as String? ?? 'BOTH',
+    experienceYears: json['experienceYears'] as int?,
+    qualification: json['qualification'] as String?,
   );
 }
 
@@ -250,6 +268,9 @@ class DoctorUpsertRequest {
   final String? experience;
   final String? mobileNumber;
   final String? email;
+  final String bookingMode;
+  final int? experienceYears;
+  final String? qualification;
 
   const DoctorUpsertRequest({
     required this.fullName,
@@ -263,6 +284,9 @@ class DoctorUpsertRequest {
     this.experience,
     this.mobileNumber,
     this.email,
+    this.bookingMode = 'BOTH',
+    this.experienceYears,
+    this.qualification,
   });
 
   Map<String, dynamic> toJson() => {
@@ -277,6 +301,9 @@ class DoctorUpsertRequest {
     if (experience != null) 'experience': experience,
     if (mobileNumber != null) 'mobileNumber': mobileNumber,
     if (email != null) 'email': email,
+    'bookingMode': bookingMode,
+    if (experienceYears != null) 'experienceYears': experienceYears,
+    if (qualification != null) 'qualification': qualification,
   };
 }
 
@@ -344,6 +371,48 @@ class MedicineView {
   };
 }
 
+class AttachmentUploadRequest {
+  final String fileName;
+  final String mimeType;
+  final String dataBase64;
+
+  const AttachmentUploadRequest({
+    required this.fileName,
+    required this.mimeType,
+    required this.dataBase64,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'fileName': fileName,
+    'mimeType': mimeType,
+    'dataBase64': dataBase64,
+  };
+}
+
+class AttachmentView {
+  final String attachmentPublicId;
+  final String fileName;
+  final String mimeType;
+  final String dataBase64;
+  final String? uploadedBy;
+
+  const AttachmentView({
+    required this.attachmentPublicId,
+    required this.fileName,
+    required this.mimeType,
+    required this.dataBase64,
+    this.uploadedBy,
+  });
+
+  factory AttachmentView.fromJson(Map<String, dynamic> json) => AttachmentView(
+    attachmentPublicId: json['attachmentPublicId'] as String? ?? '',
+    fileName: json['fileName'] as String? ?? '',
+    mimeType: json['mimeType'] as String? ?? '',
+    dataBase64: json['dataBase64'] as String? ?? '',
+    uploadedBy: json['uploadedBy'] as String?,
+  );
+}
+
 class DoctorQueueFacetView {
   final String appointmentPublicId;
   final String patientPublicId;
@@ -355,6 +424,11 @@ class DoctorQueueFacetView {
   final String? diagnosis;
   final List<MedicineView> medicines;
   final String? rxNotes;
+  final String? vitals;
+  final List<AttachmentView> attachments;
+  final String bookingType;
+  final int? tokenNumber;
+  final String? tokenSession;
 
   const DoctorQueueFacetView({
     required this.appointmentPublicId,
@@ -367,6 +441,11 @@ class DoctorQueueFacetView {
     this.diagnosis,
     required this.medicines,
     this.rxNotes,
+    this.vitals,
+    this.attachments = const [],
+    this.bookingType = 'SLOT',
+    this.tokenNumber,
+    this.tokenSession,
   });
 
   factory DoctorQueueFacetView.fromJson(Map<String, dynamic> json) => DoctorQueueFacetView(
@@ -382,6 +461,13 @@ class DoctorQueueFacetView {
         ? (json['medicines'] as List).map((e) => MedicineView.fromJson(e as Map<String, dynamic>)).toList()
         : [],
     rxNotes: json['rxNotes'] as String?,
+    vitals: json['vitals'] as String?,
+    attachments: json['attachments'] != null
+        ? (json['attachments'] as List).map((e) => AttachmentView.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
+    bookingType: json['bookingType'] as String? ?? 'SLOT',
+    tokenNumber: json['tokenNumber'] as int?,
+    tokenSession: json['tokenSession'] as String?,
   );
 }
 
@@ -545,6 +631,9 @@ class AppointmentView {
   final String slot;
   final String status;
   final String? note;
+  final String bookingType;
+  final int? tokenNumber;
+  final String? tokenSession;
 
   const AppointmentView({
     required this.appointmentPublicId,
@@ -553,6 +642,9 @@ class AppointmentView {
     required this.slot,
     required this.status,
     this.note,
+    this.bookingType = 'SLOT',
+    this.tokenNumber,
+    this.tokenSession,
   });
 
   factory AppointmentView.fromJson(Map<String, dynamic> json) => AppointmentView(
@@ -562,6 +654,9 @@ class AppointmentView {
     slot: json['slot'] as String? ?? '',
     status: json['status'] as String? ?? '',
     note: json['note'] as String?,
+    bookingType: json['bookingType'] as String? ?? 'SLOT',
+    tokenNumber: json['tokenNumber'] as int?,
+    tokenSession: json['tokenSession'] as String?,
   );
 }
 
@@ -572,6 +667,9 @@ class AppointmentRecord {
   final String slot;
   final String status;
   final String? note;
+  final String bookingType;
+  final int? tokenNumber;
+  final String? tokenSession;
 
   const AppointmentRecord({
     required this.appointmentPublicId,
@@ -580,6 +678,9 @@ class AppointmentRecord {
     required this.slot,
     required this.status,
     this.note,
+    this.bookingType = 'SLOT',
+    this.tokenNumber,
+    this.tokenSession,
   });
 
   factory AppointmentRecord.fromJson(Map<String, dynamic> json) => AppointmentRecord(
@@ -589,6 +690,9 @@ class AppointmentRecord {
     slot: json['slot'] as String? ?? '',
     status: json['status'] as String? ?? '',
     note: json['note'] as String?,
+    bookingType: json['bookingType'] as String? ?? 'SLOT',
+    tokenNumber: json['tokenNumber'] as int?,
+    tokenSession: json['tokenSession'] as String?,
   );
 }
 
@@ -603,7 +707,11 @@ class AppointmentBookingRequest {
   final String specialty;
   final String doctorPublicId;
   final String slot;
+  final String bookingType;
+  final String? tokenSession;
   final String? note;
+  final String? vitals;
+  final List<AttachmentUploadRequest>? attachments;
 
   const AppointmentBookingRequest({
     required this.tenantPublicId,
@@ -616,7 +724,11 @@ class AppointmentBookingRequest {
     required this.specialty,
     required this.doctorPublicId,
     required this.slot,
+    this.bookingType = 'SLOT',
+    this.tokenSession,
     this.note,
+    this.vitals,
+    this.attachments,
   });
 
   Map<String, dynamic> toJson() => {
@@ -630,8 +742,34 @@ class AppointmentBookingRequest {
     'specialty': specialty,
     'doctorPublicId': doctorPublicId,
     'slot': slot,
+    'bookingType': bookingType,
+    if (tokenSession != null) 'tokenSession': tokenSession,
     if (note != null) 'note': note,
+    if (vitals != null && vitals!.isNotEmpty) 'vitals': vitals,
+    if (attachments != null && attachments!.isNotEmpty)
+      'attachments': attachments!.map((a) => a.toJson()).toList(),
   };
+}
+
+class TokenPreviewView {
+  final String doctorPublicId;
+  final String date;
+  final String session;
+  final int nextTokenNumber;
+
+  const TokenPreviewView({
+    required this.doctorPublicId,
+    required this.date,
+    required this.session,
+    required this.nextTokenNumber,
+  });
+
+  factory TokenPreviewView.fromJson(Map<String, dynamic> json) => TokenPreviewView(
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    session: json['session'] as String? ?? '',
+    nextTokenNumber: json['nextTokenNumber'] as int? ?? 1,
+  );
 }
 
 class StaffBookingStat {
@@ -688,6 +826,91 @@ class BookingSetupView {
     availableDates: List<String>.from(json['availableDates'] as List? ?? []),
     morningSlots: List<String>.from(json['morningSlots'] as List? ?? []),
     eveningSlots: List<String>.from(json['eveningSlots'] as List? ?? []),
+  );
+}
+
+// ── Slot blocking & availability ────────────────────────────────────────────
+
+class SlotBlockView {
+  final String blockPublicId;
+  final String doctorPublicId;
+  final String date;
+  final String startTime;
+  final String endTime;
+  final String reason;
+
+  const SlotBlockView({
+    required this.blockPublicId,
+    required this.doctorPublicId,
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+    required this.reason,
+  });
+
+  factory SlotBlockView.fromJson(Map<String, dynamic> json) => SlotBlockView(
+    blockPublicId: json['blockPublicId'] as String? ?? '',
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    startTime: json['startTime'] as String? ?? '',
+    endTime: json['endTime'] as String? ?? '',
+    reason: json['reason'] as String? ?? '',
+  );
+}
+
+class SlotStatusView {
+  final String doctorPublicId;
+  final String date;
+  final List<String> bookedSlots;
+  final List<String> blockedSlots;
+  final bool doctorOnLeave;
+
+  const SlotStatusView({
+    required this.doctorPublicId,
+    required this.date,
+    required this.bookedSlots,
+    required this.blockedSlots,
+    required this.doctorOnLeave,
+  });
+
+  factory SlotStatusView.fromJson(Map<String, dynamic> json) => SlotStatusView(
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    bookedSlots: List<String>.from(json['bookedSlots'] as List? ?? []),
+    blockedSlots: List<String>.from(json['blockedSlots'] as List? ?? []),
+    doctorOnLeave: json['doctorOnLeave'] as bool? ?? false,
+  );
+}
+
+class DoctorAvailabilityView {
+  final String doctorPublicId;
+  final String fullName;
+  final String specialty;
+  final String date;
+  final bool onLeave;
+  final List<SlotBlockView> blocks;
+  final String status; // AVAILABLE | ON_LEAVE | PARTIALLY_AVAILABLE
+
+  const DoctorAvailabilityView({
+    required this.doctorPublicId,
+    required this.fullName,
+    required this.specialty,
+    required this.date,
+    required this.onLeave,
+    required this.blocks,
+    required this.status,
+  });
+
+  factory DoctorAvailabilityView.fromJson(Map<String, dynamic> json) => DoctorAvailabilityView(
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    fullName: json['fullName'] as String? ?? '',
+    specialty: json['specialty'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    onLeave: json['onLeave'] as bool? ?? false,
+    blocks: json['blocks'] != null
+        ? (json['blocks'] as List).map((e) => SlotBlockView.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
+    status: json['status'] as String? ?? 'AVAILABLE',
   );
 }
 
@@ -1216,6 +1439,9 @@ class LeaveRequestRecord {
   final String? adminResponse;
   final String submittedAt;
   final String? respondedAt;
+  final String? startTime; // HH:mm — set only for hourly (partial-day) leave
+  final String? endTime;
+  final String requesterType; // DOCTOR | STAFF
 
   const LeaveRequestRecord({
     required this.requestPublicId,
@@ -1230,7 +1456,13 @@ class LeaveRequestRecord {
     this.adminResponse,
     required this.submittedAt,
     this.respondedAt,
+    this.startTime,
+    this.endTime,
+    this.requesterType = 'DOCTOR',
   });
+
+  bool get isHourly => startTime != null && startTime!.isNotEmpty;
+  bool get isStaffRequest => requesterType.toUpperCase() == 'STAFF';
 
   factory LeaveRequestRecord.fromJson(Map<String, dynamic> json) => LeaveRequestRecord(
     requestPublicId: json['requestPublicId'] as String? ?? '',
@@ -1245,6 +1477,9 @@ class LeaveRequestRecord {
     adminResponse: json['adminResponse'] as String?,
     submittedAt: json['submittedAt'] as String? ?? '',
     respondedAt: json['respondedAt'] as String?,
+    startTime: json['startTime'] as String?,
+    endTime: json['endTime'] as String?,
+    requesterType: json['requesterType'] as String? ?? 'DOCTOR',
   );
 }
 

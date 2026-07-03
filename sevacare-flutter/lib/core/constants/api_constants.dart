@@ -20,6 +20,11 @@ class ApiConstants {
   static String bookingSetup(String tenantId, String patientId) => '/patients/$tenantId/$patientId/booking/setup';
   static String bookedSlots(String tenantId, String doctorId, String date) =>
       '/patients/$tenantId/booking/booked-slots?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
+  static String slotStatus(String tenantId, String doctorId, String date) =>
+      '/patients/$tenantId/booking/slot-status?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
+  static String tokenPreview(String tenantId, String doctorId, String date, String session) =>
+      '/patients/$tenantId/booking/token-preview?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}&session=${Uri.encodeComponent(session)}';
+  static String tokenReset(String tenantId) => '/patients/$tenantId/booking/token-reset';
   static String bookAppointment(String tenantId, String patientId) => '/patients/$tenantId/$patientId/appointments';
   static String patientPrescriptions(String tenantId, String patientId) => '/patients/$tenantId/$patientId/prescriptions';
   static String patientMedicalHistory(String tenantId, String patientId) => '/patients/$tenantId/$patientId/medical-history';
@@ -43,6 +48,10 @@ class ApiConstants {
   static String doctorPrescriptions(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/prescriptions/list';
   static String uploadPrescription(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/prescriptions';
   static String completeAppointment(String tenantId, String doctorId, String apptId) => '/doctors/$tenantId/$doctorId/appointments/$apptId/complete';
+  static String slotBlocks(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/slot-blocks';
+  static String slotBlock(String tenantId, String doctorId, String blockId) => '/doctors/$tenantId/$doctorId/slot-blocks/$blockId';
+  static String doctorAvailability(String tenantId, String date) =>
+      '/doctors/$tenantId/availability?date=${Uri.encodeComponent(date)}';
 
   // Prescription
   static String prescriptionDetail(String tenantId, String rxId) => '/prescriptions/$tenantId/$rxId/detail';
@@ -72,6 +81,7 @@ class ApiConstants {
 
   // Leave Requests
   static String leaveRequests(String tenantId, String doctorId) => '/$tenantId/doctors/$doctorId/leave-requests';
+  static String staffLeaveRequests(String tenantId, String staffId) => '/$tenantId/staff/$staffId/leave-requests';
   static String adminLeaveRequests(String tenantId) => '/$tenantId/admin/leave-requests';
   static String leaveRequestAction(String tenantId, String requestId) => '/$tenantId/admin/leave-requests/$requestId/action';
 

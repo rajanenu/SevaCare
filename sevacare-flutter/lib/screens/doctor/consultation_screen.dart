@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/ai/clinical_assist.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/error_utils.dart';
@@ -455,6 +457,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     final patientId = ref.watch(doctorSelectedPatientIdProvider);
     final hospital = ref.watch(hospitalProvider);
     final auth = ref.watch(authProvider);
+    final facet = ref.watch(doctorSelectedFacetProvider);
 
     return AppShell(
       hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
@@ -473,6 +476,20 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                 : 'No patient selected',
           ),
           const SizedBox(height: 16),
+
+          // ── Intake summary + AI assist ─────────────────────────────────────
+          if (facet != null &&
+              ((facet.symptoms?.isNotEmpty ?? false) ||
+                  (facet.vitals?.isNotEmpty ?? false))) ...[
+            _IntakeAssistCard(facet: facet),
+            const SizedBox(height: 12),
+          ],
+
+          // ── Patient-uploaded prescriptions (attached at booking) ─────────────
+          if (facet != null && facet.attachments.isNotEmpty) ...[
+            _UploadedPrescriptionsCard(attachments: facet.attachments),
+            const SizedBox(height: 12),
+          ],
 
           // ── Patient History Panel ──────────────────────────────────────────
           GestureDetector(
@@ -788,6 +805,203 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
 }
 
 // ── Previous prescription summary row ────────────────────────────────────────
+
+// ── Intake summary + AI assist card ──────────────────────────────────────────
+
+class _IntakeAssistCard extends StatelessWidget {
+  final DoctorQueueFacetView facet;
+  const _IntakeAssistCard({required this.facet});
+
+  @override
+  Widget build(BuildContext context) {
+    final insights = ClinicalAssist.analyze(
+      vitals: facet.vitals,
+      symptoms: facet.symptoms,
+    );
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 16, color: SevaCareColors.primary),
+              const SizedBox(width: 8),
+              Text('Intake & AI Assist', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (facet.symptoms?.isNotEmpty ?? false) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.sick_outlined, size: 14, color: SevaCareColors.textMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    facet.symptoms!,
+                    style: AppTextStyles.bodyText(SevaCareColors.text),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (facet.vitals?.isNotEmpty ?? false) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SevaCareColors.skySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.monitor_heart_outlined,
+                      size: 14, color: SevaCareColors.skyForeground),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Vitals at intake (by IP-Staff)',
+                            style: AppTextStyles.label(SevaCareColors.skyForeground)),
+                        const SizedBox(height: 2),
+                        Text(
+                          facet.vitals!,
+                          style: AppTextStyles.body(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: SevaCareColors.skyForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          ...insights.map((insight) {
+            final (color, icon) = switch (insight.severity) {
+              InsightSeverity.alert => (SevaCareColors.danger, Icons.priority_high_rounded),
+              InsightSeverity.watch => (SevaCareColors.warning, Icons.visibility_outlined),
+              InsightSeverity.info => (SevaCareColors.textMuted, Icons.info_outline),
+            };
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(insight.text, style: AppTextStyles.label(color)),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 6),
+          Text(
+            'AI hints from intake data — clinical judgement prevails.',
+            style: AppTextStyles.label(
+              SevaCareColors.textMuted.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Patient-uploaded prescriptions card ──────────────────────────────────────
+
+class _UploadedPrescriptionsCard extends StatelessWidget {
+  final List<AttachmentView> attachments;
+  const _UploadedPrescriptionsCard({required this.attachments});
+
+  void _openFullScreen(BuildContext context, AttachmentView attachment) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Image.memory(base64Decode(attachment.dataBase64)),
+            ),
+            Positioned(
+              right: 8,
+              top: 8,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.description_outlined, size: 16, color: SevaCareColors.primary),
+              const SizedBox(width: 8),
+              Text('Patient-Uploaded Prescriptions (${attachments.length})',
+                  style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 84,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: attachments.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (ctx, i) {
+                final a = attachments[i];
+                return GestureDetector(
+                  onTap: () => _openFullScreen(context, a),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      base64Decode(a.dataBase64),
+                      width: 84,
+                      height: 84,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tap a photo to view full size.',
+            style: AppTextStyles.label(SevaCareColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PrevPrescriptionRow extends StatelessWidget {
   final PrescriptionDetailView prescription;

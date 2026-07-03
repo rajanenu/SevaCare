@@ -53,6 +53,17 @@ public class LeaveRequest {
     @Column(name = "notified_at")
     private LocalDateTime notifiedAt;
 
+    // HH:mm — set only for partial-day (hourly) leave; null = full day
+    @Column(name = "start_time", length = 5)
+    private String startTime;
+
+    @Column(name = "end_time", length = 5)
+    private String endTime;
+
+    // DOCTOR | STAFF — who raised the request (doctorPublicId holds the requester id)
+    @Column(name = "requester_type", nullable = false, length = 16)
+    private String requesterType = "DOCTOR";
+
     public String getRequestPublicId() { return requestPublicId; }
     public void setRequestPublicId(String v) { this.requestPublicId = v; }
 
@@ -91,4 +102,13 @@ public class LeaveRequest {
 
     public LocalDateTime getNotifiedAt() { return notifiedAt; }
     public void setNotifiedAt(LocalDateTime v) { this.notifiedAt = v; }
+
+    public String getStartTime() { return startTime; }
+    public void setStartTime(String v) { this.startTime = v; }
+
+    public String getEndTime() { return endTime; }
+    public void setEndTime(String v) { this.endTime = v; }
+
+    public String getRequesterType() { return requesterType; }
+    public void setRequesterType(String v) { this.requesterType = v; }
 }

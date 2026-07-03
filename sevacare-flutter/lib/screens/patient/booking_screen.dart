@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../core/ai/symptom_specialty_engine.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/network/api_client.dart';
 import '../../core/utils/error_utils.dart';
 import '../../core/theme/app_colors.dart';
@@ -28,8 +32,22 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   bool _loadingSetup = true;
   String? _setupError;
 
-  // Booked slots for current doctor+date
+  // Booked/blocked slots for current doctor+date
   List<String> _bookedSlots = [];
+  List<String> _blockedSlots = [];
+  bool _doctorOnLeave = false;
+
+  // Token booking preview
+  int? _tokenPreviewNumber;
+  bool _loadingTokenPreview = false;
+
+  // Which slot-time accordion section is open: 'MORNING' or 'EVENING'
+  String _expandedSlotSession = 'MORNING';
+
+  // Symptoms + AI specialty suggestion
+  final _symptomsCtrl = TextEditingController();
+  List<SpecialtySuggestion> _suggestions = [];
+  Timer? _suggestionsHideTimer;
 
   // Booking submission
   bool _booking = false;
@@ -37,6 +55,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   // Advanced details toggle
   bool _showAdvancedDetails = false;
+
+  // Prescription attachments
+  List<PickedPrescriptionFile> _attachments = [];
 
   // Form controllers
   final _nameCtrl = TextEditingController();
@@ -60,12 +81,29 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   @override
   void dispose() {
+    _suggestionsHideTimer?.cancel();
     _nameCtrl.dispose();
     _ageCtrl.dispose();
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
     _addressCtrl.dispose();
+    _symptomsCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSymptomsChanged(String text) {
+    final suggestions = SymptomSpecialtyEngine.suggest(
+      text,
+      _setup?.specialties ?? const [],
+    );
+    setState(() => _suggestions = suggestions);
+
+    _suggestionsHideTimer?.cancel();
+    if (suggestions.isNotEmpty) {
+      _suggestionsHideTimer = Timer(const Duration(seconds: 10), () {
+        if (mounted) setState(() => _suggestions = []);
+      });
+    }
   }
 
   // Filtered doctors by current specialty
@@ -126,21 +164,64 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   Future<void> _loadBookedSlots(String doctorId, String date) async {
     if (doctorId.isEmpty || date.isEmpty) {
-      setState(() => _bookedSlots = []);
+      setState(() {
+        _bookedSlots = [];
+        _blockedSlots = [];
+        _doctorOnLeave = false;
+      });
       return;
     }
     try {
       final auth = ref.read(authProvider);
       final repo = ref.read(repositoryProvider);
-      final slots = await repo.getBookedSlots(
+      final status = await repo.getSlotStatus(
         auth.tenantPublicId ?? '',
         doctorId,
         date,
         auth.token ?? '',
       );
-      if (mounted) setState(() => _bookedSlots = slots);
+      if (mounted) {
+        setState(() {
+          _bookedSlots = status.bookedSlots;
+          _blockedSlots = status.blockedSlots;
+          _doctorOnLeave = status.doctorOnLeave;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _bookedSlots = []);
+      if (mounted) {
+        setState(() {
+          _bookedSlots = [];
+          _blockedSlots = [];
+          _doctorOnLeave = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadTokenPreview(String doctorId, String date, String session) async {
+    if (doctorId.isEmpty || date.isEmpty) return;
+    setState(() {
+      _loadingTokenPreview = true;
+      _tokenPreviewNumber = null;
+    });
+    try {
+      final auth = ref.read(authProvider);
+      final repo = ref.read(repositoryProvider);
+      final preview = await repo.getTokenPreview(
+        auth.tenantPublicId ?? '',
+        doctorId,
+        date,
+        session,
+        auth.token ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _tokenPreviewNumber = preview.nextTokenNumber;
+          _loadingTokenPreview = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTokenPreview = false);
     }
   }
 
@@ -175,7 +256,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       return;
     }
 
-    if (form.selectedSlot.isEmpty) {
+    final isToken = form.bookingType == 'TOKEN';
+    if (isToken) {
+      if (form.tokenSession == null || form.tokenSession!.isEmpty) {
+        setState(() => _bookingError = 'Please select Morning or Evening token');
+        return;
+      }
+    } else if (form.selectedSlot.isEmpty) {
       setState(() => _bookingError = 'Please select a time slot');
       return;
     }
@@ -193,7 +280,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final age = int.tryParse(ageStr) ?? 0;
 
     // Combine date + time slot into the format the backend expects: "yyyy-MM-dd HH:mm"
-    final combinedSlot = '${form.selectedDate} ${form.selectedSlot}';
+    // Token bookings just send the plain date — the backend assigns the session start time.
+    final combinedSlot = isToken ? form.selectedDate : '${form.selectedDate} ${form.selectedSlot}';
 
     final auth = ref.read(authProvider);
     final repo = ref.read(repositoryProvider);
@@ -215,6 +303,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           specialty: form.specialty,
           doctorPublicId: form.selectedDoctorId,
           slot: combinedSlot,
+          bookingType: form.bookingType,
+          tokenSession: isToken ? form.tokenSession : null,
+          note: _symptomsCtrl.text.trim().isEmpty
+              ? null
+              : 'Symptoms: ${_symptomsCtrl.text.trim()}',
+          attachments: _attachments.isEmpty
+              ? null
+              : _attachments
+                  .map((f) => AttachmentUploadRequest(
+                        fileName: f.fileName,
+                        mimeType: f.mimeType,
+                        dataBase64: base64Encode(f.bytes),
+                      ))
+                  .toList(),
         ),
       );
 
@@ -225,17 +327,29 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ).firstOrNull;
         final doctorName = bookedDoc?.name ?? '';
 
-        // Format slot for display: "2 Jul · 10:30 AM"
+        // Format slot for display: "2 Jul · 10:30 AM" (or "Token #14 · Morning · 2 Jul" for tokens)
         String displaySlot = combinedSlot;
-        try {
-          final dt = DateTime.parse(combinedSlot.replaceFirst(' ', 'T')).toLocal();
-          final months = ['Jan','Feb','Mar','Apr','May','Jun',
-                          'Jul','Aug','Sep','Oct','Nov','Dec'];
-          final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-          final min = dt.minute.toString().padLeft(2, '0');
-          final ampm = dt.hour < 12 ? 'AM' : 'PM';
-          displaySlot = '${dt.day} ${months[dt.month - 1]} · $hour:$min $ampm';
-        } catch (_) {}
+        if (isToken) {
+          final sessionLabel = form.tokenSession == 'EVENING' ? 'Evening' : 'Morning';
+          try {
+            final dt = DateTime.parse(form.selectedDate).toLocal();
+            final months = ['Jan','Feb','Mar','Apr','May','Jun',
+                            'Jul','Aug','Sep','Oct','Nov','Dec'];
+            displaySlot = 'Token #${_tokenPreviewNumber ?? '-'} · $sessionLabel · ${dt.day} ${months[dt.month - 1]}';
+          } catch (_) {
+            displaySlot = 'Token #${_tokenPreviewNumber ?? '-'} · $sessionLabel';
+          }
+        } else {
+          try {
+            final dt = DateTime.parse(combinedSlot.replaceFirst(' ', 'T')).toLocal();
+            final months = ['Jan','Feb','Mar','Apr','May','Jun',
+                            'Jul','Aug','Sep','Oct','Nov','Dec'];
+            final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+            final min = dt.minute.toString().padLeft(2, '0');
+            final ampm = dt.hour < 12 ? 'AM' : 'PM';
+            displaySlot = '${dt.day} ${months[dt.month - 1]} · $hour:$min $ampm';
+          } catch (_) {}
+        }
 
         ref.read(bookingFormProvider.notifier).reset();
 
@@ -285,7 +399,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         Text(_setupError!,
                             style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
                         const SizedBox(height: 16),
-                        PrimaryButton(label: 'Retry', onPressed: _loadSetup),
+                        PrimaryButton(label: tr(ref, 'Retry'), onPressed: _loadSetup),
                       ],
                     ),
                   ),
@@ -298,7 +412,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       // ── Back + header
                       BackBtn(onPressed: () => context.go('/patient')),
                       const SizedBox(height: 16),
-                      const PageHeader(title: 'Appointment Booking'),
+                      PageHeader(title: tr(ref, 'Appointment Booking')),
                       const SizedBox(height: 16),
 
                       // ── Error banner
@@ -336,14 +450,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Patient Details',
+                            Text(tr(ref, 'Patient Details'),
                                 style: AppTextStyles.sectionTitle(SevaCareColors.text)),
                             const SizedBox(height: 16),
 
                             // Specialty dropdown — always visible at top
                             if ((_setup?.specialties ?? []).isNotEmpty)
                               AppDropdown<String>(
-                                label: 'Specialty',
+                                label: tr(ref, 'Specialty'),
                                 value: form.specialty.isNotEmpty &&
                                         (_setup!.specialties.contains(form.specialty))
                                     ? form.specialty
@@ -372,7 +486,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             const SizedBox(height: 12),
                             // Always visible fields
                             AppFormField(
-                              label: 'Patient Name',
+                              label: tr(ref, 'Patient Name'),
                               controller: _nameCtrl,
                               placeholder: 'Full name',
                             ),
@@ -381,12 +495,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               children: [
                                 Expanded(
                                   child: AppDropdown<String>(
-                                    label: 'Gender',
+                                    label: tr(ref, 'Gender'),
                                     value: form.gender,
-                                    items: const [
-                                      DropdownMenuItem(value: 'male', child: Text('Male')),
-                                      DropdownMenuItem(value: 'female', child: Text('Female')),
-                                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                                    items: [
+                                      DropdownMenuItem(value: 'male', child: Text(tr(ref, 'Male'))),
+                                      DropdownMenuItem(value: 'female', child: Text(tr(ref, 'Female'))),
+                                      DropdownMenuItem(value: 'other', child: Text(tr(ref, 'Other'))),
                                     ],
                                     onChanged: (v) {
                                       if (v != null) notifier.updateGender(v);
@@ -397,7 +511,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 SizedBox(
                                   width: 100,
                                   child: AppFormField(
-                                    label: 'Age',
+                                    label: tr(ref, 'Age'),
                                     controller: _ageCtrl,
                                     placeholder: 'Years',
                                     keyboardType: TextInputType.number,
@@ -407,11 +521,134 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               ],
                             ),
                             AppFormField(
-                              label: 'Mobile Number',
+                              label: tr(ref, 'Mobile Number'),
                               controller: _mobileCtrl,
                               placeholder: '10-digit mobile',
                               keyboardType: TextInputType.phone,
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            ),
+                            AppFormField(
+                              label: tr(ref, 'Symptoms'),
+                              controller: _symptomsCtrl,
+                              placeholder: 'e.g. tooth pain, fever since 2 days…',
+                              maxLines: 2,
+                              onChanged: _onSymptomsChanged,
+                            ),
+                            if (_suggestions.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: SevaCareColors.primarySoft,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: SevaCareColors.primary
+                                        .withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.auto_awesome,
+                                            size: 14,
+                                            color: SevaCareColors.primary),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          tr(ref, 'Suggested specialty'),
+                                          style: AppTextStyles.label(
+                                              SevaCareColors.primary),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: _suggestions.map((s) {
+                                        final applied =
+                                            form.specialty == s.specialty;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            notifier
+                                                .updateSpecialty(s.specialty);
+                                            final currentDoc =
+                                                form.selectedDoctorId;
+                                            if (currentDoc.isNotEmpty) {
+                                              final stillValid = _doctors.any(
+                                                  (d) =>
+                                                      d.doctorPublicId ==
+                                                          currentDoc &&
+                                                      d.specialty ==
+                                                          s.specialty);
+                                              if (!stillValid) {
+                                                notifier.updateDoctorId('');
+                                              }
+                                            }
+                                            setState(() {});
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets
+                                                .symmetric(
+                                                horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: applied
+                                                  ? SevaCareColors.primary
+                                                  : SevaCareColors.surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppTheme.radiusPill),
+                                              border: Border.all(
+                                                color:
+                                                    SevaCareColors.primary,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  applied
+                                                      ? Icons.check
+                                                      : Icons
+                                                          .arrow_forward_rounded,
+                                                  size: 12,
+                                                  color: applied
+                                                      ? Colors.white
+                                                      : SevaCareColors
+                                                          .primary,
+                                                ),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  s.specialty,
+                                                  style: AppTextStyles
+                                                      .chipLabel(
+                                                    applied
+                                                        ? Colors.white
+                                                        : SevaCareColors
+                                                            .primary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Based on "${_suggestions.first.matchedSymptom}". You can still choose any specialty.',
+                                      style: AppTextStyles.label(
+                                          SevaCareColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            PrescriptionAttachmentPicker(
+                              onChanged: (files) => setState(() => _attachments = files),
                             ),
                             // Optional details toggle
                             const SizedBox(height: 4),
@@ -428,7 +665,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Optional Contact Info',
+                                      tr(ref, 'Optional Contact Info'),
                                       style: AppTextStyles.label(SevaCareColors.textMuted),
                                     ),
                                   ],
@@ -437,13 +674,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             ),
                             if (_showAdvancedDetails) ...[
                               AppFormField(
-                                label: 'Email Address',
+                                label: tr(ref, 'Email Address'),
                                 controller: _emailCtrl,
                                 placeholder: 'Optional',
                                 keyboardType: TextInputType.emailAddress,
                               ),
                               AppFormField(
-                                label: 'Address',
+                                label: tr(ref, 'Address'),
                                 controller: _addressCtrl,
                                 placeholder: 'Optional',
                                 maxLines: 2,
@@ -455,7 +692,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       const SizedBox(height: 16),
 
                       // ── Doctor selection
-                      Text('Select Doctor',
+                      Text(tr(ref, 'Select Doctor'),
                           style: AppTextStyles.sectionTitle(SevaCareColors.text)),
                       const SizedBox(height: 12),
                       if (filteredDoctors.isEmpty)
@@ -464,8 +701,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           alignment: Alignment.center,
                           child: Text(
                             _doctors.isEmpty
-                                ? 'No doctors available'
-                                : 'No doctors available for the selected specialty',
+                                ? tr(ref, 'No doctors available')
+                                : tr(ref, 'No doctors available for the selected specialty'),
                             style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                           ),
                         )
@@ -485,6 +722,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               onTap: () {
                                 notifier.updateDoctorId(doc.doctorPublicId);
                                 notifier.updateSlot('');
+                                notifier.updateBookingType(
+                                    doc.bookingMode == 'TOKEN' ? 'TOKEN' : 'SLOT');
+                                setState(() => _tokenPreviewNumber = null);
                                 final currentDate = ref.read(bookingFormProvider).selectedDate;
                                 _loadBookedSlots(doc.doctorPublicId, currentDate);
                               },
@@ -551,9 +791,43 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                             style: AppTextStyles.label(
                                                 SevaCareColors.textMuted),
                                           ),
+                                          if (doc.qualification != null &&
+                                              doc.qualification!.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              doc.qualification!,
+                                              style: AppTextStyles.label(
+                                                  SevaCareColors.textMuted),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
+                                              if (doc.experienceYears != null) ...[
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: SevaCareColors
+                                                        .primarySoft,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            AppTheme.radiusPill),
+                                                  ),
+                                                  child: Text(
+                                                    '${doc.experienceYears}y Exp',
+                                                    style:
+                                                        AppTextStyles.chipLabel(
+                                                            SevaCareColors
+                                                                .primary),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                              ],
                                               Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -619,7 +893,29 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
                       // ── Date + slots (only after doctor selected)
                       if (form.selectedDoctorId.isNotEmpty) ...[
-                        Text('Select Date',
+                        if ((_doctors
+                                    .where((d) => d.doctorPublicId == form.selectedDoctorId)
+                                    .firstOrNull
+                                    ?.bookingMode ??
+                                'BOTH') ==
+                            'BOTH') ...[
+                          SegmentedControl<String>(
+                            selected: form.bookingType,
+                            items: [
+                              SegmentItem(value: 'SLOT', label: tr(ref, 'Slot Booking'), icon: Icons.schedule),
+                              SegmentItem(value: 'TOKEN', label: tr(ref, 'Token Booking'), icon: Icons.confirmation_number_outlined),
+                            ],
+                            onChanged: (v) {
+                              notifier.updateBookingType(v);
+                              setState(() => _tokenPreviewNumber = null);
+                              if (v == 'TOKEN' && form.tokenSession != null && form.selectedDate.isNotEmpty) {
+                                _loadTokenPreview(form.selectedDoctorId, form.selectedDate, form.tokenSession!);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        Text(tr(ref, 'Select Date'),
                             style: AppTextStyles.sectionTitle(SevaCareColors.text)),
                         const SizedBox(height: 12),
                         if ((_setup?.availableDates ?? []).isNotEmpty)
@@ -645,6 +941,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                     notifier.updateDate(date);
                                     notifier.updateSlot('');
                                     _loadBookedSlots(form.selectedDoctorId, date);
+                                    if (form.bookingType == 'TOKEN' && form.tokenSession != null) {
+                                      _loadTokenPreview(form.selectedDoctorId, date, form.tokenSession!);
+                                    }
                                   },
                                   child: AnimatedContainer(
                                     duration:
@@ -687,42 +986,88 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           ),
                         const SizedBox(height: 24),
 
-                        // ── Morning slots (only after date is selected)
-                        if (form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty && (_setup?.morningSlots ?? []).isNotEmpty) ...[
-                          Text('Morning Slots',
-                              style:
-                                  AppTextStyles.sectionTitle(SevaCareColors.text)),
-                          const SizedBox(height: 10),
-                          _SlotGrid(
-                            slots: _setup!.morningSlots,
-                            selectedSlot: form.selectedSlot,
-                            bookedSlots: _bookedSlots,
-                            selectedDate: form.selectedDate,
-                            onSelect: notifier.updateSlot,
+                        // ── Doctor-on-leave banner
+                        if (_doctorOnLeave && form.selectedDate.isNotEmpty) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: SevaCareColors.errorSurface,
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radius),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_busy,
+                                    size: 16, color: SevaCareColors.danger),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    tr(ref, 'Doctor is on leave on this date. Please pick another date or doctor.'),
+                                    style: AppTextStyles.label(
+                                        SevaCareColors.danger),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 16),
                         ],
 
-                        // ── Evening slots (only after date is selected)
-                        if (form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty && (_setup?.eveningSlots ?? []).isNotEmpty) ...[
-                          Text('Evening Slots',
-                              style:
-                                  AppTextStyles.sectionTitle(SevaCareColors.text)),
-                          const SizedBox(height: 10),
-                          _SlotGrid(
-                            slots: _setup!.eveningSlots,
-                            selectedSlot: form.selectedSlot,
-                            bookedSlots: _bookedSlots,
-                            selectedDate: form.selectedDate,
-                            onSelect: notifier.updateSlot,
-                          ),
-                          const SizedBox(height: 24),
+                        if (!_doctorOnLeave && form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty) ...[
+                          if (form.bookingType == 'TOKEN') ...[
+                            Text(tr(ref, 'Token Booking'),
+                                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                            const SizedBox(height: 10),
+                            TokenSessionPicker(
+                              selectedSession: form.tokenSession,
+                              loadingPreview: _loadingTokenPreview,
+                              nextTokenNumber: _tokenPreviewNumber,
+                              onSelect: (session) {
+                                notifier.updateTokenSession(session);
+                                _loadTokenPreview(form.selectedDoctorId, form.selectedDate, session);
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                          ] else ...[
+                            // ── Morning / Evening slot accordion
+                            if ((_setup?.morningSlots ?? []).isNotEmpty)
+                              _SlotAccordionSection(
+                                title: tr(ref, 'Morning Slots'),
+                                slots: _setup!.morningSlots,
+                                selectedSlot: form.selectedSlot,
+                                bookedSlots: _bookedSlots,
+                                blockedSlots: _blockedSlots,
+                                selectedDate: form.selectedDate,
+                                onSelect: notifier.updateSlot,
+                                expanded: _expandedSlotSession == 'MORNING',
+                                onToggle: () => setState(() =>
+                                    _expandedSlotSession = _expandedSlotSession == 'MORNING' ? '' : 'MORNING'),
+                              ),
+                            if ((_setup?.morningSlots ?? []).isNotEmpty &&
+                                (_setup?.eveningSlots ?? []).isNotEmpty)
+                              const SizedBox(height: 12),
+                            if ((_setup?.eveningSlots ?? []).isNotEmpty)
+                              _SlotAccordionSection(
+                                title: tr(ref, 'Evening Slots'),
+                                slots: _setup!.eveningSlots,
+                                selectedSlot: form.selectedSlot,
+                                bookedSlots: _bookedSlots,
+                                blockedSlots: _blockedSlots,
+                                selectedDate: form.selectedDate,
+                                onSelect: notifier.updateSlot,
+                                expanded: _expandedSlotSession == 'EVENING',
+                                onToggle: () => setState(() =>
+                                    _expandedSlotSession = _expandedSlotSession == 'EVENING' ? '' : 'EVENING'),
+                              ),
+                            const SizedBox(height: 16),
+                          ],
                         ],
                       ],
 
                       // ── Book button
                       PrimaryButton(
-                        label: 'Book Appointment',
+                        label: tr(ref, 'Book Appointment'),
                         isLoading: _booking,
                         fullWidth: true,
                         onPressed: _booking ? null : _submit,
@@ -735,12 +1080,90 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 }
 
+// ── Slot accordion section ──────────────────────────────────────────────────────
+
+class _SlotAccordionSection extends StatelessWidget {
+  final String title;
+  final List<String> slots;
+  final String selectedSlot;
+  final List<String> bookedSlots;
+  final List<String> blockedSlots;
+  final String selectedDate;
+  final ValueChanged<String> onSelect;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const _SlotAccordionSection({
+    required this.title,
+    required this.slots,
+    required this.selectedSlot,
+    required this.bookedSlots,
+    this.blockedSlots = const [],
+    required this.selectedDate,
+    required this.onSelect,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      decoration: BoxDecoration(
+        color: SevaCareColors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: SevaCareColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(title,
+                        style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                  ),
+                  Text('${slots.length}',
+                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                  const SizedBox(width: 6),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    color: SevaCareColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: _SlotGrid(
+                slots: slots,
+                selectedSlot: selectedSlot,
+                bookedSlots: bookedSlots,
+                blockedSlots: blockedSlots,
+                selectedDate: selectedDate,
+                onSelect: onSelect,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Slot chip grid ────────────────────────────────────────────────────────────
 
 class _SlotGrid extends StatelessWidget {
   final List<String> slots;
   final String selectedSlot;
   final List<String> bookedSlots;
+  final List<String> blockedSlots;
   final String selectedDate;
   final ValueChanged<String> onSelect;
 
@@ -748,6 +1171,7 @@ class _SlotGrid extends StatelessWidget {
     required this.slots,
     required this.selectedSlot,
     required this.bookedSlots,
+    this.blockedSlots = const [],
     required this.selectedDate,
     required this.onSelect,
   });
@@ -772,8 +1196,9 @@ class _SlotGrid extends StatelessWidget {
       runSpacing: 8,
       children: slots.map((slot) {
         final isBooked = bookedSlots.contains(slot);
+        final isBlocked = blockedSlots.contains(slot);
         final isPast = _isPast(slot);
-        final isDisabled = isBooked || isPast;
+        final isDisabled = isBooked || isBlocked || isPast;
         final isSelected = !isDisabled && selectedSlot == slot;
 
         String label;
@@ -787,7 +1212,11 @@ class _SlotGrid extends StatelessWidget {
         Color borderColor;
         Color textColor;
 
-        if (isBooked) {
+        if (isBlocked) {
+          bgColor = SevaCareColors.warningSurface;
+          borderColor = SevaCareColors.warning;
+          textColor = SevaCareColors.warning;
+        } else if (isBooked) {
           bgColor = const Color(0xFFFFEDED);
           borderColor = SevaCareColors.danger;
           textColor = SevaCareColors.danger;

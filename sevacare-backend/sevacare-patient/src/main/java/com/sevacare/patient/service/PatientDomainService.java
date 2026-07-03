@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.slf4j.Logger;
@@ -19,10 +20,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.patient.entity.Appointment;
+import com.sevacare.patient.entity.AppointmentAttachment;
 import com.sevacare.patient.entity.MedicalHistory;
 import com.sevacare.patient.entity.Patient;
 import com.sevacare.patient.entity.Prescription;
 import com.sevacare.patient.entity.PrescriptionMedicine;
+import com.sevacare.patient.repository.AppointmentAttachmentRepository;
 import com.sevacare.patient.repository.AppointmentRepository;
 import com.sevacare.patient.repository.MedicalHistoryRepository;
 import com.sevacare.patient.repository.PatientRepository;
@@ -41,6 +44,7 @@ public class PatientDomainService {
     private final PrescriptionRepository prescriptionRepository;
     private final PrescriptionMedicineRepository prescriptionMedicineRepository;
     private final MedicalHistoryRepository medicalHistoryRepository;
+    private final AppointmentAttachmentRepository appointmentAttachmentRepository;
         private final JdbcTemplate jdbcTemplate;
 
     public PatientDomainService(
@@ -49,6 +53,7 @@ public class PatientDomainService {
             PrescriptionRepository prescriptionRepository,
             PrescriptionMedicineRepository prescriptionMedicineRepository,
                         MedicalHistoryRepository medicalHistoryRepository,
+                        AppointmentAttachmentRepository appointmentAttachmentRepository,
                         JdbcTemplate jdbcTemplate
     ) {
         this.patientRepository = patientRepository;
@@ -56,6 +61,7 @@ public class PatientDomainService {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionMedicineRepository = prescriptionMedicineRepository;
         this.medicalHistoryRepository = medicalHistoryRepository;
+        this.appointmentAttachmentRepository = appointmentAttachmentRepository;
                 this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -72,7 +78,10 @@ public class PatientDomainService {
                         item.getDoctorPublicId(),
                         item.getAppointmentSlot(),
                         item.getAppointmentStatus(),
-                        item.getNotes()
+                        item.getNotes(),
+                        item.getBookingType(),
+                        item.getTokenNumber(),
+                        item.getTokenSession()
                 ))
                 .toList();
 
@@ -142,24 +151,106 @@ public class PatientDomainService {
                         .toList();
         }
 
+        /**
+         * Booked + doctor-blocked slots and leave status for one doctor/date.
+         * Blocked windows come from the slot_block table (partial-day
+         * unavailability the doctor sets); leave comes from approved leave_request rows.
+         */
+        @Transactional(readOnly = true)
+        public PatientDtos.SlotStatusView getSlotStatus(String tenantPublicId, String doctorPublicId, String date) {
+                List<String> booked = getBookedSlots(tenantPublicId, doctorPublicId, date);
+                List<String> blocked = blockedSlotMarks(doctorPublicId, date);
+                boolean onLeave = isDoctorOnLeaveForDate(tenantPublicId, doctorPublicId, date);
+                return new PatientDtos.SlotStatusView(doctorPublicId, date, booked, blocked, onLeave);
+        }
+
+        private List<String> blockedSlotMarks(String doctorPublicId, String date) {
+                String schema = TenantContext.tenantSchema();
+                List<String[]> windows = jdbcTemplate.query(
+                                "SELECT start_time, end_time FROM " + schema + ".slot_block WHERE doctor_public_id = ? AND block_date = ?::date",
+                                (rs, i) -> new String[] { rs.getString("start_time"), rs.getString("end_time") },
+                                doctorPublicId, date
+                );
+                List<String> marks = new ArrayList<>();
+                for (String[] window : windows) {
+                        LocalTime start = LocalTime.parse(window[0]);
+                        LocalTime end = LocalTime.parse(window[1]);
+                        LocalTime cursor = start.withMinute((start.getMinute() / 15) * 15);
+                        while (cursor.isBefore(end)) {
+                                String mark = cursor.format(DateTimeFormatter.ofPattern("HH:mm"));
+                                if (!marks.contains(mark)) {
+                                        marks.add(mark);
+                                }
+                                cursor = cursor.plusMinutes(15);
+                        }
+                }
+                marks.sort(String::compareTo);
+                return marks;
+        }
+
+        private boolean isDoctorOnLeaveForDate(String tenantPublicId, String doctorPublicId, String date) {
+                String schema = TenantContext.tenantSchema();
+                Integer count = jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM " + schema + ".leave_request WHERE tenant_public_id = ? AND doctor_public_id = ? " +
+                                "AND status IN ('APPROVED','AUTO_APPROVED') AND leave_type <> 'MESSAGE' " +
+                                "AND start_time IS NULL AND requester_type = 'DOCTOR' AND from_date <= ?::date AND to_date >= ?::date",
+                                Integer.class, tenantPublicId, doctorPublicId, date, date
+                );
+                return count != null && count > 0;
+        }
+
+        /** Rejects booking when the doctor is on leave or has blocked the requested time. */
+        private void assertDoctorAvailable(String tenantPublicId, String doctorPublicId, String slot) {
+                // slot format already validated: "yyyy-MM-dd HH:mm"
+                String date = slot.substring(0, 10);
+                String time = slot.substring(11, 16);
+                if (isDoctorOnLeaveForDate(tenantPublicId, doctorPublicId, date)) {
+                        throw new IllegalStateException("Doctor is on leave on " + date + ". Please pick another date or doctor.");
+                }
+                if (blockedSlotMarks(doctorPublicId, date).contains(time)) {
+                        throw new IllegalStateException("Doctor is not available at " + time + " on " + date + ". Please pick another slot.");
+                }
+        }
+
         @Transactional
         public PatientDtos.AppointmentBookingResult bookAppointment(String tenantPublicId, String patientPublicId, PatientDtos.AppointmentBookingRequest request) {
                 if (!tenantPublicId.equals(request.tenantPublicId()) || !patientPublicId.equals(request.patientPublicId())) {
                         throw new IllegalArgumentException("Tenant or patient mismatch");
                 }
 
-                // Validate slot date/time
-                validateBookingSlot(request.slot());
+                String bookingType = normalizeBookingType(request.bookingType());
+                String resolvedSlot;
+                Integer tokenNumber = null;
+                String tokenSession = null;
 
-                appointmentRepository.findByTenantPublicIdAndDoctorPublicIdAndAppointmentSlotAndAppointmentStatus(
-                                tenantPublicId,
-                                request.doctorPublicId(),
-                                request.slot(),
-                                "upcoming"
-                        )
-                                .ifPresent(existing -> {
-                                        throw new IllegalStateException("Selected slot is already booked");
-                                });
+                if ("TOKEN".equals(bookingType)) {
+                        LocalDate tokenDate = parseTokenDate(request.slot());
+                        tokenSession = normalizeTokenSession(request.tokenSession());
+                        resolvedSlot = tokenDate + " " + sessionStartTime(tokenSession);
+
+                        // Leave/full-day-block still blocks token booking for that date; tokens
+                        // have no time grid so there is no per-time conflict to check.
+                        assertDoctorAvailable(tenantPublicId, request.doctorPublicId(), resolvedSlot);
+                        tokenNumber = nextTokenNumber(tenantPublicId, request.doctorPublicId(), tokenDate, tokenSession);
+                } else {
+                        bookingType = "SLOT";
+                        // Validate slot date/time
+                        validateBookingSlot(request.slot());
+
+                        // Enforce doctor leave & blocked windows
+                        assertDoctorAvailable(tenantPublicId, request.doctorPublicId(), request.slot());
+
+                        appointmentRepository.findByTenantPublicIdAndDoctorPublicIdAndAppointmentSlotAndAppointmentStatus(
+                                        tenantPublicId,
+                                        request.doctorPublicId(),
+                                        request.slot(),
+                                        "upcoming"
+                                )
+                                        .ifPresent(existing -> {
+                                                throw new IllegalStateException("Selected slot is already booked");
+                                        });
+                        resolvedSlot = request.slot();
+                }
 
                 Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
                                 .orElseGet(() -> {
@@ -181,12 +272,36 @@ public class PatientDomainService {
                 appointment.setTenantPublicId(tenantPublicId);
                 appointment.setPatientPublicId(patientPublicId);
                 appointment.setDoctorPublicId(request.doctorPublicId());
-                appointment.setAppointmentSlot(request.slot());
+                appointment.setAppointmentSlot(resolvedSlot);
                 appointment.setAppointmentStatus("upcoming");
+                appointment.setBookingType(bookingType);
+                appointment.setTokenNumber(tokenNumber);
+                appointment.setTokenSession(tokenSession);
                 appointment.setNotes(request.note() != null && !request.note().isBlank()
                         ? request.note() : "Booked via patient app");
+                if (request.vitals() != null && !request.vitals().isBlank()) {
+                        appointment.setVitalsSummary(request.vitals().trim());
+                }
 
                 Appointment saved = appointmentRepository.save(appointment);
+
+                if (request.attachments() != null) {
+                        for (PatientDtos.AttachmentUploadRequest attachmentRequest : request.attachments()) {
+                                if (attachmentRequest.dataBase64() == null || attachmentRequest.dataBase64().isBlank()) {
+                                        continue;
+                                }
+                                AppointmentAttachment attachment = new AppointmentAttachment();
+                                attachment.setAttachmentPublicId("ATT-" + UUID.randomUUID());
+                                attachment.setTenantPublicId(tenantPublicId);
+                                attachment.setAppointmentPublicId(saved.getAppointmentPublicId());
+                                attachment.setFileName(attachmentRequest.fileName());
+                                attachment.setMimeType(attachmentRequest.mimeType());
+                                attachment.setDataBase64(attachmentRequest.dataBase64());
+                                attachment.setUploadedBy("PATIENT");
+                                appointmentAttachmentRepository.save(attachment);
+                        }
+                }
+
                 log.info("patient_book_appointment tenantPublicId={} patientPublicId={} appointmentPublicId={} doctorPublicId={} slot={}",
                         tenantPublicId,
                         patientPublicId,
@@ -199,8 +314,103 @@ public class PatientDomainService {
                                 saved.getDoctorPublicId(),
                                 saved.getPatientPublicId(),
                                 saved.getAppointmentSlot(),
-                                saved.getAppointmentStatus()
+                                saved.getAppointmentStatus(),
+                                saved.getBookingType(),
+                                saved.getTokenNumber(),
+                                saved.getTokenSession()
                 );
+        }
+
+        /** Read-only peek at the next token number for a doctor/date/session — does not reserve it. */
+        @Transactional(readOnly = true)
+        public PatientDtos.TokenPreviewView tokenPreview(String tenantPublicId, String doctorPublicId, String date, String session) {
+                String normalizedSession = normalizeTokenSession(session);
+                LocalDate tokenDate = parseTokenDate(date);
+                String schema = TenantContext.tenantSchema();
+                Integer lastToken = jdbcTemplate.query(
+                                "SELECT last_token FROM " + schema + ".token_counter WHERE tenant_public_id = ? AND doctor_public_id = ? AND token_date = ? AND session = ?",
+                                rs -> rs.next() ? rs.getInt("last_token") : null,
+                                tenantPublicId, doctorPublicId, tokenDate, normalizedSession
+                );
+                int next = (lastToken == null ? 0 : lastToken) + 1;
+                return new PatientDtos.TokenPreviewView(doctorPublicId, tokenDate.toString(), normalizedSession, next);
+        }
+
+        /** Resets today's (or any given date's) token counter for a doctor/session back to zero. Already-issued tokens are unaffected. */
+        @Transactional
+        public void resetTokenCounter(String tenantPublicId, String doctorPublicId, String date, String session) {
+                String normalizedSession = normalizeTokenSession(session);
+                LocalDate tokenDate = parseTokenDate(date);
+                String schema = TenantContext.tenantSchema();
+                int updated = jdbcTemplate.update(
+                                "UPDATE " + schema + ".token_counter SET last_token = 0 WHERE tenant_public_id = ? AND doctor_public_id = ? AND token_date = ? AND session = ?",
+                                tenantPublicId, doctorPublicId, tokenDate, normalizedSession
+                );
+                if (updated == 0) {
+                        jdbcTemplate.update(
+                                        "INSERT INTO " + schema + ".token_counter (tenant_public_id, doctor_public_id, token_date, session, last_token) VALUES (?, ?, ?, ?, 0) " +
+                                        "ON CONFLICT (tenant_public_id, doctor_public_id, token_date, session) DO NOTHING",
+                                        tenantPublicId, doctorPublicId, tokenDate, normalizedSession
+                        );
+                }
+                log.info("token_counter_reset tenantPublicId={} doctorPublicId={} date={} session={}", tenantPublicId, doctorPublicId, tokenDate, normalizedSession);
+        }
+
+        private String normalizeBookingType(String bookingType) {
+                return (bookingType != null && "TOKEN".equalsIgnoreCase(bookingType.trim())) ? "TOKEN" : "SLOT";
+        }
+
+        private String normalizeTokenSession(String session) {
+                if (session == null || session.isBlank()) {
+                        throw new IllegalArgumentException("Token session (MORNING or EVENING) is required");
+                }
+                String normalized = session.trim().toUpperCase(Locale.ROOT);
+                if (!normalized.equals("MORNING") && !normalized.equals("EVENING")) {
+                        throw new IllegalArgumentException("Token session must be MORNING or EVENING");
+                }
+                return normalized;
+        }
+
+        private String sessionStartTime(String session) {
+                return "MORNING".equals(session) ? "09:00" : "17:00";
+        }
+
+        private LocalDate parseTokenDate(String rawDate) {
+                if (rawDate == null || rawDate.length() < 10) {
+                        throw new IllegalArgumentException("A valid date is required for token booking");
+                }
+                LocalDate date;
+                try {
+                        date = LocalDate.parse(rawDate.substring(0, 10));
+                } catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException("Invalid date format. Expected: yyyy-MM-dd");
+                }
+
+                LocalDate today = LocalDate.now();
+                if (date.isBefore(today)) {
+                        throw new IllegalArgumentException("Cannot book a token for a past date");
+                }
+                if (date.isAfter(today.plusWeeks(2))) {
+                        throw new IllegalArgumentException("Cannot book a token more than 2 weeks in advance");
+                }
+                return date;
+        }
+
+        private int nextTokenNumber(String tenantPublicId, String doctorPublicId, LocalDate date, String session) {
+                String schema = TenantContext.tenantSchema();
+                Integer next = jdbcTemplate.queryForObject(
+                                "INSERT INTO " + schema + ".token_counter (tenant_public_id, doctor_public_id, token_date, session, last_token) " +
+                                "VALUES (?, ?, ?, ?, 1) " +
+                                "ON CONFLICT (tenant_public_id, doctor_public_id, token_date, session) " +
+                                "DO UPDATE SET last_token = " + schema + ".token_counter.last_token + 1 " +
+                                "RETURNING last_token",
+                                Integer.class,
+                                tenantPublicId, doctorPublicId, date, session
+                );
+                if (next == null) {
+                        throw new IllegalStateException("Could not generate token number");
+                }
+                return next;
         }
 
     @Transactional(readOnly = true)
@@ -237,7 +447,7 @@ public class PatientDomainService {
 
     @Transactional(readOnly = true)
     public PatientDtos.PatientCollection listPatientRecords(String tenantPublicId) {
-        List<PatientDtos.PatientView> records = patientRepository.findByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId)
+        List<PatientDtos.PatientView> records = patientRepository.findTop2000ByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId)
                 .stream()
                 .map(patient -> new PatientDtos.PatientView(
                         patient.getPatientPublicId(),
@@ -325,7 +535,10 @@ public class PatientDomainService {
                         appointment.getDoctorPublicId(),
                         appointment.getAppointmentSlot(),
                         appointment.getAppointmentStatus(),
-                        appointment.getNotes()
+                        appointment.getNotes(),
+                        appointment.getBookingType(),
+                        appointment.getTokenNumber(),
+                        appointment.getTokenSession()
                 ))
                 .toList();
         return new PatientDtos.AppointmentCollection(tenantPublicId, records);
@@ -341,7 +554,10 @@ public class PatientDomainService {
                 appointment.getDoctorPublicId(),
                 appointment.getAppointmentSlot(),
                 appointment.getAppointmentStatus(),
-                appointment.getNotes()
+                appointment.getNotes(),
+                appointment.getBookingType(),
+                appointment.getTokenNumber(),
+                appointment.getTokenSession()
         );
     }
 
@@ -372,7 +588,10 @@ public class PatientDomainService {
                 saved.getDoctorPublicId(),
                 saved.getAppointmentSlot(),
                 saved.getAppointmentStatus(),
-                saved.getNotes()
+                saved.getNotes(),
+                saved.getBookingType(),
+                saved.getTokenNumber(),
+                saved.getTokenSession()
         );
     }
 
@@ -570,7 +789,8 @@ public class PatientDomainService {
                 .toList();
 
         List<PatientDtos.AppointmentEntityView> appointmentViews = appointments.stream()
-                .map(a -> new PatientDtos.AppointmentEntityView(a.getAppointmentPublicId(), a.getPatientPublicId(), a.getDoctorPublicId(), a.getAppointmentSlot(), a.getAppointmentStatus(), a.getNotes()))
+                .map(a -> new PatientDtos.AppointmentEntityView(a.getAppointmentPublicId(), a.getPatientPublicId(), a.getDoctorPublicId(), a.getAppointmentSlot(), a.getAppointmentStatus(), a.getNotes(),
+                        a.getBookingType(), a.getTokenNumber(), a.getTokenSession()))
                 .toList();
 
         List<PatientDtos.PrescriptionDetailView> prescriptionViews = prescriptions.stream()
@@ -747,6 +967,7 @@ public class PatientDomainService {
                 .ifPresent(existing -> {
                     throw new IllegalStateException("New slot is already booked");
                 });
+        assertDoctorAvailable(tenantPublicId, appointment.getDoctorPublicId(), request.newSlot());
 
         appointment.setAppointmentSlot(request.newSlot());
         appointment.setNotes("Rescheduled");
@@ -794,7 +1015,10 @@ public class PatientDomainService {
                         a.getDoctorPublicId(),
                         a.getAppointmentSlot(),
                         a.getAppointmentStatus(),
-                        a.getNotes()
+                        a.getNotes(),
+                        a.getBookingType(),
+                        a.getTokenNumber(),
+                        a.getTokenSession()
                 ))
                 .toList();
     }
@@ -807,7 +1031,8 @@ public class PatientDomainService {
                 .filter(appointment -> parseSlotDate(appointment.getAppointmentSlot())
                         .map(slotDate -> slotDate.equals(date))
                         .orElse(false))
-                .sorted(Comparator.comparing(Appointment::getAppointmentSlot))
+                .sorted(Comparator.comparing(Appointment::getAppointmentSlot)
+                        .thenComparing(a -> a.getTokenNumber() == null ? 0 : a.getTokenNumber()))
                 .toList();
 
         List<PatientDtos.DoctorQueueFacetView> facets = dayAppointments.stream()
@@ -882,6 +1107,18 @@ public class PatientDomainService {
                 .map(Prescription::getNotes)
                 .orElse("");
 
+        List<PatientDtos.AttachmentView> attachments = appointmentAttachmentRepository
+                .findByTenantPublicIdAndAppointmentPublicId(tenantPublicId, appointment.getAppointmentPublicId())
+                .stream()
+                .map(a -> new PatientDtos.AttachmentView(
+                        a.getAttachmentPublicId(),
+                        a.getFileName(),
+                        a.getMimeType(),
+                        a.getDataBase64(),
+                        a.getUploadedBy()
+                ))
+                .toList();
+
         return new PatientDtos.DoctorQueueFacetView(
                 appointment.getAppointmentPublicId(),
                 appointment.getPatientPublicId(),
@@ -892,7 +1129,12 @@ public class PatientDomainService {
                 symptoms,
                 diagnosis,
                 medicines,
-                rxNotes
+                rxNotes,
+                appointment.getVitalsSummary() == null ? "" : appointment.getVitalsSummary(),
+                attachments,
+                appointment.getBookingType(),
+                appointment.getTokenNumber(),
+                appointment.getTokenSession()
         );
     }
 

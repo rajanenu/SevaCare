@@ -9,6 +9,7 @@ import 'data/models/models.dart';
 import 'providers/app_state.dart';
 import 'screens/welcome/welcome_screen.dart';
 import 'screens/search/hospital_search_screen.dart';
+import 'screens/search/explore_doctors_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/patient/booking_screen.dart';
@@ -148,6 +149,13 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const HospitalSearchScreen()),
         ),
         GoRoute(
+          path: '/explore/:tenantId',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, ExploreDoctorsScreen(
+            tenantId: state.pathParameters['tenantId'] ?? '',
+            hospitalName: (state.extra as String?) ?? '',
+          )),
+        ),
+        GoRoute(
           path: '/login',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const LoginScreen()),
         ),
@@ -234,7 +242,7 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         ),
         GoRoute(
           path: '/admin/staff',
-          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 4)),
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 3, initialTeamSegment: 1)),
         ),
         GoRoute(
           path: '/admin/reports',

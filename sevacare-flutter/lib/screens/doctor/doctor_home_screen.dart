@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/time_theme.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
@@ -100,11 +102,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     }
   }
 
-  String _greeting() {
+  String _greetingKey() {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Morning';
-    if (h < 17) return 'Afternoon';
-    return 'Evening';
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   String _initials(String name) {
@@ -121,15 +123,15 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     final subjectId = auth.subjectPublicId ?? '';
 
     final daySegments = [
-      SegmentItem<int>(value: -1, label: 'Yesterday'),
-      SegmentItem<int>(value: 0, label: 'Today'),
-      SegmentItem<int>(value: 1, label: 'Tomorrow'),
+      SegmentItem<int>(value: -1, label: tr(ref, 'Yesterday')),
+      SegmentItem<int>(value: 0, label: tr(ref, 'Today')),
+      SegmentItem<int>(value: 1, label: tr(ref, 'Tomorrow')),
     ];
 
     final queueFilterSegments = [
-      SegmentItem<int>(value: 0, label: 'All'),
-      SegmentItem<int>(value: 1, label: 'Upcoming'),
-      SegmentItem<int>(value: 2, label: 'Completed'),
+      SegmentItem<int>(value: 0, label: tr(ref, 'All')),
+      SegmentItem<int>(value: 1, label: tr(ref, 'Upcoming')),
+      SegmentItem<int>(value: 2, label: tr(ref, 'Completed')),
     ];
 
     final queueView = _queueView;
@@ -162,6 +164,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                     variant: HealthcareBgVariant.doctor,
                     height: 130,
                   ),
+                  const Positioned.fill(child: TimeTintOverlay()),
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Row(
@@ -177,7 +180,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Good ${_greeting()}, Doctor',
+                                '${tr(ref, _greetingKey())}, Doctor',
                                 style: AppTextStyles.label(
                                   SevaCareColors.textOnPrimary.withValues(alpha: 0.80),
                                 ),
@@ -188,29 +191,59 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                 style: AppTextStyles.cardTitle(SevaCareColors.textOnPrimary),
                               ),
                               const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: SevaCareColors.mint.withValues(alpha: 0.25),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 6, height: 6,
-                                      decoration: const BoxDecoration(
-                                        color: SevaCareColors.mint,
-                                        shape: BoxShape.circle,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: SevaCareColors.mint.withValues(alpha: 0.25),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6, height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: SevaCareColors.mint,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          tr(ref, 'Available'),
+                                          style: AppTextStyles.label(SevaCareColors.mint),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () => showSlotBlockSheet(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.18),
+                                        borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.event_busy_rounded,
+                                              size: 11, color: Colors.white),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            tr(ref, 'Block slots'),
+                                            style: AppTextStyles.label(Colors.white),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Available',
-                                      style: AppTextStyles.label(SevaCareColors.mint),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -251,7 +284,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                           size: 16, color: Color(0xFFDC2626)),
                       const SizedBox(width: 4),
                       Text(
-                        'Previous',
+                        tr(ref, 'Previous'),
                         style: AppTextStyles.label(const Color(0xFFDC2626)),
                       ),
                     ],
@@ -274,7 +307,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Next',
+                        tr(ref, 'Next'),
                         style: AppTextStyles.label(const Color(0xFFDC2626)),
                       ),
                       const SizedBox(width: 4),
@@ -305,11 +338,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Failed to load queue', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                  Text(tr(ref, 'Failed to load queue'), style: AppTextStyles.cardTitle(SevaCareColors.danger)),
                   const SizedBox(height: 8),
                   Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
                   const SizedBox(height: 12),
-                  PrimaryButton(label: 'Retry', onPressed: _loadQueue),
+                  PrimaryButton(label: tr(ref, 'Retry'), onPressed: _loadQueue),
                 ],
               ),
             ),
@@ -323,17 +356,17 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
               tiles: [
                 MetricTile(
                   value: '${queueView?.totalAppointments ?? 0}',
-                  label: 'Appointments',
+                  label: tr(ref, 'Appointments'),
                   variant: MetricVariant.primary,
                 ),
                 MetricTile(
                   value: '${queueView?.pendingNotes ?? 0}',
-                  label: 'Pending',
+                  label: tr(ref, 'Pending'),
                   variant: MetricVariant.peach,
                 ),
                 MetricTile(
                   value: '${queueView?.avgConsultMinutes ?? 0}m',
-                  label: 'Avg',
+                  label: tr(ref, 'Avg'),
                   variant: MetricVariant.mint,
                 ),
               ],
@@ -341,7 +374,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             const SizedBox(height: 24),
 
             // ── Patient Queue ────────────────────────────────────────────────
-            Text('Patient Queue', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text(tr(ref, 'Patient Queue'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
             const SizedBox(height: 12),
             SegmentedControl<int>(
               items: queueFilterSegments,
@@ -356,12 +389,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'No appointments found.',
+                      tr(ref, 'No appointments found.'),
                       style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Your queue for this day is clear.',
+                      tr(ref, 'Your queue for this day is clear.'),
                       style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
                   ],
@@ -393,7 +426,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      AppDateUtils.formatSlot(facet.slot),
+                                      facet.bookingType == 'TOKEN'
+                                          ? 'Token #${facet.tokenNumber ?? '-'} · ${facet.tokenSession == 'EVENING' ? 'Evening' : 'Morning'}'
+                                          : AppDateUtils.formatSlot(facet.slot),
                                       style: AppTextStyles.body(
                                         size: 13,
                                         weight: FontWeight.w500,
@@ -417,7 +452,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                               children: [
                                 if (facet.symptoms?.startsWith('Booked by IP-Staff') == true)
                                   _Chip(
-                                    label: 'IP-Staff Booking',
+                                    label: tr(ref, 'IP-Staff Booking'),
                                     color: const Color(0xFFFFF4EE),
                                     textColor: SevaCareColors.peachForeground,
                                   ),
@@ -429,7 +464,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                   ),
                                 if (facet.followUp)
                                   _Chip(
-                                    label: 'Follow-up',
+                                    label: tr(ref, 'Follow-up'),
                                     color: SevaCareColors.peachSoft,
                                     textColor: SevaCareColors.peachForeground,
                                   ),
@@ -452,19 +487,20 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                 children: [
                                   const Icon(Icons.check_circle_outline, size: 16, color: SevaCareColors.success),
                                   const SizedBox(width: 6),
-                                  Text('Consultation Completed', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.success)),
+                                  Text(tr(ref, 'Consultation Completed'), style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.success)),
                                 ],
                               ),
                             )
                           else
                             SecondaryButton(
-                              label: 'Start Consult',
+                              label: tr(ref, 'Start Consult'),
                               icon: Icons.healing,
                               onPressed: () {
                                 ref.read(doctorSelectedPatientIdProvider.notifier).state =
                                     facet.patientPublicId;
                                 ref.read(doctorSelectedAppointmentIdProvider.notifier).state =
                                     facet.appointmentPublicId;
+                                ref.read(doctorSelectedFacetProvider.notifier).state = facet;
                                 context.go('/doctor/consult');
                               },
                             ),
@@ -528,15 +564,15 @@ class _Chip extends StatelessWidget {
 
 // ── Today's Insight Banner ─────────────────────────────────────────────────────
 
-class _TodayInsightBanner extends StatefulWidget {
+class _TodayInsightBanner extends ConsumerStatefulWidget {
   final DoctorQueueDayView queueView;
   const _TodayInsightBanner({required this.queueView});
 
   @override
-  State<_TodayInsightBanner> createState() => _TodayInsightBannerState();
+  ConsumerState<_TodayInsightBanner> createState() => _TodayInsightBannerState();
 }
 
-class _TodayInsightBannerState extends State<_TodayInsightBanner>
+class _TodayInsightBannerState extends ConsumerState<_TodayInsightBanner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
@@ -628,7 +664,7 @@ class _TodayInsightBannerState extends State<_TodayInsightBanner>
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          "TODAY'S INSIGHT",
+                          tr(ref, "TODAY'S INSIGHT"),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,

@@ -26,6 +26,15 @@ class AppShell extends StatelessWidget {
   final VoidCallback? onBack;
   final bool compactScroll;
 
+  /// When false the shell does NOT wrap [body] in its own scroll view —
+  /// the body owns scrolling (needed for RefreshIndicator screens; nesting
+  /// two scroll views makes the inner one swallow drags and blocks the page).
+  final bool scrollable;
+
+  /// Optional controller for the shell's scroll view — lets tabbed screens
+  /// jump back to top when switching tabs so the frame doesn't jump around.
+  final ScrollController? scrollController;
+
   const AppShell({
     super.key,
     required this.body,
@@ -38,6 +47,8 @@ class AppShell extends StatelessWidget {
     this.showBackButton = false,
     this.onBack,
     this.compactScroll = false,
+    this.scrollable = true,
+    this.scrollController,
   });
 
   String _homeFor(UserRole r) => switch (r) {
@@ -105,18 +116,29 @@ class AppShell extends StatelessWidget {
                     constraints: const BoxConstraints(
                       maxWidth: _kMaxContentWidth,
                     ),
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          16,
-                          16,
-                          hasBottomNav ? 8 : 32,
-                        ),
-                        child: body,
-                      ),
-                    ),
+                    child: scrollable
+                        ? SingleChildScrollView(
+                            controller: scrollController,
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                hasBottomNav ? 8 : 32,
+                              ),
+                              child: body,
+                            ),
+                          )
+                        : Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              16,
+                              16,
+                              hasBottomNav ? 8 : 32,
+                            ),
+                            child: body,
+                          ),
                   ),
                 ),
               ),
@@ -406,6 +428,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell> {
     return switch (role) {
       UserRole.doctor => 'DOCTOR',
       UserRole.admin => 'ADMIN',
+      UserRole.staff => 'STAFF',
       _ => 'PATIENT',
     };
   }

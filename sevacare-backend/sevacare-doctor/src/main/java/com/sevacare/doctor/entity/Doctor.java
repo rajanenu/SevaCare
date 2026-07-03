@@ -51,6 +51,16 @@ public class Doctor {
     @Column(name = "ready_to_look_patients")
     private Boolean readyToLookPatients;
 
+    // SLOT, TOKEN, or BOTH — which booking modes this doctor offers to patients
+    @Column(name = "booking_mode", nullable = false, length = 16)
+    private String bookingMode = "BOTH";
+
+    @Column(name = "experience_years")
+    private Integer experienceYears;
+
+    @Column(name = "qualification", length = 200)
+    private String qualification;
+
     public String getDoctorPublicId() {
         return doctorPublicId;
     }
@@ -153,5 +163,29 @@ public class Doctor {
 
     public void setReadyToLookPatients(Boolean readyToLookPatients) {
         this.readyToLookPatients = readyToLookPatients;
+    }
+
+    public String getBookingMode() {
+        return bookingMode;
+    }
+
+    public void setBookingMode(String bookingMode) {
+        this.bookingMode = bookingMode;
+    }
+
+    public Integer getExperienceYears() {
+        return experienceYears;
+    }
+
+    public void setExperienceYears(Integer experienceYears) {
+        this.experienceYears = experienceYears;
+    }
+
+    public String getQualification() {
+        return qualification;
+    }
+
+    public void setQualification(String qualification) {
+        this.qualification = qualification;
     }
 }

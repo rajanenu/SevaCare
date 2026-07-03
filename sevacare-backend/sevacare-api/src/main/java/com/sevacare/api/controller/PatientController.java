@@ -65,6 +65,49 @@ public class PatientController {
         return ContractResponse.of(patientDomainService.getBookedSlots(tenantPublicId, doctorId, date));
     }
 
+    // Richer availability: booked + doctor-blocked windows + leave status in one call
+    @GetMapping("/{tenantPublicId}/booking/slot-status")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.SlotStatusView> slotStatus(
+            @PathVariable String tenantPublicId,
+            @RequestParam String doctorId,
+            @RequestParam String date
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.getSlotStatus(tenantPublicId, doctorId, date));
+    }
+
+    // Read-only peek at the next token number for a doctor/date/session — does not reserve it
+    @GetMapping("/{tenantPublicId}/booking/token-preview")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.TokenPreviewView> tokenPreview(
+            @PathVariable String tenantPublicId,
+            @RequestParam String doctorId,
+            @RequestParam String date,
+            @RequestParam String session
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.tokenPreview(tenantPublicId, doctorId, date, session));
+    }
+
+    // IP-Staff/Admin resets a doctor's token counter for a given date/session back to zero
+    @PostMapping("/{tenantPublicId}/booking/token-reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<String> resetTokenCounter(
+            @PathVariable String tenantPublicId,
+            @Valid @RequestBody PatientDtos.TokenResetRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId()) || !tenantPublicId.equals(request.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        patientDomainService.resetTokenCounter(tenantPublicId, request.doctorPublicId(), request.date(), request.session());
+        return ContractResponse.of("reset");
+    }
+
     @PostMapping("/{tenantPublicId}/{patientPublicId}/appointments")
     @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
     public ContractResponse<PatientDtos.AppointmentBookingResult> bookAppointment(

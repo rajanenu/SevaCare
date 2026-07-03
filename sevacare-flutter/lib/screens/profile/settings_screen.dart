@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -75,6 +76,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   activeTrackColor: SevaCareColors.primarySoft,
                   contentPadding: EdgeInsets.zero,
                   onChanged: (v) => ref.read(darkModeProvider.notifier).state = v,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Language ───────────────────────────────────────────────────────
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.translate_rounded,
+                        size: 18, color: SevaCareColors.primary),
+                    const SizedBox(width: 8),
+                    Text(tr(ref, 'Language'),
+                        style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tr(ref, 'Choose your language'),
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AppLanguage.values.map((lang) {
+                    final selected = ref.watch(languageProvider) == lang;
+                    return GestureDetector(
+                      onTap: () =>
+                          ref.read(languageProvider.notifier).setLanguage(lang),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? SevaCareColors.primary
+                              : SevaCareColors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: selected
+                                ? SevaCareColors.primary
+                                : SevaCareColors.border,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              lang.nativeName,
+                              style: AppTextStyles.body(
+                                size: 13,
+                                weight: FontWeight.w600,
+                                color: selected
+                                    ? SevaCareColors.textOnPrimary
+                                    : SevaCareColors.text,
+                              ),
+                            ),
+                            if (lang != AppLanguage.en)
+                              Text(
+                                lang.englishName,
+                                style: AppTextStyles.label(
+                                  selected
+                                      ? SevaCareColors.textOnPrimary
+                                          .withValues(alpha: 0.75)
+                                      : SevaCareColors.textMuted,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             ),

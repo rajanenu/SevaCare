@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -87,7 +89,18 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   List<AppointmentView> get _filtered {
     final all = _appointments ?? [];
     if (_filter == 'all') return all;
-    return all.where((a) => a.status.toLowerCase() == _filter).toList();
+    // Filter on the effective status so past-dated appointments never
+    // linger under "Upcoming".
+    return all
+        .where(
+          (a) =>
+              AppDateUtils.effectiveApptStatus(
+                a.status,
+                a.slot,
+              ).toLowerCase() ==
+              _filter,
+        )
+        .toList();
   }
 
   @override
@@ -106,16 +119,16 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           BackBtn(onPressed: () => context.go('/patient')),
           const SizedBox(height: 8),
           PageHeader(
-            title: 'My Appointments',
-            subtitle: 'All your scheduled visits',
+            title: tr(ref, 'My Appointments'),
+            subtitle: tr(ref, 'All your scheduled visits'),
           ),
           const SizedBox(height: 12),
           SegmentedControl<String>(
-            items: const [
-              SegmentItem(label: 'All', value: 'all'),
-              SegmentItem(label: 'Upcoming', value: 'upcoming'),
-              SegmentItem(label: 'Completed', value: 'completed'),
-              SegmentItem(label: 'Cancelled', value: 'cancelled'),
+            items: [
+              SegmentItem(label: tr(ref, 'All'), value: 'all'),
+              SegmentItem(label: tr(ref, 'Upcoming'), value: 'upcoming'),
+              SegmentItem(label: tr(ref, 'Completed'), value: 'completed'),
+              SegmentItem(label: tr(ref, 'Cancelled'), value: 'cancelled'),
             ],
             selected: _filter,
             onChanged: (v) => setState(() => _filter = v),
@@ -159,12 +172,15 @@ class _AppointmentCard extends ConsumerWidget {
     required this.onCancelled,
   });
 
+  String get _effectiveStatus =>
+      AppDateUtils.effectiveApptStatus(appointment.status, appointment.slot);
+
   bool get _canCancel {
-    final s = appointment.status.toLowerCase();
+    final s = _effectiveStatus.toLowerCase();
     return s == 'upcoming' || s == 'scheduled';
   }
 
-  MetricVariant get _variant => switch (appointment.status.toLowerCase()) {
+  MetricVariant get _variant => switch (_effectiveStatus.toLowerCase()) {
     'completed' => MetricVariant.mint,
     'cancelled' => MetricVariant.danger,
     _ => MetricVariant.primary,
@@ -185,7 +201,7 @@ class _AppointmentCard extends ConsumerWidget {
                   style: AppTextStyles.cardTitle(SevaCareColors.text),
                 ),
               ),
-              StatusBadge(status: appointment.status),
+              StatusBadge(status: _effectiveStatus),
             ],
           ),
           const SizedBox(height: 6),
@@ -218,7 +234,7 @@ class _AppointmentCard extends ConsumerWidget {
           if (_canCancel) ...[
             const SizedBox(height: 10),
             DangerButton(
-              label: 'Cancel Appointment',
+              label: tr(ref, 'Cancel Appointment'),
               onPressed: () => _confirmCancel(context, ref),
             ),
           ],
@@ -231,19 +247,19 @@ class _AppointmentCard extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cancel Appointment'),
-        content: const Text(
-          'Are you sure you want to cancel this appointment?',
+        title: Text(tr(ref, 'Cancel Appointment')),
+        content: Text(
+          tr(ref, 'Are you sure you want to cancel this appointment?'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: Text(tr(ref, 'No')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
-            child: const Text('Yes, Cancel'),
+            child: Text(tr(ref, 'Yes, Cancel')),
           ),
         ],
       ),
@@ -273,12 +289,12 @@ class _AppointmentCard extends ConsumerWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   final String filter;
   const _EmptyState({required this.filter});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
@@ -291,9 +307,12 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              filter == 'all'
-                  ? 'No appointments yet'
-                  : 'No $filter appointments',
+              tr(ref, switch (filter) {
+                'upcoming' => 'No upcoming appointments',
+                'completed' => 'No completed appointments',
+                'cancelled' => 'No cancelled appointments',
+                _ => 'No appointments yet',
+              }),
               style: AppTextStyles.bodyText(SevaCareColors.textMuted),
             ),
           ],
@@ -303,23 +322,23 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
+class _ErrorState extends ConsumerWidget {
   final String error;
   final VoidCallback onRetry;
   const _ErrorState({required this.error, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Column(
         children: [
           const SizedBox(height: 32),
           Text(
-            'Failed to load appointments',
+            tr(ref, 'Failed to load appointments'),
             style: AppTextStyles.bodyText(SevaCareColors.danger),
           ),
           const SizedBox(height: 12),
-          SecondaryButton(label: 'Retry', onPressed: onRetry),
+          SecondaryButton(label: tr(ref, 'Retry'), onPressed: onRetry),
         ],
       ),
     );

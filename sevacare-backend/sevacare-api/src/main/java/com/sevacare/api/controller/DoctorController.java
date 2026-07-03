@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.doctor.service.DoctorDomainService;
+import com.sevacare.doctor.service.SlotBlockService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.DoctorDtos;
@@ -29,10 +30,12 @@ public class DoctorController {
 
     private final DoctorDomainService doctorDomainService;
     private final PatientDomainService patientDomainService;
+    private final SlotBlockService slotBlockService;
 
-    public DoctorController(DoctorDomainService doctorDomainService, PatientDomainService patientDomainService) {
+    public DoctorController(DoctorDomainService doctorDomainService, PatientDomainService patientDomainService, SlotBlockService slotBlockService) {
         this.doctorDomainService = doctorDomainService;
         this.patientDomainService = patientDomainService;
+        this.slotBlockService = slotBlockService;
     }
 
     @GetMapping("/{tenantPublicId}/{doctorPublicId}/dashboard")
@@ -176,6 +179,60 @@ public class DoctorController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(patientDomainService.getDoctorPatients(tenantPublicId, doctorPublicId));
+    }
+
+    // ── Slot blocking — partial-day unavailability windows ──────────────────
+
+    @PostMapping("/{tenantPublicId}/{doctorPublicId}/slot-blocks")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<DoctorDtos.SlotBlockView> createSlotBlock(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId,
+            @Valid @RequestBody DoctorDtos.SlotBlockCreateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(slotBlockService.createBlock(tenantPublicId, doctorPublicId, request));
+    }
+
+    @GetMapping("/{tenantPublicId}/{doctorPublicId}/slot-blocks")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<DoctorDtos.SlotBlockCollection> listSlotBlocks(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(slotBlockService.listBlocks(tenantPublicId, doctorPublicId));
+    }
+
+    @DeleteMapping("/{tenantPublicId}/{doctorPublicId}/slot-blocks/{blockPublicId}")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<String> deleteSlotBlock(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId,
+            @PathVariable String blockPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        slotBlockService.deleteBlock(tenantPublicId, doctorPublicId, blockPublicId);
+        return ContractResponse.of("deleted");
+    }
+
+    // Availability overview for a date (leave + blocked windows) — used by IP-Staff before booking
+    @GetMapping("/{tenantPublicId}/availability")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN','PATIENT')")
+    public ContractResponse<DoctorDtos.DoctorAvailabilityCollection> availability(
+            @PathVariable String tenantPublicId,
+            @RequestParam String date
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(slotBlockService.availabilityForDate(tenantPublicId, date));
     }
 
     // Doctor's prescription history

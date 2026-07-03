@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -81,16 +82,19 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Dr. ${req.doctorName}  •  ${req.leaveType}',
+            Text(
+                '${req.isStaffRequest ? '${req.doctorName} (IP-Staff)' : 'Dr. ${req.doctorName}'}  •  ${req.leaveType}',
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
             if (req.fromDate != null) ...[
               const SizedBox(height: 4),
-              Text('${req.fromDate} → ${req.toDate}',
+              Text(
+                  '${req.fromDate} → ${req.toDate}'
+                  '${req.isHourly ? ' · ${req.startTime}–${req.endTime}' : ''}',
                   style: AppTextStyles.label(SevaCareColors.textMuted)),
             ],
             const SizedBox(height: 12),
             AppFormField(
-              label: 'Response / Comment (optional)',
+              label: tr(ref, 'Response / Comment (optional)'),
               controller: responseCtrl,
               placeholder: 'Add a message to the doctor…',
               maxLines: 3,
@@ -100,7 +104,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text(tr(ref, 'Cancel'), style: AppTextStyles.label(SevaCareColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -108,7 +112,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              action == 'APPROVE' ? 'Approve' : action == 'DECLINE' ? 'Decline' : 'Send',
+              action == 'APPROVE' ? tr(ref, 'Approve') : action == 'DECLINE' ? tr(ref, 'Decline') : tr(ref, 'Send'),
               style: AppTextStyles.label(Colors.white),
             ),
           ),
@@ -212,10 +216,10 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Requests & Messages',
+          title: tr(ref, 'Requests & Messages'),
           subtitle: pending > 0
               ? '$pending leave request(s) pending approval'
-              : 'All leave requests up to date',
+              : tr(ref, 'All leave requests up to date'),
         ),
         const SizedBox(height: 16),
 
@@ -225,13 +229,13 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           child: Row(
             children: [
               _TabBtn(
-                label: 'Leave Requests',
+                label: tr(ref, 'Leave Requests'),
                 active: _tab == 0,
                 badge: pending > 0 ? pending : null,
                 onTap: () => setState(() => _tab = 0),
               ),
               _TabBtn(
-                label: 'Send Message',
+                label: tr(ref, 'Send Message'),
                 active: _tab == 1,
                 onTap: () => setState(() => _tab = 1),
               ),
@@ -259,7 +263,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             const SizedBox(height: 8),
             Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
             const SizedBox(height: 12),
-            PrimaryButton(label: 'Retry', onPressed: _load),
+            PrimaryButton(label: tr(ref, 'Retry'), onPressed: _load),
           ]),
         ),
       );
@@ -273,9 +277,9 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           child: Column(children: [
             const Icon(Icons.inbox_outlined, size: 44, color: SevaCareColors.textMuted),
             const SizedBox(height: 12),
-            Text('No leave requests', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+            Text(tr(ref, 'No leave requests'), style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
             const SizedBox(height: 6),
-            Text("Doctors' leave requests will appear here.",
+            Text(tr(ref, "Doctors' leave requests will appear here."),
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                 textAlign: TextAlign.center),
           ]),
@@ -296,10 +300,10 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Broadcast / Direct Message', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          Text(tr(ref, 'Broadcast / Direct Message'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
           const SizedBox(height: 4),
           Text(
-            'Send a notification to all doctors, a department, or a specific doctor.',
+            tr(ref, 'Send a notification to all doctors, a department, or a specific doctor.'),
             style: AppTextStyles.bodyText(SevaCareColors.textMuted),
           ),
           const SizedBox(height: 16),
@@ -307,7 +311,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           // ── Target type selector (3 chips) ──────────────────────────────────
           Row(children: [
             Expanded(child: _TargetChip(
-              label: 'All',
+              label: tr(ref, 'All'),
               icon: Icons.groups_outlined,
               selected: _targetType == 'ALL',
               onTap: () => setState(() {
@@ -318,7 +322,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             )),
             const SizedBox(width: 8),
             Expanded(child: _TargetChip(
-              label: 'Dept.',
+              label: tr(ref, 'Dept.'),
               icon: Icons.business_outlined,
               selected: _targetType == 'DEPARTMENT',
               onTap: () => setState(() {
@@ -328,7 +332,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             )),
             const SizedBox(width: 8),
             Expanded(child: _TargetChip(
-              label: 'Doctor',
+              label: tr(ref, 'Doctor'),
               icon: Icons.person_outline,
               selected: _targetType == 'INDIVIDUAL',
               onTap: () => setState(() => _targetType = 'INDIVIDUAL'),
@@ -340,12 +344,12 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           if (_targetType == 'DEPARTMENT' || _targetType == 'INDIVIDUAL') ...[
             AppDropdown<String?>(
               label: _targetType == 'DEPARTMENT'
-                  ? 'Select Department'
-                  : 'Filter by Specialty (optional)',
+                  ? tr(ref, 'Select Department')
+                  : tr(ref, 'Filter by Specialty (optional)'),
               value: _filterSpecialty,
               items: [
-                const DropdownMenuItem<String?>(
-                    value: null, child: Text('— All Departments —')),
+                DropdownMenuItem<String?>(
+                    value: null, child: Text(tr(ref, '— All Departments —'))),
                 ..._uniqueSpecialties.map((s) =>
                     DropdownMenuItem<String?>(value: s, child: Text(s))),
               ],
@@ -360,10 +364,10 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           // ── Individual doctor picker ─────────────────────────────────────────
           if (_targetType == 'INDIVIDUAL') ...[
             AppDropdown<String>(
-              label: 'Select Doctor',
+              label: tr(ref, 'Select Doctor'),
               value: _targetDoctorId ?? '',
               items: [
-                const DropdownMenuItem(value: '', child: Text('— Select Doctor —')),
+                DropdownMenuItem(value: '', child: Text(tr(ref, '— Select Doctor —'))),
                 ..._filteredDoctors.map((d) => DropdownMenuItem(
                   value: d.doctorPublicId,
                   child: Text('Dr. ${d.fullName}'),
@@ -376,12 +380,12 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           ],
 
           AppFormField(
-            label: 'Title',
+            label: tr(ref, 'Title'),
             controller: _titleCtrl,
             placeholder: 'e.g. Schedule Change for Next Week',
           ),
           AppFormField(
-            label: 'Message',
+            label: tr(ref, 'Message'),
             controller: _bodyCtrl,
             placeholder: 'Write your message to the doctor(s)…',
             maxLines: 4,
@@ -425,7 +429,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
 
 // ── Leave request card ─────────────────────────────────────────────────────────
 
-class _LeaveRequestCard extends StatelessWidget {
+class _LeaveRequestCard extends ConsumerWidget {
   final LeaveRequestRecord request;
   final void Function(String action) onAction;
 
@@ -441,16 +445,16 @@ class _LeaveRequestCard extends StatelessWidget {
   Color get _statusColor => _statusColors[request.status] ?? SevaCareColors.textMuted;
   bool  get _isPending   => request.status == 'PENDING';
 
-  String get _typeLabel => switch (request.leaveType.toUpperCase()) {
-    'SICK'      => 'Sick Leave',
-    'VACATION'  => 'Vacation',
-    'EMERGENCY' => 'Emergency',
-    'MESSAGE'   => 'Query',
-    _           => 'Other Leave',
+  String _typeLabel(WidgetRef ref) => switch (request.leaveType.toUpperCase()) {
+    'SICK'      => tr(ref, 'Sick Leave'),
+    'VACATION'  => tr(ref, 'Vacation'),
+    'EMERGENCY' => tr(ref, 'Emergency'),
+    'MESSAGE'   => tr(ref, 'Query'),
+    _           => tr(ref, 'Other Leave'),
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,9 +473,13 @@ class _LeaveRequestCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Dr. ${request.doctorName}',
+                Text(
+                    request.isStaffRequest
+                        ? request.doctorName
+                        : 'Dr. ${request.doctorName}',
                     style: AppTextStyles.cardTitle(SevaCareColors.text)),
-                Text(_typeLabel,
+                Text(
+                    request.isStaffRequest ? '${_typeLabel(ref)} · IP-Staff' : _typeLabel(ref),
                     style: AppTextStyles.label(SevaCareColors.textMuted)),
               ]),
             ),
@@ -499,7 +507,9 @@ class _LeaveRequestCard extends StatelessWidget {
                 const Icon(Icons.date_range_outlined, size: 14,
                     color: SevaCareColors.textMuted),
                 const SizedBox(width: 6),
-                Text('${request.fromDate}  →  ${request.toDate}',
+                Text(
+                    '${request.fromDate}  →  ${request.toDate}'
+                    '${request.isHourly ? '  ·  ${request.startTime}–${request.endTime}' : ''}',
                     style: AppTextStyles.label(SevaCareColors.textMuted)),
               ]),
             ),
@@ -542,7 +552,7 @@ class _LeaveRequestCard extends StatelessWidget {
             Row(children: [
               Expanded(
                 child: _ActionBtn(
-                  label: 'Comment',
+                  label: tr(ref, 'Comment'),
                   icon: Icons.comment_outlined,
                   color: SevaCareColors.primary,
                   filled: false,
@@ -552,7 +562,7 @@ class _LeaveRequestCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _ActionBtn(
-                  label: 'Decline',
+                  label: tr(ref, 'Decline'),
                   icon: Icons.close_rounded,
                   color: SevaCareColors.danger,
                   filled: false,
@@ -564,7 +574,7 @@ class _LeaveRequestCard extends StatelessWidget {
 
             // Row 2: Approve (primary, full width)
             _ActionBtn(
-              label: 'Approve Leave',
+              label: tr(ref, 'Approve Leave'),
               icon: Icons.check_circle_outline_rounded,
               color: SevaCareColors.mint,
               filled: true,

@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/time_theme.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
@@ -144,9 +146,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         .length;
 
     final segmentItems = <SegmentItem<int>>[
-      const SegmentItem(value: -1, label: 'Yesterday'),
-      const SegmentItem(value: 0, label: 'Today'),
-      const SegmentItem(value: 1, label: 'Tomorrow'),
+      SegmentItem(value: -1, label: tr(ref, 'Yesterday')),
+      SegmentItem(value: 0, label: tr(ref, 'Today')),
+      SegmentItem(value: 1, label: tr(ref, 'Tomorrow')),
     ];
 
     final timelineDateStr = AppDateUtils.offsetDay(_dayOffset);
@@ -161,6 +163,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     return AppShell(
       hospitalName: hospital.hospitalName,
       role: UserRole.patient,
+      // Body owns scrolling (RefreshIndicator) — the shell must not add a
+      // second scroll view or drags get swallowed and the page can't scroll.
+      scrollable: false,
       bottomNavItems: patientNavItems(context),
       currentNavIndex: 0,
       onNavTap: (i) {
@@ -190,7 +195,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                       style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                     ),
                     const SizedBox(height: 16),
-                    PrimaryButton(label: 'Retry', onPressed: _load),
+                    PrimaryButton(label: tr(ref, 'Retry'), onPressed: _load),
                   ],
                 ),
               ),
@@ -229,7 +234,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                       childAspectRatio: 1.40,
                       children: [
                         _QuickActionTile(
-                          label: 'Book Appointment',
+                          label: tr(ref, 'Book Appointment'),
                           icon: Icons.add_circle_outline,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF5148CC), Color(0xFF7C6FE0)],
@@ -239,7 +244,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                           onTap: () => context.push('/patient/booking'),
                         ),
                         _QuickActionTile(
-                          label: 'View Appointments',
+                          label: tr(ref, 'View Appointments'),
                           icon: Icons.calendar_today_outlined,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF0D9488), Color(0xFF52C499)],
@@ -249,7 +254,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                           onTap: () => context.go('/patient/appointments'),
                         ),
                         _QuickActionTile(
-                          label: 'View Prescriptions',
+                          label: tr(ref, 'View Prescriptions'),
                           icon: Icons.medication_outlined,
                           gradient: const LinearGradient(
                             colors: [Color(0xFFD97706), Color(0xFFF0A86B)],
@@ -259,7 +264,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                           onTap: () => context.go('/patient/prescriptions'),
                         ),
                         _QuickActionTile(
-                          label: 'Medical History',
+                          label: tr(ref, 'Medical History'),
                           icon: Icons.history_edu_outlined,
                           gradient: const LinearGradient(
                             colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
@@ -276,7 +281,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                     Row(
                       children: [
                         _DayNavBtn(
-                          label: 'Previous',
+                          label: tr(ref, 'Previous'),
                           icon: Icons.chevron_left,
                           onTap: () => setState(() => _dayOffset--),
                         ),
@@ -291,7 +296,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                           ),
                         ),
                         _DayNavBtn(
-                          label: 'Next',
+                          label: tr(ref, 'Next'),
                           icon: Icons.chevron_right,
                           iconTrailing: true,
                           onTap: () => setState(() => _dayOffset++),
@@ -330,17 +335,17 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                       tiles: [
                         MetricTile(
                           value: '${dayAppts.length}',
-                          label: 'APPOINTMENTS',
+                          label: tr(ref, 'APPOINTMENTS'),
                           variant: MetricVariant.primary,
                         ),
                         MetricTile(
                           value: '${_completedCount(dayAppts)}',
-                          label: 'COMPLETED',
+                          label: tr(ref, 'COMPLETED'),
                           variant: MetricVariant.mint,
                         ),
                         MetricTile(
                           value: '$totalRx',
-                          label: 'PRESCRIPTIONS',
+                          label: tr(ref, 'PRESCRIPTIONS'),
                           variant: MetricVariant.peach,
                         ),
                       ],
@@ -349,7 +354,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
 
                     // ── #2: Journey appointment cards ───────────────────────
                     Text(
-                      'Patient Queue',
+                      tr(ref, 'Patient Queue'),
                       style: AppTextStyles.sectionTitle(SevaCareColors.text),
                     ),
                     const SizedBox(height: 12),
@@ -366,7 +371,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'No appointments for ${AppDateUtils.dayLabel(_dayOffset)}',
+                              '${tr(ref, 'No appointments for')} ${AppDateUtils.dayLabel(_dayOffset)}',
                               style: AppTextStyles.bodyText(
                                 SevaCareColors.textMuted,
                               ),
@@ -386,7 +391,12 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                             'cancelled',
                             'canceled',
                             'completed',
-                          ].contains(appt.status.toLowerCase());
+                          ].contains(
+                            AppDateUtils.effectiveApptStatus(
+                              appt.status,
+                              appt.slot,
+                            ).toLowerCase(),
+                          );
                           return _JourneyCard(
                             appt: appt,
                             isCancellable: isCancellable,
@@ -407,7 +417,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
 // Animated arc ring around the avatar showing appointment completion rate.
 // Not present in any other healthcare app.
 
-class _PatientHeroBanner extends StatelessWidget {
+class _PatientHeroBanner extends ConsumerWidget {
   final String patientId;
   final int completedAppointments;
   final int totalAppointments;
@@ -418,15 +428,13 @@ class _PatientHeroBanner extends StatelessWidget {
     required this.totalAppointments,
   });
 
-  String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final phase = currentDayPhase();
+    final name = ref.watch(authProvider).subjectName.trim();
+    final greeting = name.isNotEmpty
+        ? '${tr(ref, phase.greeting)}, $name'
+        : tr(ref, phase.greeting);
     final completionRate = totalAppointments == 0
         ? 0.0
         : (completedAppointments / totalAppointments).clamp(0.0, 1.0);
@@ -448,6 +456,7 @@ class _PatientHeroBanner extends StatelessWidget {
               variant: HealthcareBgVariant.patient,
               height: 120,
             ),
+            const Positioned.fill(child: TimeTintOverlay()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               child: Row(
@@ -459,15 +468,29 @@ class _PatientHeroBanner extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _greeting,
-                          style: AppTextStyles.label(
-                            Colors.white.withValues(alpha: 0.80),
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              phase.icon,
+                              size: 13,
+                              color: Colors.white.withValues(alpha: 0.80),
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                greeting,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.label(
+                                  Colors.white.withValues(alpha: 0.80),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Stay Healthy Today',
+                          tr(ref, 'Stay Healthy Today'),
                           style: AppTextStyles.cardTitle(Colors.white),
                         ),
                         const SizedBox(height: 5),
@@ -501,7 +524,7 @@ class _PatientHeroBanner extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Patient',
+                      tr(ref, 'Patient'),
                       style: AppTextStyles.label(Colors.white),
                     ),
                   ),
@@ -638,7 +661,7 @@ class _RingPainter extends CustomPainter {
 // Replaces plain AccentCard with a 4-step visual progress timeline.
 // Patients can instantly see WHERE they are in the care process.
 
-class _JourneyCard extends StatelessWidget {
+class _JourneyCard extends ConsumerWidget {
   final AppointmentView appt;
   final bool isCancellable;
   final VoidCallback onCancel;
@@ -658,7 +681,10 @@ class _JourneyCard extends StatelessWidget {
   ];
 
   int get _activeStep {
-    final s = appt.status.toLowerCase();
+    final s = AppDateUtils.effectiveApptStatus(
+      appt.status,
+      appt.slot,
+    ).toLowerCase();
     if (s == 'completed') return 4;
     if (s.contains('consult') || s == 'in_progress' || s == 'in progress')
       return 2;
@@ -667,8 +693,9 @@ class _JourneyCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final step = _activeStep;
+    final translatedSteps = _steps.map((s) => tr(ref, s)).toList();
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -694,19 +721,28 @@ class _JourneyCard extends StatelessWidget {
                       style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
                     const SizedBox(height: 8),
-                    StatusBadge(status: appt.status),
+                    StatusBadge(
+                      status: AppDateUtils.effectiveApptStatus(
+                        appt.status,
+                        appt.slot,
+                      ),
+                    ),
                   ],
                 ),
               ),
               if (isCancellable) ...[
                 const SizedBox(width: 8),
-                DangerButton(label: 'Cancel', onPressed: onCancel),
+                DangerButton(label: tr(ref, 'Cancel'), onPressed: onCancel),
               ],
             ],
           ),
           const SizedBox(height: 16),
           // Journey progress timeline
-          _JourneyTimeline(activeStep: step, steps: _steps, icons: _icons),
+          _JourneyTimeline(
+            activeStep: step,
+            steps: translatedSteps,
+            icons: _icons,
+          ),
         ],
       ),
     );
@@ -1039,10 +1075,10 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
       builder: (_, child) {
         final glow = _pulse.value;
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             color: SevaCareColors.primarySoft,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: SevaCareColors.primary.withValues(
                 alpha: 0.20 + glow * 0.15,
@@ -1065,8 +1101,8 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 32 + glow * 10,
-                    height: 32 + glow * 10,
+                    width: 26 + glow * 6,
+                    height: 26 + glow * 6,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: SevaCareColors.primary.withValues(
@@ -1075,8 +1111,8 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                     ),
                   ),
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 26,
+                    height: 26,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: SevaCareColors.primarySoft,
@@ -1088,7 +1124,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                       child: Text(
                         '#${info.position}',
                         style: AppTextStyles.body(
-                          size: 12,
+                          size: 11,
                           weight: FontWeight.w800,
                           color: SevaCareColors.primary,
                         ),
@@ -1097,7 +1133,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                   ),
                 ],
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,8 +1141,8 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                     Row(
                       children: [
                         Container(
-                          width: 7,
-                          height: 7,
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: SevaCareColors.mint.withValues(
@@ -1116,17 +1152,23 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'LIVE · Your Queue Position',
+                          'LIVE · Queue Position',
                           style: AppTextStyles.label(SevaCareColors.primary),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       info.doctorName.isNotEmpty
                           ? 'Dr. ${info.doctorName}'
                           : 'Upcoming Appointment',
-                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                      style: AppTextStyles.body(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: SevaCareColors.text,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -1137,7 +1179,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                   Text(
                     '~${info.waitMins} min',
                     style: AppTextStyles.body(
-                      size: 16,
+                      size: 14,
                       weight: FontWeight.w700,
                       color: SevaCareColors.primary,
                     ),
@@ -1258,25 +1300,25 @@ class _AppointmentCountdownBannerState
     final color = _urgencyColor;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.25), width: 1.5),
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.timer_outlined, color: color, size: 22),
+            child: Icon(Icons.timer_outlined, color: color, size: 16),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1287,7 +1329,13 @@ class _AppointmentCountdownBannerState
                   _next!.doctorName.isNotEmpty
                       ? 'Dr. ${_next!.doctorName}'
                       : 'Doctor appointment',
-                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                  style: AppTextStyles.body(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: SevaCareColors.text,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -1298,7 +1346,7 @@ class _AppointmentCountdownBannerState
               Text(
                 _fmt(_remaining),
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: color,
                   fontFeatures: const [FontFeature.tabularFigures()],

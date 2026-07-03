@@ -272,6 +272,21 @@ class _HospitalCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () => context.push('/explore/${tenant.tenantPublicId}', extra: tenant.hospitalName),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Explore Doctors',
+                              style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.arrow_forward, size: 12, color: SevaCareColors.primary),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),

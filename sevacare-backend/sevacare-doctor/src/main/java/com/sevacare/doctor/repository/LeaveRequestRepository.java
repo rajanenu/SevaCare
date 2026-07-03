@@ -22,13 +22,17 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Stri
     @Query("SELECT lr FROM LeaveRequest lr WHERE lr.status = 'PENDING' AND lr.submittedAt <= :cutoff")
     List<LeaveRequest> findPendingSubmittedBefore(@Param("cutoff") LocalDateTime cutoff);
 
-    // Check if doctor is on approved leave covering a given date
+    // Check if doctor is on approved FULL-DAY leave covering a given date.
+    // Hourly leave (startTime set) doesn't take the doctor out for the whole
+    // day — it materializes as slot blocks on approval instead.
     @Query("""
             SELECT COUNT(lr) > 0 FROM LeaveRequest lr
             WHERE lr.tenantPublicId = :tenantPublicId
               AND lr.doctorPublicId = :doctorPublicId
               AND lr.status IN ('APPROVED','AUTO_APPROVED')
               AND lr.leaveType <> 'MESSAGE'
+              AND lr.startTime IS NULL
+              AND lr.requesterType = 'DOCTOR'
               AND lr.fromDate <= :date
               AND lr.toDate >= :date
             """)

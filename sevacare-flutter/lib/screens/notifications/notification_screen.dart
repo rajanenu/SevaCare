@@ -31,6 +31,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     return switch (role) {
       UserRole.doctor => 'DOCTOR',
       UserRole.admin => 'ADMIN',
+      UserRole.staff => 'STAFF',
       _ => 'PATIENT',
     };
   }

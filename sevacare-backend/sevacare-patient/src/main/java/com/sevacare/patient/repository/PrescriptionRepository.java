@@ -1,5 +1,6 @@
 package com.sevacare.patient.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,4 +31,6 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Stri
     long countByTenantPublicId(String tenantPublicId);
 
     List<Prescription> findByTenantPublicIdOrderByCreatedAtDesc(String tenantPublicId);
+
+    List<Prescription> findByTenantPublicIdAndCreatedAtAfter(String tenantPublicId, LocalDateTime since);
 }

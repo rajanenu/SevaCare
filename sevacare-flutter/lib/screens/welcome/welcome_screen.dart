@@ -150,20 +150,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
-
-              // ── Footer tagline ─────────────────────────────────────────────
-              StaggeredItem(
-                index: 5,
-                baseDelay: const Duration(milliseconds: 80),
-                child: Center(
-                  child: Text(
-                    'Trusted healthcare, at your fingertips.',
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -252,7 +239,7 @@ class _HeroCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 7),
                         Text(
-                          'HEALTHCARE SIMPLIFIED',
+                          'SEVACARE',
                           style: AppTextStyles.labelCaps(
                               Colors.white.withValues(alpha: 0.92)),
                         ),
@@ -267,7 +254,7 @@ class _HeroCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Consultations, records, prescriptions\nand more — all in one place.',
+                    'Book, consult & heal — in one app.',
                     style: AppTextStyles.bodyText(
                         Colors.white.withValues(alpha: 0.78)),
                   ),

@@ -54,7 +54,10 @@ public class DoctorDomainService {
                 doctor.getFullName(),
                 doctor.getSpecialty(),
                 doctor.getAvailability(),
-                doctor.getFee()
+                doctor.getFee(),
+                doctor.getBookingMode(),
+                doctor.getExperienceYears(),
+                doctor.getQualification()
             ))
             .toList();
 
@@ -258,6 +261,9 @@ public class DoctorDomainService {
             doctor.setAboutMe(request.aboutMe());
             doctor.setAvailableFrom(request.availableFrom());
             doctor.setReadyToLookPatients(request.readyToLookPatients());
+            doctor.setBookingMode(request.bookingMode() == null || request.bookingMode().isBlank() ? "BOTH" : request.bookingMode().trim().toUpperCase());
+            doctor.setExperienceYears(request.experienceYears());
+            doctor.setQualification(request.qualification());
 
             Doctor saved = doctorRepository.save(doctor);
             log.info("doctor_upsert tenantPublicId={} doctorPublicId={} active={}",
@@ -335,7 +341,10 @@ public class DoctorDomainService {
                     doctor.getAddress(),
                     doctor.getAboutMe(),
                     doctor.getAvailableFrom(),
-                    doctor.getReadyToLookPatients()
+                    doctor.getReadyToLookPatients(),
+                    doctor.getBookingMode(),
+                    doctor.getExperienceYears(),
+                    doctor.getQualification()
             );
         }
     }

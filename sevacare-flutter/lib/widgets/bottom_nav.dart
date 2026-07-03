@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/i18n.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/theme/app_theme.dart';
@@ -15,7 +17,7 @@ class BottomNavItem {
   });
 }
 
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends ConsumerWidget {
   final List<BottomNavItem> items;
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -28,7 +30,7 @@ class AppBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -85,7 +87,7 @@ class AppBottomNav extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      item.label,
+                      tr(ref, item.label),
                       style: AppTextStyles.body(
                         size: 10,
                         weight: FontWeight.w600,

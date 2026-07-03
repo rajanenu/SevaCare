@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,6 +25,9 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
   final _fromDateCtrl = TextEditingController();
   final _toDateCtrl = TextEditingController();
   String _leaveType = 'SICK';
+  bool _hourlyLeave = false; // false = full day(s), true = time-range leave
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
   bool _submitting = false;
   String? _successMsg;
 
@@ -76,12 +80,49 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
     }
   }
 
+  String _fmtTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _pickTime(bool isStart) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart
+          ? (_startTime ?? const TimeOfDay(hour: 9, minute: 0))
+          : (_endTime ?? const TimeOfDay(hour: 12, minute: 0)),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
   Future<void> _submitLeave() async {
     if (_fromDateCtrl.text.isEmpty || _toDateCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select from and to dates.')),
       );
       return;
+    }
+    if (_hourlyLeave) {
+      if (_startTime == null || _endTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select start and end time for hourly leave.')),
+        );
+        return;
+      }
+      final startMins = _startTime!.hour * 60 + _startTime!.minute;
+      final endMins = _endTime!.hour * 60 + _endTime!.minute;
+      if (endMins <= startMins) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End time must be after start time.')),
+        );
+        return;
+      }
     }
     setState(() { _submitting = true; _successMsg = null; });
     try {
@@ -96,6 +137,8 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
           'fromDate': _fromDateCtrl.text,
           'toDate': _toDateCtrl.text,
           'message': _reasonCtrl.text.trim(),
+          if (_hourlyLeave) 'startTime': _fmtTime(_startTime!),
+          if (_hourlyLeave) 'endTime': _fmtTime(_endTime!),
         },
       );
       if (mounted) {
@@ -103,6 +146,9 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
         _toDateCtrl.clear();
         _reasonCtrl.clear();
         setState(() {
+          _startTime = null;
+          _endTime = null;
+          _hourlyLeave = false;
           _successMsg = 'Leave request submitted! The hospital admin will be notified.';
           _tab = 2;
         });
@@ -164,7 +210,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final hospital = ref.watch(hospitalProvider);
-    final tabs = ['Leave', 'Message', 'History'];
+    final tabs = [tr(ref, 'Leave'), tr(ref, 'Message'), tr(ref, 'History')];
 
     return AppShell(
       hospitalName: hospital.hospitalName,
@@ -175,8 +221,8 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PageHeader(
-            title: 'Requests',
-            subtitle: 'Apply for leave or send queries to the hospital admin.',
+            title: tr(ref, 'Requests'),
+            subtitle: tr(ref, 'Apply for leave or send queries to the hospital admin.'),
           ),
           const SizedBox(height: 16),
 
@@ -252,16 +298,16 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Apply for Leave', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          Text(tr(ref, 'Apply for Leave'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
           const SizedBox(height: 16),
           AppDropdown<String>(
-            label: 'Leave Type',
+            label: tr(ref, 'Leave Type'),
             value: _leaveType,
-            items: const [
-              DropdownMenuItem(value: 'SICK',      child: Text('Sick Leave')),
-              DropdownMenuItem(value: 'VACATION',  child: Text('Vacation / Planned')),
-              DropdownMenuItem(value: 'EMERGENCY', child: Text('Emergency')),
-              DropdownMenuItem(value: 'OTHER',     child: Text('Other')),
+            items: [
+              DropdownMenuItem(value: 'SICK',      child: Text(tr(ref, 'Sick Leave'))),
+              DropdownMenuItem(value: 'VACATION',  child: Text(tr(ref, 'Vacation / Planned'))),
+              DropdownMenuItem(value: 'EMERGENCY', child: Text(tr(ref, 'Emergency'))),
+              DropdownMenuItem(value: 'OTHER',     child: Text(tr(ref, 'Other'))),
             ],
             onChanged: (v) { if (v != null) setState(() => _leaveType = v); },
           ),
@@ -273,7 +319,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
                   onTap: () => _pickDate(_fromDateCtrl),
                   child: AbsorbPointer(
                     child: AppFormField(
-                      label: 'From Date',
+                      label: tr(ref, 'From Date'),
                       controller: _fromDateCtrl,
                       placeholder: 'YYYY-MM-DD',
                     ),
@@ -286,7 +332,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
                   onTap: () => _pickDate(_toDateCtrl),
                   child: AbsorbPointer(
                     child: AppFormField(
-                      label: 'To Date',
+                      label: tr(ref, 'To Date'),
                       controller: _toDateCtrl,
                       placeholder: 'YYYY-MM-DD',
                     ),
@@ -295,15 +341,64 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          // ── Full day vs hourly leave ─────────────────────────────────────
+          Text(tr(ref, 'Duration'), style: AppTextStyles.label(SevaCareColors.textMuted)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _DurationChip(
+                label: tr(ref, 'Full Day(s)'),
+                icon: Icons.today_outlined,
+                selected: !_hourlyLeave,
+                onTap: () => setState(() => _hourlyLeave = false),
+              ),
+              const SizedBox(width: 8),
+              _DurationChip(
+                label: tr(ref, 'Specific Hours'),
+                icon: Icons.schedule_outlined,
+                selected: _hourlyLeave,
+                onTap: () => setState(() => _hourlyLeave = true),
+              ),
+            ],
+          ),
+          if (_hourlyLeave) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _TimePickTile(
+                    label: tr(ref, 'From Time'),
+                    value: _startTime == null ? 'Pick time' : _fmtTime(_startTime!),
+                    onTap: () => _pickTime(true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimePickTile(
+                    label: tr(ref, 'To Time'),
+                    value: _endTime == null ? 'Pick time' : _fmtTime(_endTime!),
+                    onTap: () => _pickTime(false),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Only this time window is blocked — you stay bookable for the rest of the day.',
+              style: AppTextStyles.label(SevaCareColors.textMuted),
+            ),
+          ],
+          const SizedBox(height: 8),
           AppFormField(
-            label: 'Reason / Notes (optional)',
+            label: tr(ref, 'Reason / Notes (optional)'),
             controller: _reasonCtrl,
             placeholder: 'Briefly describe the reason…',
             maxLines: 3,
           ),
           const SizedBox(height: 4),
           PrimaryButton(
-            label: 'Submit Leave Request',
+            label: tr(ref, 'Submit Leave Request'),
             icon: Icons.send_rounded,
             isLoading: _submitting,
             fullWidth: true,
@@ -319,7 +414,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Message to Admin', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          Text(tr(ref, 'Message to Admin'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
           const SizedBox(height: 6),
           Text(
             'Send an urgent query, scheduling concern, or any communication to the hospital admin.',
@@ -327,14 +422,14 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
           ),
           const SizedBox(height: 16),
           AppFormField(
-            label: 'Message',
+            label: tr(ref, 'Message'),
             controller: _messageCtrl,
             placeholder: 'Type your message here…',
             maxLines: 5,
           ),
           const SizedBox(height: 4),
           PrimaryButton(
-            label: 'Send Message',
+            label: tr(ref, 'Send Message'),
             icon: Icons.send_rounded,
             isLoading: _submitting,
             fullWidth: true,
@@ -363,9 +458,9 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
             const SizedBox(height: 24),
             Icon(Icons.inbox_outlined, size: 48, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
-            Text('No requests yet', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+            Text(tr(ref, 'No requests yet'), style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
             const SizedBox(height: 6),
-            Text('Submit a leave request or message to see it here.',
+            Text(tr(ref, 'Submit a leave request or message to see it here.'),
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
@@ -378,6 +473,100 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
         padding: const EdgeInsets.only(bottom: 10),
         child: _RequestTile(request: r),
       )).toList(),
+    );
+  }
+}
+
+// ── Duration selector chip (Full Day / Specific Hours) ───────────────────────
+
+class _DurationChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DurationChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? SevaCareColors.primarySoft : SevaCareColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? SevaCareColors.primary : SevaCareColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15,
+                  color: selected ? SevaCareColors.primary : SevaCareColors.textMuted),
+              const SizedBox(width: 6),
+              Text(label, style: AppTextStyles.label(
+                  selected ? SevaCareColors.primary : SevaCareColors.textMuted)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Time picker tile ──────────────────────────────────────────────────────────
+
+class _TimePickTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _TimePickTile({required this.label, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = value == 'Pick time';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: SevaCareColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: SevaCareColors.border, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.access_time, size: 15, color: SevaCareColors.textMuted),
+                const SizedBox(width: 8),
+                Text(
+                  value,
+                  style: AppTextStyles.body(
+                    size: 13,
+                    weight: placeholder ? FontWeight.w400 : FontWeight.w600,
+                    color: placeholder ? SevaCareColors.textMuted : SevaCareColors.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -463,8 +652,11 @@ class _RequestTile extends StatelessWidget {
                     ),
                     if (!isMessage && request.fromDate != null) ...[
                       const SizedBox(height: 4),
-                      Text('${request.fromDate}  →  ${request.toDate}',
-                          style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      Text(
+                        '${request.fromDate}  →  ${request.toDate}'
+                        '${request.isHourly ? '  ·  ${request.startTime}–${request.endTime}' : ''}',
+                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                      ),
                     ],
                     if (request.message.isNotEmpty) ...[
                       const SizedBox(height: 4),

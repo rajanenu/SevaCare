@@ -81,6 +81,8 @@ class BookingFormState {
   final String selectedDoctorId;
   final String selectedDate;
   final String selectedSlot;
+  final String bookingType; // 'SLOT' or 'TOKEN'
+  final String? tokenSession; // 'MORNING' or 'EVENING', only when bookingType == 'TOKEN'
 
   const BookingFormState({
     this.name = '',
@@ -93,6 +95,8 @@ class BookingFormState {
     this.selectedDoctorId = '',
     this.selectedDate = '',
     this.selectedSlot = '',
+    this.bookingType = 'SLOT',
+    this.tokenSession,
   });
 
   BookingFormState copyWith({
@@ -106,6 +110,9 @@ class BookingFormState {
     String? selectedDoctorId,
     String? selectedDate,
     String? selectedSlot,
+    String? bookingType,
+    String? tokenSession,
+    bool clearTokenSession = false,
   }) =>
       BookingFormState(
         name: name ?? this.name,
@@ -118,6 +125,8 @@ class BookingFormState {
         selectedDoctorId: selectedDoctorId ?? this.selectedDoctorId,
         selectedDate: selectedDate ?? this.selectedDate,
         selectedSlot: selectedSlot ?? this.selectedSlot,
+        bookingType: bookingType ?? this.bookingType,
+        tokenSession: clearTokenSession ? null : (tokenSession ?? this.tokenSession),
       );
 }
 
@@ -249,6 +258,8 @@ class BookingFormNotifier extends StateNotifier<BookingFormState> {
   void updateDoctorId(String v) => state = state.copyWith(selectedDoctorId: v);
   void updateDate(String v) => state = state.copyWith(selectedDate: v);
   void updateSlot(String v) => state = state.copyWith(selectedSlot: v);
+  void updateBookingType(String v) => state = state.copyWith(bookingType: v, clearTokenSession: true);
+  void updateTokenSession(String v) => state = state.copyWith(tokenSession: v);
 
   void setMobileFromLogin(String mobile) {
     state = state.copyWith(mobile: mobile);
@@ -272,6 +283,9 @@ final repositoryProvider = Provider<SevaCareRepository>(
 // Tracks doctor's selected patient for prescription upload
 final doctorSelectedPatientIdProvider = StateProvider<String?>((ref) => null);
 final doctorSelectedAppointmentIdProvider = StateProvider<String?>((ref) => null);
+// Full queue facet for the appointment being consulted — carries intake
+// symptoms and IP-Staff vitals into the consultation screen.
+final doctorSelectedFacetProvider = StateProvider<DoctorQueueFacetView?>((ref) => null);
 
 // Login form state
 class LoginFormState {

@@ -10,7 +10,8 @@ public final class PatientDtos {
     private PatientDtos() {
     }
 
-    public record AppointmentView(String appointmentPublicId, String doctorPublicId, String doctorName, String slot, String status, String note) {
+    public record AppointmentView(String appointmentPublicId, String doctorPublicId, String doctorName, String slot, String status, String note,
+            String bookingType, Integer tokenNumber, String tokenSession) {
     }
 
     public record PrescriptionView(String prescriptionPublicId, String doctorPublicId, String doctorName, String issuedOn, List<String> lines) {
@@ -32,8 +33,31 @@ public final class PatientDtos {
             String address,
             @NotBlank String specialty,
             @NotBlank String doctorPublicId,
+            // "yyyy-MM-dd HH:mm" when bookingType is SLOT, or just "yyyy-MM-dd" when bookingType is TOKEN.
             @NotBlank String slot,
-            String note
+            // "SLOT" (default, fixed time grid) or "TOKEN" (unlimited, queue-order). Null treated as SLOT.
+            String bookingType,
+            // Required when bookingType is TOKEN: "MORNING" or "EVENING".
+            String tokenSession,
+            String note,
+            String vitals,
+            List<AttachmentUploadRequest> attachments
+        ) {
+        }
+
+        public record AttachmentUploadRequest(
+            @NotBlank String fileName,
+            @NotBlank String mimeType,
+            @NotBlank String dataBase64
+        ) {
+        }
+
+        public record AttachmentView(
+            String attachmentPublicId,
+            String fileName,
+            String mimeType,
+            String dataBase64,
+            String uploadedBy
         ) {
         }
 
@@ -43,7 +67,37 @@ public final class PatientDtos {
             String doctorPublicId,
             String patientPublicId,
             String slot,
-            String status
+            String status,
+            String bookingType,
+            Integer tokenNumber,
+            String tokenSession
+        ) {
+        }
+
+        /** Read-only peek at the next token number that would be issued — does not reserve it. */
+        public record TokenPreviewView(
+            String doctorPublicId,
+            String date,
+            String session,
+            int nextTokenNumber
+        ) {
+        }
+
+        public record TokenResetRequest(
+            @NotBlank String tenantPublicId,
+            @NotBlank String doctorPublicId,
+            @NotBlank String date,
+            @NotBlank String session
+        ) {
+        }
+
+        /** Per-doctor per-date slot availability: booked by others, blocked by the doctor, or fully on leave. */
+        public record SlotStatusView(
+            String doctorPublicId,
+            String date,
+            List<String> bookedSlots,
+            List<String> blockedSlots,
+            boolean doctorOnLeave
         ) {
         }
 
@@ -89,7 +143,10 @@ public final class PatientDtos {
                 String doctorPublicId,
                 String slot,
                 String status,
-                String note
+                String note,
+                String bookingType,
+                Integer tokenNumber,
+                String tokenSession
             ) {
             }
 
@@ -228,7 +285,12 @@ public final class PatientDtos {
                 String symptoms,
                 String diagnosis,
                 List<MedicineView> medicines,
-                String rxNotes
+                String rxNotes,
+                String vitals,
+                List<AttachmentView> attachments,
+                String bookingType,
+                Integer tokenNumber,
+                String tokenSession
             ) {
             }
 

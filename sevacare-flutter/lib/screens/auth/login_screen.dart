@@ -374,9 +374,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
             // ── Admin / IP-Staff sub-radio (only when Hospital Staff tab active)
-            if (role == UserRole.admin) ...[
-              const SizedBox(height: 8),
-              AppCard(
+            // Space is always reserved (maintainSize) so switching role tabs
+            // doesn't shift the login form up and down.
+            const SizedBox(height: 8),
+            Visibility(
+              visible: role == UserRole.admin,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: AppCard(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Row(
                   children: [
@@ -453,7 +459,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
               ),
-            ],
+            ),
             const SizedBox(height: 20),
           ],
           // ── Biometric quick-unlock (shown when enabled + token exists) ──
@@ -533,6 +539,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onChanged: ref.read(loginFormProvider.notifier).setIdentifier,
                   textInputAction: TextInputAction.next,
                 ),
+                // ── OTP sent success banner ──────────────────────────────
+                if (formState.otpSent) ...[
+                  _OtpSentBanner(),
+                  const SizedBox(height: 16),
+                ],
                 // ── Email field (optional) ───────────────────────────────
                 AppFormField(
                   label: 'Email Address',
@@ -546,11 +557,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ? TextInputAction.next
                       : TextInputAction.done,
                 ),
-                // ── OTP sent success banner ──────────────────────────────
-                if (formState.otpSent) ...[
-                  _OtpSentBanner(),
-                  const SizedBox(height: 16),
-                ],
                 // ── OTP input field ──────────────────────────────────────
                 if (formState.otpSent)
                   AppFormField(
@@ -589,15 +595,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     fullWidth: true,
                     onPressed: formState.sending ? null : _verifyOtp,
                   ),
-                  const SizedBox(height: 10),
-                  SecondaryButton(
-                    label: _resendCountdown > 0
-                        ? 'Resend in ${_resendCountdown}s'
-                        : 'Resend OTP',
-                    fullWidth: true,
-                    onPressed: (formState.sending || _resendCountdown > 0)
-                        ? null
-                        : _resendOtp,
+                  const SizedBox(height: 12),
+                  Center(
+                    child: GestureDetector(
+                      onTap: (formState.sending || _resendCountdown > 0)
+                          ? null
+                          : _resendOtp,
+                      child: Text(
+                        _resendCountdown > 0
+                            ? "Didn't get it? Resend in ${_resendCountdown}s"
+                            : 'Resend OTP',
+                        style: AppTextStyles.label(
+                          _resendCountdown > 0
+                              ? SevaCareColors.textMuted
+                              : SevaCareColors.primary,
+                        ).copyWith(
+                          fontWeight: FontWeight.w600,
+                          decoration: _resendCountdown > 0
+                              ? TextDecoration.none
+                              : TextDecoration.underline,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ],

@@ -66,6 +66,46 @@ public class LeaveRequestController {
         return ContractResponse.of(leaveRequestService.listForDoctor(tenantPublicId, doctorPublicId));
     }
 
+    // IP-Staff submits a leave/message request (staff JWTs carry the ADMIN role)
+    @PostMapping("/{tenantPublicId}/staff/{staffPublicId}/leave-requests")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<NotificationDtos.LeaveRequestView> createForStaff(
+            @PathVariable String tenantPublicId,
+            @PathVariable String staffPublicId,
+            @Valid @RequestBody NotificationDtos.LeaveRequestCreateRequest body
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        var staff = adminUserRepository.findById(staffPublicId)
+                .filter(a -> tenantPublicId.equals(a.getTenantPublicId()))
+                .orElseThrow(() -> new IllegalArgumentException("Staff member not found"));
+        // Notify the first active non-requester admin
+        String resolvedAdminId = adminUserRepository
+                .findByTenantPublicIdAndActiveTrueOrderByAdminPublicIdAsc(tenantPublicId)
+                .stream()
+                .filter(a -> !a.getAdminPublicId().equals(staffPublicId))
+                .filter(a -> !"STAFF".equals(a.getUserType()))
+                .map(a -> a.getAdminPublicId())
+                .findFirst()
+                .orElse("");
+        return ContractResponse.of(leaveRequestService.createStaffLeaveRequest(
+                tenantPublicId, staffPublicId, staff.getFullName(), body, resolvedAdminId));
+    }
+
+    // IP-Staff views their own requests
+    @GetMapping("/{tenantPublicId}/staff/{staffPublicId}/leave-requests")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<NotificationDtos.LeaveRequestCollection> listForStaff(
+            @PathVariable String tenantPublicId,
+            @PathVariable String staffPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(leaveRequestService.listForStaff(tenantPublicId, staffPublicId));
+    }
+
     // Admin views ALL requests across all doctors
     @GetMapping("/{tenantPublicId}/admin/leave-requests")
     @PreAuthorize("hasRole('ADMIN')")

@@ -45,7 +45,7 @@ public class ScheduledTasksService {
     }
 
     /** Every hour: auto-approve leave requests pending > 24 hours. */
-    @Scheduled(fixedRate = 3_600_000)
+    @Scheduled(fixedRate = 3_600_000, initialDelay = 300_000)
     public void autoApproveLeaveRequests() {
         try {
             int count = leaveRequestService.autoApprovePendingRequests();
@@ -61,7 +61,7 @@ public class ScheduledTasksService {
      * Every 30 minutes: send appointment reminder notifications to patients
      * whose next appointment is within 24 hours but hasn't been notified yet.
      */
-    @Scheduled(fixedRate = 1_800_000)
+    @Scheduled(fixedRate = 1_800_000, initialDelay = 300_000)
     public void sendAppointmentReminders() {
         List<TenantRegistry> tenants = tenantRegistryRepository.findByTenantStatus("active");
         LocalDateTime now = LocalDateTime.now();
@@ -144,9 +144,7 @@ public class ScheduledTasksService {
     }
 
     private void processPrescriptionsForTenant(String tenantPublicId, LocalDateTime since) {
-        prescriptionRepository.findByTenantPublicIdOrderByCreatedAtDesc(tenantPublicId)
-                .stream()
-                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isAfter(since))
+        prescriptionRepository.findByTenantPublicIdAndCreatedAtAfter(tenantPublicId, since)
                 .forEach(p -> {
                     if (notificationService.reminderAlreadySent(tenantPublicId, p.getPrescriptionPublicId(), "PRESCRIPTION_SHARED")) {
                         return;

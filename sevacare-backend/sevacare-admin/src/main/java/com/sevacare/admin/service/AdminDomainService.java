@@ -97,7 +97,7 @@ public class AdminDomainService {
 
     @Transactional(readOnly = true)
     public AdminDtos.AdminOverview overview(String tenantPublicId) {
-        long totalPatients = patientRepository.findByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId).size();
+        long totalPatients = patientRepository.countByTenantPublicId(tenantPublicId);
         long upcomingAppointments = countUpcomingAppointments(tenantPublicId);
         long totalPrescriptions = prescriptionRepository.countByTenantPublicId(tenantPublicId);
 

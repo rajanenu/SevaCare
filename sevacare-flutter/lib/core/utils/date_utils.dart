@@ -60,4 +60,19 @@ class AppDateUtils {
       return slot;
     }
   }
+
+  /// Display status for an appointment: a stale "upcoming" whose slot is more
+  /// than 24 hours in the past is treated as completed, so old appointments
+  /// never show under Upcoming.
+  static String effectiveApptStatus(String status, String slot) {
+    final s = status.toLowerCase();
+    if (s == 'completed' || s == 'cancelled' || s == 'canceled') return status;
+    try {
+      final dt = DateTime.parse(slot.replaceAll(' ', 'T')).toLocal();
+      if (DateTime.now().difference(dt) > const Duration(hours: 24)) {
+        return 'completed';
+      }
+    } catch (_) {}
+    return status;
+  }
 }

@@ -13,8 +13,8 @@ public final class NotificationDtos {
     public record LeaveRequestView(
             String requestPublicId,
             String tenantPublicId,
-            String doctorPublicId,
-            String doctorName,
+            String doctorPublicId,   // requester id (doctor or IP-staff)
+            String doctorName,       // requester name
             String leaveType,
             String fromDate,
             String toDate,
@@ -22,7 +22,10 @@ public final class NotificationDtos {
             String status,
             String adminResponse,
             String submittedAt,
-            String respondedAt
+            String respondedAt,
+            String startTime,        // HH:mm — set only for partial-day (hourly) leave
+            String endTime,          // HH:mm — set only for partial-day (hourly) leave
+            String requesterType     // DOCTOR | STAFF
     ) {}
 
     public record LeaveRequestCollection(
@@ -34,7 +37,9 @@ public final class NotificationDtos {
             @NotBlank String leaveType,
             String fromDate,
             String toDate,
-            String message
+            String message,
+            String startTime,        // optional HH:mm for hourly leave
+            String endTime           // optional HH:mm for hourly leave
     ) {}
 
     public record LeaveRequestActionRequest(

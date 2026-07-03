@@ -57,7 +57,7 @@ public class NotificationDomainService {
             String tenantPublicId, String recipientId, String recipientType) {
         try {
             List<NotificationDtos.NotificationView> views =
-                    notificationRepository.findByTenantPublicIdAndRecipientIdAndRecipientTypeOrderByCreatedAtDesc(
+                    notificationRepository.findTop200ByTenantPublicIdAndRecipientIdAndRecipientTypeOrderByCreatedAtDesc(
                                     tenantPublicId, recipientId, recipientType)
                             .stream().map(this::toView).toList();
             long unread = notificationRepository.countByTenantPublicIdAndRecipientIdAndRecipientTypeAndReadFalse(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/time_theme.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -23,7 +24,8 @@ List<BottomNavItem> _adminNavItems() => const [
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
-  const AdminDashboardScreen({super.key, this.initialTab = 0});
+  final int initialTeamSegment;
+  const AdminDashboardScreen({super.key, this.initialTab = 0, this.initialTeamSegment = 0});
 
   @override
   ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -94,20 +96,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       (4, Icons.bar_chart_outlined,        'Reports'),
     ];
 
-    Widget tabBody;
-    switch (_tabIndex) {
-      case 1:  tabBody = const AdminRequestsScreen();   break;
-      case 2:  tabBody = const _AdminUsersTab();        break;
-      case 3:  tabBody = const _TeamManagementTab();    break;
-      case 4:  tabBody = const _ReportsTab();           break;
-      default: tabBody = const _DashboardTab();
-    }
-
     return AppShell(
       hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
       role: UserRole.admin,
       bottomNavItems: _adminNavItems(),
-      currentNavIndex: const {0:0, 1:0, 2:1, 3:2, 4:3}[_tabIndex] ?? 0,
+      currentNavIndex: _tabIndex == 3
+          ? (widget.initialTeamSegment == 1 ? 3 : 2)
+          : (const {0:0, 1:0, 2:1, 4:3}[_tabIndex] ?? 0),
       onNavTap: _handleNavTap,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,6 +125,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     variant: HealthcareBgVariant.admin,
                     height: 130,
                   ),
+                  const Positioned.fill(child: TimeTintOverlay()),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     child: Row(
@@ -232,12 +228,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, anim) =>
-                FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(key: ValueKey(_tabIndex), child: tabBody),
-          ),
+          // All tabs stay mounted (Offstage) so switching is instant —
+          // no refetch, no shimmer flash, no layout jump.
+          Offstage(offstage: _tabIndex != 0, child: const _DashboardTab()),
+          Offstage(offstage: _tabIndex != 1, child: const AdminRequestsScreen()),
+          Offstage(offstage: _tabIndex != 2, child: const _AdminUsersTab()),
+          Offstage(offstage: _tabIndex != 3, child: _TeamManagementTab(initialSegment: widget.initialTeamSegment)),
+          Offstage(offstage: _tabIndex != 4, child: const _ReportsTab()),
         ],
       ),
     );
@@ -1419,14 +1416,15 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
 // ── TAB 3: Team Management (Doctor + Staff merged) ────────────────────────────
 
 class _TeamManagementTab extends StatefulWidget {
-  const _TeamManagementTab();
+  final int initialSegment;
+  const _TeamManagementTab({this.initialSegment = 0});
 
   @override
   State<_TeamManagementTab> createState() => _TeamManagementTabState();
 }
 
 class _TeamManagementTabState extends State<_TeamManagementTab> {
-  int _segment = 0; // 0 = Doctors, 1 = Staff
+  late int _segment = widget.initialSegment; // 0 = Doctors, 1 = Staff
 
   @override
   Widget build(BuildContext context) {
@@ -1478,11 +1476,20 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   final _nameCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
   final _feeCtrl = TextEditingController();
+  final _experienceCtrl = TextEditingController();
+  final _qualificationCtrl = TextEditingController();
   String _selectedSpecialty = 'General Physician';
   String _selectedAvailability = 'Available';
+  String _selectedBookingMode = 'BOTH';
   bool _saving = false;
   String? _formError;
   String? _formSuccess;
+
+  static const List<MapEntry<String, String>> _bookingModeOptions = [
+    MapEntry('BOTH', 'Slot + Token'),
+    MapEntry('SLOT', 'Slot only'),
+    MapEntry('TOKEN', 'Token only'),
+  ];
 
   static const List<String> _specialties = [
     'Cardiologist',
@@ -1506,6 +1513,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     'Rheumatologist',
     'Nephrologist',
     'Skin Specialist',
+    'Dentist',
   ];
 
   static const List<String> _availabilityOptions = [
@@ -1528,6 +1536,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
     _feeCtrl.dispose();
+    _experienceCtrl.dispose();
+    _qualificationCtrl.dispose();
     super.dispose();
   }
 
@@ -1577,8 +1587,11 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
         _nameCtrl.clear();
         _mobileCtrl.clear();
         _feeCtrl.clear();
+        _experienceCtrl.clear();
+        _qualificationCtrl.clear();
         _selectedSpecialty = 'General Physician';
         _selectedAvailability = 'Available';
+        _selectedBookingMode = 'BOTH';
         _loadNextDoctorId();
       }
     });
@@ -1619,6 +1632,9 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
           fee: fee,
           active: true,
           mobileNumber: _mobileCtrl.text.trim().isNotEmpty ? _mobileCtrl.text.trim() : null,
+          bookingMode: _selectedBookingMode,
+          experienceYears: int.tryParse(_experienceCtrl.text.trim()),
+          qualification: _qualificationCtrl.text.trim().isEmpty ? null : _qualificationCtrl.text.trim(),
         ),
       );
       if (mounted) {
@@ -1676,6 +1692,9 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
           experience: doctor.experience,
           mobileNumber: doctor.mobileNumber,
           email: doctor.email,
+          bookingMode: doctor.bookingMode,
+          experienceYears: doctor.experienceYears,
+          qualification: doctor.qualification,
         ),
       );
       await _loadDoctors();
@@ -1696,6 +1715,58 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       }
     }
   }
+
+  Future<void> _cycleBookingMode(DoctorRecord doctor) async {
+    const cycle = ['BOTH', 'SLOT', 'TOKEN'];
+    final next = cycle[(cycle.indexOf(doctor.bookingMode) + 1) % cycle.length];
+    try {
+      final auth = ref.read(authProvider);
+      final hospital = ref.read(hospitalProvider);
+      final repo = ref.read(repositoryProvider);
+      await repo.upsertDoctorRecord(
+        hospital.tenantPublicId,
+        doctor.doctorPublicId,
+        auth.token ?? '',
+        DoctorUpsertRequest(
+          fullName: doctor.fullName,
+          specialty: doctor.specialty,
+          availability: doctor.availability,
+          fee: doctor.fee,
+          active: doctor.active,
+          age: doctor.age,
+          address: doctor.address,
+          aboutMe: doctor.aboutMe,
+          experience: doctor.experience,
+          mobileNumber: doctor.mobileNumber,
+          email: doctor.email,
+          bookingMode: next,
+          experienceYears: doctor.experienceYears,
+          qualification: doctor.qualification,
+        ),
+      );
+      await _loadDoctors();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${doctor.fullName} booking mode set to ${_bookingModeLabel(next)}.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
+  }
+
+  String _bookingModeLabel(String mode) => switch (mode) {
+        'SLOT' => 'Slot only',
+        'TOKEN' => 'Token only',
+        _ => 'Slot + Token',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -1785,6 +1856,34 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setState(() => _selectedAvailability = v);
+                  },
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: AppFormField(
+                        label: 'Years of Experience',
+                        controller: _experienceCtrl,
+                        placeholder: 'e.g. 10',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                AppFormField(
+                  label: 'Qualification',
+                  controller: _qualificationCtrl,
+                  placeholder: 'e.g. MS Cardiology, USA',
+                ),
+                AppDropdown<String>(
+                  label: 'Booking Mode',
+                  value: _selectedBookingMode,
+                  items: _bookingModeOptions
+                      .map((e) => DropdownMenuItem<String>(value: e.key, child: Text(e.value)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedBookingMode = v);
                   },
                 ),
                 if (_formError != null) ...[
@@ -1944,6 +2043,14 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                       'Mobile: ${doctor.mobileNumber ?? 'Not set'}',
                                       style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                                     ),
+                                    if (doctor.experienceYears != null || (doctor.qualification?.isNotEmpty ?? false))
+                                      Text(
+                                        [
+                                          if (doctor.experienceYears != null) '${doctor.experienceYears}y Exp',
+                                          if (doctor.qualification?.isNotEmpty ?? false) doctor.qualification,
+                                        ].join(' · '),
+                                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -2000,6 +2107,25 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                     ),
                                   ),
                                 ),
+                              GestureDetector(
+                                onTap: () => _cycleBookingMode(doctor),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: SevaCareColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(99),
+                                    border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.confirmation_number_outlined, size: 13, color: SevaCareColors.primary),
+                                      const SizedBox(width: 4),
+                                      Text(_bookingModeLabel(doctor.bookingMode), style: AppTextStyles.label(SevaCareColors.primary)),
+                                    ],
+                                  ),
+                                ),
+                              ),
                               const Spacer(),
                               IconBtn(
                                 icon: Icons.delete_outline,

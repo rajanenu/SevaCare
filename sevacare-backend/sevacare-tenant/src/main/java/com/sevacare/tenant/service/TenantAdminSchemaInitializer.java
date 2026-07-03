@@ -44,6 +44,11 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
             ensureAppointmentTableShape(schemaName);
             ensurePrescriptionTableShape(schemaName);
             ensureNotificationTablesExist(schemaName);
+            ensureSlotBlockTableExists(schemaName);
+            ensureAppointmentAttachmentTableExists(schemaName);
+            ensureDoctorTableShape(tenant, schemaName);
+            ensureCoreIndexes(schemaName);
+            ensureTokenBookingAndDoctorProfileFields(schemaName);
         }
     }
 
@@ -203,8 +208,16 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
                     admin_response     TEXT,
                     submitted_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     responded_at       TIMESTAMP,
-                    notified_at        TIMESTAMP
+                    notified_at        TIMESTAMP,
+                    start_time         VARCHAR(5),
+                    end_time           VARCHAR(5),
+                    requester_type     VARCHAR(16)  NOT NULL DEFAULT 'DOCTOR'
                 )""".formatted(schemaName));
+
+        // Hourly leave + staff requesters — added after the table first shipped
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".leave_request ADD COLUMN IF NOT EXISTS start_time VARCHAR(5)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".leave_request ADD COLUMN IF NOT EXISTS end_time VARCHAR(5)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".leave_request ADD COLUMN IF NOT EXISTS requester_type VARCHAR(16) NOT NULL DEFAULT 'DOCTOR'");
 
         jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS %s.app_notification (
@@ -221,6 +234,129 @@ public class TenantAdminSchemaInitializer implements ApplicationRunner {
                 )""".formatted(schemaName));
 
         log.info("notification_tables_ensured schemaName={}", schemaName);
+    }
+
+    private void ensureSlotBlockTableExists(String schemaName) {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.slot_block (
+                    block_public_id   VARCHAR(40)  PRIMARY KEY,
+                    tenant_public_id  VARCHAR(16)  NOT NULL,
+                    doctor_public_id  VARCHAR(16)  NOT NULL,
+                    block_date        DATE         NOT NULL,
+                    start_time        VARCHAR(5)   NOT NULL,
+                    end_time          VARCHAR(5)   NOT NULL,
+                    reason            VARCHAR(300) NOT NULL DEFAULT '',
+                    created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )""".formatted(schemaName));
+        jdbcTemplate.execute(
+                "CREATE INDEX IF NOT EXISTS idx_slot_block_doctor_date ON " + schemaName + ".slot_block (doctor_public_id, block_date)"
+        );
+        log.info("slot_block_table_ensured schemaName={}", schemaName);
+    }
+
+    private void ensureAppointmentAttachmentTableExists(String schemaName) {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.appointment_attachment (
+                    attachment_public_id  VARCHAR(40)  PRIMARY KEY,
+                    tenant_public_id      VARCHAR(16)  NOT NULL,
+                    appointment_public_id VARCHAR(16)  NOT NULL,
+                    file_name             VARCHAR(200) NOT NULL DEFAULT '',
+                    mime_type             VARCHAR(80)  NOT NULL DEFAULT '',
+                    data_base64           TEXT         NOT NULL,
+                    uploaded_by           VARCHAR(16)  NOT NULL DEFAULT 'PATIENT',
+                    created_at            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )""".formatted(schemaName));
+        jdbcTemplate.execute(
+                "CREATE INDEX IF NOT EXISTS idx_appointment_attachment_appt ON " + schemaName + ".appointment_attachment (appointment_public_id)"
+        );
+        log.info("appointment_attachment_table_ensured schemaName={}", schemaName);
+    }
+
+    // Some tenants (e.g. tenant_t_2001) were provisioned via an older/ad-hoc path whose
+    // doctor table predates most of the columns the current Doctor entity expects
+    // (tenant_public_id, availability, fee, active, age, address, about_me,
+    // available_from, ready_to_look_patients) — it only ever had a legacy `status`
+    // column instead of `active`. Without this, ensureCoreIndexes' indexes on
+    // doctor(tenant_public_id/active) fail at startup for those schemas. Idempotent,
+    // same pattern as ensureAdminUserTableShape/ensureAppointmentTableShape.
+    private void ensureDoctorTableShape(TenantRegistry tenant, String schemaName) {
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS tenant_public_id VARCHAR(24)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS availability VARCHAR(160)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS fee VARCHAR(24)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS age INTEGER");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS address VARCHAR(500)");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS about_me TEXT");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS available_from DATE");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS ready_to_look_patients BOOLEAN DEFAULT true");
+
+        jdbcTemplate.update(
+                "UPDATE " + schemaName + ".doctor SET tenant_public_id = ? WHERE tenant_public_id IS NULL",
+                tenant.getTenantPublicId()
+        );
+        if (hasColumn(schemaName, "doctor", "status")) {
+            jdbcTemplate.update(
+                    "UPDATE " + schemaName + ".doctor SET active = COALESCE(active, (status = 'active')) WHERE active IS NULL"
+            );
+        } else {
+            jdbcTemplate.update("UPDATE " + schemaName + ".doctor SET active = true WHERE active IS NULL");
+        }
+        jdbcTemplate.update("UPDATE " + schemaName + ".doctor SET availability = COALESCE(availability, 'Mon-Sat 9am-5pm') WHERE availability IS NULL");
+        jdbcTemplate.update("UPDATE " + schemaName + ".doctor SET fee = COALESCE(fee, '200') WHERE fee IS NULL");
+    }
+
+    // V5__create_indexes.sql only targeted the two original tenant schemas that existed
+    // at the time. Every tenant onboarded since then gets patient/doctor/appointment/
+    // prescription tables with no index beyond the primary key. This runs for every
+    // active tenant at startup and is idempotent (IF NOT EXISTS), so it backfills the
+    // missing indexes for older tenants and covers all new ones going forward.
+    private void ensureCoreIndexes(String schemaName) {
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_patient_tenant ON " + schemaName + ".patient (tenant_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_patient_mobile ON " + schemaName + ".patient (mobile_number)");
+
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_doctor_tenant ON " + schemaName + ".doctor (tenant_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_doctor_tenant_active ON " + schemaName + ".doctor (tenant_public_id, active)");
+
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_appt_patient ON " + schemaName + ".appointment (patient_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_appt_doctor_status ON " + schemaName + ".appointment (doctor_public_id, appointment_status)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_appt_slot ON " + schemaName + ".appointment (appointment_slot)");
+
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_patient ON " + schemaName + ".prescription (patient_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_doctor ON " + schemaName + ".prescription (doctor_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_tenant_created ON " + schemaName + ".prescription (tenant_public_id, created_at)");
+
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_notif_recipient ON " + schemaName + ".app_notification (tenant_public_id, recipient_id, recipient_type, created_at)");
+
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_leave_tenant_doctor ON " + schemaName + ".leave_request (tenant_public_id, doctor_public_id)");
+    }
+
+    // Token-based booking (alongside existing slot booking) and doctor profile fields
+    // (years of experience, qualification) used by booking cards and the public doctor
+    // directory. Same pattern as ensureCoreIndexes: runs for every active tenant schema,
+    // old and new, instead of a Flyway migration hardcoded to specific schemas.
+    private void ensureTokenBookingAndDoctorProfileFields(String schemaName) {
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS booking_mode VARCHAR(16) NOT NULL DEFAULT 'BOTH'");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS experience_years INTEGER");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor ADD COLUMN IF NOT EXISTS qualification VARCHAR(200)");
+
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS booking_type VARCHAR(16) NOT NULL DEFAULT 'SLOT'");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS token_number INTEGER");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".appointment ADD COLUMN IF NOT EXISTS token_session VARCHAR(16)");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.token_counter (
+                    tenant_public_id  VARCHAR(16) NOT NULL,
+                    doctor_public_id  VARCHAR(16) NOT NULL,
+                    token_date        DATE        NOT NULL,
+                    session           VARCHAR(16) NOT NULL,
+                    last_token        INTEGER     NOT NULL DEFAULT 0,
+                    PRIMARY KEY (tenant_public_id, doctor_public_id, token_date, session)
+                )""".formatted(schemaName));
+
+        jdbcTemplate.execute(
+                "CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_appt_token ON " + schemaName + ".appointment (doctor_public_id, token_session, token_number)"
+        );
+        log.info("token_booking_fields_ensured schemaName={}", schemaName);
     }
 
     private boolean hasSchema(String schemaName) {

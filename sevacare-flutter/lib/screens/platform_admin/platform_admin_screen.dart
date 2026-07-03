@@ -19,6 +19,13 @@ class PlatformAdminScreen extends ConsumerStatefulWidget {
 
 class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
   int _tabIndex = 0;
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,21 +37,10 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
       SegmentItem<int>(value: 2, label: 'Admins'),
     ];
 
-    Widget tabBody;
-    switch (_tabIndex) {
-      case 1:
-        tabBody = _HospitalsTab(token: auth.token ?? '');
-        break;
-      case 2:
-        tabBody = _PlatformAdminsTab(token: auth.token ?? '');
-        break;
-      default:
-        tabBody = _OverviewTab(token: auth.token ?? '');
-    }
-
     return AppShell(
       hospitalName: 'SevaCare Platform',
       role: UserRole.platformAdmin,
+      scrollController: _scrollCtrl,
       headerActions: [
         TextButton(
           onPressed: () => setState(() => _tabIndex = 0),
@@ -72,14 +68,26 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
           SegmentedControl<int>(
             items: tabs,
             selected: _tabIndex,
-            onChanged: (v) => setState(() => _tabIndex = v),
+            onChanged: (v) {
+              setState(() => _tabIndex = v);
+              // Keep the frame steady — snap back to top on tab switch
+              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+            },
           ),
           const SizedBox(height: 16),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, anim) =>
-                FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(key: ValueKey(_tabIndex), child: tabBody),
+          // All tabs stay mounted (Offstage) so switching is instant —
+          // no refetch, no shimmer flash, no layout jump.
+          Offstage(
+            offstage: _tabIndex != 0,
+            child: _OverviewTab(token: auth.token ?? ''),
+          ),
+          Offstage(
+            offstage: _tabIndex != 1,
+            child: _HospitalsTab(token: auth.token ?? ''),
+          ),
+          Offstage(
+            offstage: _tabIndex != 2,
+            child: _PlatformAdminsTab(token: auth.token ?? ''),
           ),
         ],
       ),

@@ -21,3 +21,6 @@ export 'premium_hero_animation.dart';
 export 'booking_success_overlay.dart';
 export 'health_card_widget.dart';
 export 'connectivity_banner.dart';
+export 'slot_block_sheet.dart';
+export 'prescription_attachment_picker.dart';
+export 'token_session_picker.dart';
