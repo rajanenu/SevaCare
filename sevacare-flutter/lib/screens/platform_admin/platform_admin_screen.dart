@@ -357,6 +357,14 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
       setState(() => _formError = 'Hospital name is required.');
       return;
     }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Create Hospital',
+      message: 'Create a new hospital tenant "$name"?',
+      confirmLabel: 'Create',
+      isDanger: false,
+    );
+    if (!confirmed) return;
     setState(() {
       _saving = true;
       _formError = null;
@@ -986,6 +994,14 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
       setState(() => _formError = 'Mobile number is required.');
       return;
     }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Add Admin User',
+      message: 'Add "$name" as a platform admin?',
+      confirmLabel: 'Add',
+      isDanger: false,
+    );
+    if (!confirmed) return;
     setState(() {
       _saving = true;
       _formError = null;
@@ -1019,7 +1035,14 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
     }
   }
 
-  Future<void> _deleteAdmin(String adminId) async {
+  Future<void> _deleteAdmin(String adminId, String adminName) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete Admin User',
+      message: 'Remove "$adminName" from platform admins? This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
     try {
       final repo = ref.read(repositoryProvider);
       await repo.deletePlatformAdminUser(adminId, widget.token);
@@ -1227,7 +1250,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                             iconColor: SevaCareColors.danger,
                             bgColor: SevaCareColors.errorSurface,
                             tooltip: 'Delete admin',
-                            onPressed: () => _deleteAdmin(admin.platformAdminPublicId),
+                            onPressed: () => _deleteAdmin(admin.platformAdminPublicId, admin.fullName),
                           ),
                           const SizedBox(width: 8),
                           if (admin.active)

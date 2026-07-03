@@ -113,6 +113,25 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       appts.where((a) => a.status.toLowerCase() == 'completed').length;
 
   Future<void> _cancelAppointment(AppointmentView appt) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr(ref, 'Cancel Appointment')),
+        content: Text(tr(ref, 'Are you sure you want to cancel this appointment?')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(tr(ref, 'No')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            child: Text(tr(ref, 'Yes, Cancel')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     final auth = ref.read(authProvider);
     final repo = ref.read(repositoryProvider);
     try {

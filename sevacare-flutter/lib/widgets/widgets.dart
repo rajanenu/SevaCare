@@ -24,3 +24,4 @@ export 'connectivity_banner.dart';
 export 'slot_block_sheet.dart';
 export 'prescription_attachment_picker.dart';
 export 'token_session_picker.dart';
+export 'confirm_dialog.dart';

@@ -1033,6 +1033,14 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
       setState(() => _formError = 'Mobile number is required.');
       return;
     }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Add Admin User',
+      message: 'Add "$name" as an admin user for this hospital?',
+      confirmLabel: 'Add',
+      isDanger: false,
+    );
+    if (!confirmed) return;
     setState(() {
       _saving = true;
       _formError = null;
@@ -1069,7 +1077,14 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
     }
   }
 
-  Future<void> _deleteAdmin(String adminId) async {
+  Future<void> _deleteAdmin(String adminId, String adminName) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete Admin User',
+      message: 'Remove "$adminName" from admin users? This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
     try {
       final auth = ref.read(authProvider);
       final hospital = ref.read(hospitalProvider);
@@ -1313,7 +1328,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                             iconColor: SevaCareColors.danger,
                             bgColor: SevaCareColors.errorSurface,
                             tooltip: 'Delete',
-                            onPressed: () => _deleteAdmin(admin.adminPublicId),
+                            onPressed: () => _deleteAdmin(admin.adminPublicId, admin.fullName),
                           ),
                           if (admin.active) ...[
                             const SizedBox(width: 8),
@@ -1613,6 +1628,14 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       setState(() => _formError = 'Fee is required.');
       return;
     }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Add Doctor',
+      message: 'Add "Dr. $name" to this hospital?',
+      confirmLabel: 'Add',
+      isDanger: false,
+    );
+    if (!confirmed) return;
     setState(() {
       _saving = true;
       _formError = null;
@@ -1655,7 +1678,14 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     }
   }
 
-  Future<void> _deleteDoctor(String doctorId) async {
+  Future<void> _deleteDoctor(String doctorId, String doctorName) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete Doctor',
+      message: 'Remove "Dr. $doctorName" from this hospital? This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
     try {
       final auth = ref.read(authProvider);
       final hospital = ref.read(hospitalProvider);
@@ -2010,9 +2040,13 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                       style: AppTextStyles.cardTitle(SevaCareColors.text),
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 6,
+                                      runSpacing: 4,
                                       children: [
                                         Container(
+                                          constraints: const BoxConstraints(maxWidth: 180),
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
                                             color: SevaCareColors.primarySoft,
@@ -2020,12 +2054,15 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                           ),
                                           child: Text(
                                             doctor.specialty,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: AppTextStyles.label(SevaCareColors.primary),
                                           ),
                                         ),
-                                        const SizedBox(width: 6),
                                         Text(
                                           doctor.fee,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: AppTextStyles.body(
                                             size: 13,
                                             weight: FontWeight.w600,
@@ -2049,6 +2086,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                           if (doctor.experienceYears != null) '${doctor.experienceYears}y Exp',
                                           if (doctor.qualification?.isNotEmpty ?? false) doctor.qualification,
                                         ].join(' · '),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                         style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                                       ),
                                   ],
@@ -2132,7 +2171,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
                                 iconColor: SevaCareColors.danger,
                                 bgColor: SevaCareColors.errorSurface,
                                 tooltip: 'Delete doctor',
-                                onPressed: () => _deleteDoctor(doctor.doctorPublicId),
+                                onPressed: () => _deleteDoctor(doctor.doctorPublicId, doctor.fullName),
                               ),
                             ],
                           ),
@@ -2432,6 +2471,15 @@ class _StaffManagementTabState extends ConsumerState<_StaffManagementTab> {
     final mobile = _mobileCtrl.text.trim();
     if (name.isEmpty) { setState(() => _formError = 'Name is required.'); return; }
     if (mobile.isEmpty || mobile.length < 10) { setState(() => _formError = 'Valid 10-digit mobile number is required.'); return; }
+
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Add Staff',
+      message: 'Add "$name" as IP-Staff? They will be able to log in with mobile $mobile.',
+      confirmLabel: 'Add',
+      isDanger: false,
+    );
+    if (!confirmed) return;
 
     setState(() { _saving = true; _formError = null; _formSuccess = null; });
     try {
