@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../core/theme/app_colors.dart';
+import 'doctor_photo.dart';
+import 'staff_photo.dart';
 
 // ── Patient Health Card ────────────────────────────────────────────────────────
 
@@ -202,7 +204,11 @@ class _HealthCardWidgetState extends State<HealthCardWidget>
                               runSpacing: 5,
                               children: [
                                 if (widget.bloodGroup.isNotEmpty)
-                                  _InfoChip(icon: Icons.bloodtype_outlined, value: widget.bloodGroup)
+                                  _InfoChip(
+                                    icon: Icons.bloodtype_outlined,
+                                    value: widget.bloodGroup,
+                                    iconColor: SevaCareColors.error,
+                                  )
                                 else
                                   _InfoChip(icon: Icons.bloodtype_outlined, value: 'Add BG', muted: true),
                                 if (widget.gender.isNotEmpty)
@@ -441,13 +447,250 @@ class _DoctorCardWidgetState extends State<DoctorCardWidget>
                         ),
                       ),
                       const SizedBox(width: 14),
+                      // Media slot shows the doctor's assigned photo instead
+                      // of a QR code — a picked photo still takes precedence.
                       _CardMedia(
                         qrPayload: _qrPayload,
                         photoBytes: widget.photoBytes,
+                        fallback: DoctorPhoto(
+                          doctorId: widget.doctorId,
+                          width: 96,
+                          height: 96,
+                        ),
                         onCameraPressed: widget.onCameraPressed,
                         onSharePressed: _copyToClipboard,
                         qrEyeColor: const Color(0xFF065F46),
                         qrDataColor: const Color(0xFF064E3B),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Admin / Staff Card ─────────────────────────────────────────────────────────
+
+class StaffCardWidget extends StatefulWidget {
+  final String userId;
+  final String name;
+  final String mobile;
+  final String hospitalName;
+  final bool isStaff; // false → hospital admin styling/photo pool
+  final Uint8List? photoBytes;
+  final VoidCallback? onCameraPressed;
+
+  const StaffCardWidget({
+    super.key,
+    required this.userId,
+    this.name = '',
+    this.mobile = '',
+    this.hospitalName = 'SevaCare',
+    this.isStaff = false,
+    this.photoBytes,
+    this.onCameraPressed,
+  });
+
+  @override
+  State<StaffCardWidget> createState() => _StaffCardWidgetState();
+}
+
+class _StaffCardWidgetState extends State<StaffCardWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmer;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmer = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmer.dispose();
+    super.dispose();
+  }
+
+  List<Color> get _gradient => widget.isStaff
+      ? const [Color(0xFF0C4A6E), Color(0xFF0284C7), Color(0xFF38BDF8)]
+      : const [Color(0xFF312E81), Color(0xFF4F46E5), Color(0xFF818CF8)];
+
+  Color get _glow => widget.isStaff ? const Color(0xFF0284C7) : const Color(0xFF4F46E5);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmer,
+      builder: (_, child) {
+        return Container(
+          width: double.infinity,
+          height: 190,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: _glow.withValues(alpha: 0.30),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: _gradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        stops: const [0.0, 0.55, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(painter: _ShimmerPainter(_shimmer.value)),
+                ),
+                Positioned(
+                  top: -30, right: -20,
+                  child: Container(
+                    width: 140, height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -40, left: 60,
+                  child: Container(
+                    width: 110, height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.05),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 22, height: 22,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.20),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    widget.isStaff
+                                        ? Icons.support_agent_rounded
+                                        : Icons.manage_accounts_rounded,
+                                    size: 12, color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    widget.hospitalName,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white.withValues(alpha: 0.90),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                                  ),
+                                  child: Text(
+                                    widget.isStaff ? 'STAFF CARD' : 'ADMIN CARD',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              widget.name.isNotEmpty
+                                  ? widget.name
+                                  : (widget.isStaff ? 'Hospital Staff' : 'Hospital Admin'),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.userId,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withValues(alpha: 0.70),
+                                letterSpacing: 1.0,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 5,
+                              children: [
+                                _InfoChip(
+                                  icon: widget.isStaff
+                                      ? Icons.badge_outlined
+                                      : Icons.admin_panel_settings_outlined,
+                                  value: widget.isStaff ? 'Patient Support' : 'Administration',
+                                ),
+                                if (widget.mobile.isNotEmpty)
+                                  _InfoChip(icon: Icons.phone_outlined, value: widget.mobile),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Media slot: picked photo, else assigned stock photo
+                      _CardMedia(
+                        qrPayload: '',
+                        photoBytes: widget.photoBytes,
+                        fallback: StaffPhoto(
+                          userId: widget.userId,
+                          isStaff: widget.isStaff,
+                          width: 96,
+                          height: 96,
+                        ),
+                        onCameraPressed: widget.onCameraPressed,
+                        qrEyeColor: const Color(0xFF312E81),
+                        qrDataColor: const Color(0xFF1E1B4B),
                       ),
                     ],
                   ),
@@ -466,6 +709,10 @@ class _DoctorCardWidgetState extends State<DoctorCardWidget>
 class _CardMedia extends StatelessWidget {
   final String qrPayload;
   final Uint8List? photoBytes;
+
+  /// Shown instead of the QR code when no photo has been picked — used by
+  /// doctor/admin/staff cards to display the user's assigned stock photo.
+  final Widget? fallback;
   final VoidCallback? onCameraPressed;
   final VoidCallback? onSharePressed;
   final Color qrEyeColor;
@@ -476,6 +723,7 @@ class _CardMedia extends StatelessWidget {
     required this.qrEyeColor,
     required this.qrDataColor,
     this.photoBytes,
+    this.fallback,
     this.onCameraPressed,
     this.onSharePressed,
   });
@@ -483,6 +731,7 @@ class _CardMedia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPhoto = photoBytes != null;
+    final showsQr = !hasPhoto && fallback == null;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -507,23 +756,32 @@ class _CardMedia extends StatelessWidget {
                         height: 96,
                       ),
                     )
-                  : Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: QrImageView(
-                        data: qrPayload,
-                        version: QrVersions.auto,
-                        size: 86,
-                        backgroundColor: Colors.white,
-                        eyeStyle: QrEyeStyle(
-                          eyeShape: QrEyeShape.square,
-                          color: qrEyeColor,
+                  : !showsQr
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: 96,
+                            height: 96,
+                            child: fallback,
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: QrImageView(
+                            data: qrPayload,
+                            version: QrVersions.auto,
+                            size: 86,
+                            backgroundColor: Colors.white,
+                            eyeStyle: QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: qrEyeColor,
+                            ),
+                            dataModuleStyle: QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: qrDataColor,
+                            ),
+                          ),
                         ),
-                        dataModuleStyle: QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.square,
-                          color: qrDataColor,
-                        ),
-                      ),
-                    ),
             ),
             // Camera button (bottom-right corner)
             if (onCameraPressed != null)
@@ -555,14 +813,14 @@ class _CardMedia extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          hasPhoto ? 'Photo' : 'Scan / Share',
+          showsQr ? 'Scan / Share' : 'Photo',
           style: TextStyle(
             fontSize: 9,
             color: Colors.white.withValues(alpha: 0.65),
             letterSpacing: 0.4,
           ),
         ),
-        if (!hasPhoto && onSharePressed != null) ...[
+        if (showsQr && onSharePressed != null) ...[
           const SizedBox(height: 6),
           GestureDetector(
             onTap: onSharePressed,
@@ -602,8 +860,9 @@ class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String value;
   final bool muted;
+  final Color? iconColor;
 
-  const _InfoChip({required this.icon, required this.value, this.muted = false});
+  const _InfoChip({required this.icon, required this.value, this.muted = false, this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -617,7 +876,13 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: Colors.white.withValues(alpha: muted ? 0.55 : 0.90)),
+          Icon(
+            icon,
+            size: 10,
+            color: muted
+                ? Colors.white.withValues(alpha: 0.55)
+                : (iconColor ?? Colors.white.withValues(alpha: 0.90)),
+          ),
           const SizedBox(width: 3),
           Text(
             value,

@@ -144,10 +144,8 @@ public class AuthController {
             };
             // Staff logs in via 'staff' role request but carries 'admin' JWT role so security gates work
             String jwtRole = "staff".equals(request.role()) ? "admin" : request.role();
-            boolean isGenericAdmin = "admin".equals(request.role())
-                    && AdminDomainService.GENERIC_ADMIN_MOBILE.equals(request.mobileNumber());
             String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), jwtRole, subject.publicId()));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), jwtRole, subject.publicId(), token, isGenericAdmin, subject.name(), subject.userType()));
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), jwtRole, subject.publicId(), token, false, subject.name(), subject.userType()));
         } finally {
             TenantContext.clear();
         }

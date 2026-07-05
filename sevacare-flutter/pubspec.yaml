@@ -51,6 +51,9 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.2
 
+  # Charts for insights/reports
+  fl_chart: ^0.69.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -61,3 +64,4 @@ flutter:
   assets:
     - assets/images/
     - assets/images/doctor_photos/
+    - assets/images/staff_photos/

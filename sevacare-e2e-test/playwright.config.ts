@@ -19,10 +19,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'cd ../sevacare-frontend && EXPO_PUBLIC_API_BASE_URL=http://localhost:8081/api/v1 npm run web:preview',
-    url: 'http://localhost:8087',
-    timeout: 180_000,
-    reuseExistingServer: true,
-  },
+  // Frontend moved to Flutter (sevacare-flutter); use scripts/start-frontend.sh
+  // to serve it on :8087 if a suite needs the browser/DOM. api.spec.ts only
+  // needs the backend, so no webServer is started here.
 });

@@ -31,6 +31,7 @@ import com.sevacare.patient.repository.MedicalHistoryRepository;
 import com.sevacare.patient.repository.PatientRepository;
 import com.sevacare.patient.repository.PrescriptionMedicineRepository;
 import com.sevacare.patient.repository.PrescriptionRepository;
+import com.sevacare.shared.dto.HospitalManagementDtos;
 import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.shared.tenant.TenantContext;
 
@@ -282,6 +283,7 @@ public class PatientDomainService {
                 if (request.vitals() != null && !request.vitals().isBlank()) {
                         appointment.setVitalsSummary(request.vitals().trim());
                 }
+                appointment.setBookingSource(normalizeBookingSource(request.bookingSource()));
 
                 Appointment saved = appointmentRepository.save(appointment);
 
@@ -358,6 +360,17 @@ public class PatientDomainService {
 
         private String normalizeBookingType(String bookingType) {
                 return (bookingType != null && "TOKEN".equalsIgnoreCase(bookingType.trim())) ? "TOKEN" : "SLOT";
+        }
+
+        private String normalizeBookingSource(String bookingSource) {
+                if (bookingSource == null) {
+                        return "PATIENT_APP";
+                }
+                String normalized = bookingSource.trim().toUpperCase(Locale.ROOT);
+                return switch (normalized) {
+                        case "QR_CODE", "IP_STAFF" -> normalized;
+                        default -> "PATIENT_APP";
+                };
         }
 
         private String normalizeTokenSession(String session) {
@@ -438,6 +451,72 @@ public class PatientDomainService {
                 patient.setStatus("active");
                 patient.setFullName("Patient " + normalizedMobileNumber.substring(Math.max(0, normalizedMobileNumber.length() - 4)));
                 return patientRepository.save(patient);
+        }
+
+        /**
+         * Confirms a QR-code appointment request by creating a real patient (find-or-create
+         * by mobile) + appointment, going through the exact same {@link #bookAppointment} path
+         * used by the patient app and IP-Staff — so slot-conflict checks, doctor-leave checks
+         * and token numbering are all reused, and the resulting appointment shows up in the
+         * doctor's queue/consult flow and the IP-Staff patient list like any other booking.
+         */
+        @Transactional
+        public PatientDtos.AppointmentBookingResult confirmQrAppointmentRequest(
+                        String tenantPublicId,
+                        String doctorPublicId,
+                        String patientMobile,
+                        String patientName,
+                        int patientAge,
+                        String specialty,
+                        LocalDate preferredDate,
+                        HospitalManagementDtos.AppointmentRequestConfirmRequest confirmReq
+        ) {
+                Patient patient = findOrCreatePatientForLogin(tenantPublicId, patientMobile);
+                if (patientName != null && !patientName.isBlank()) {
+                        patient.setFullName(patientName);
+                }
+                if (patientAge > 0) {
+                        patient.setAge(patientAge);
+                }
+                patient = patientRepository.save(patient);
+
+                String bookingType = normalizeBookingType(confirmReq.bookingType());
+                String slot;
+                if ("TOKEN".equals(bookingType)) {
+                        if (confirmReq.tokenSession() == null || confirmReq.tokenSession().isBlank()) {
+                                throw new IllegalArgumentException("Token session (MORNING or EVENING) is required");
+                        }
+                        slot = preferredDate.toString();
+                } else {
+                        if (confirmReq.slot() == null || confirmReq.slot().isBlank()) {
+                                throw new IllegalArgumentException("A slot time is required");
+                        }
+                        slot = confirmReq.slot();
+                }
+
+                String note = confirmReq.notes() != null && !confirmReq.notes().isBlank()
+                                ? confirmReq.notes() : "Booked via QR code";
+
+                PatientDtos.AppointmentBookingRequest bookingRequest = new PatientDtos.AppointmentBookingRequest(
+                                tenantPublicId,
+                                patient.getPatientPublicId(),
+                                patient.getFullName(),
+                                "Not specified",
+                                patient.getAge() == null ? patientAge : patient.getAge(),
+                                patient.getMobileNumber(),
+                                null,
+                                specialty,
+                                doctorPublicId,
+                                slot,
+                                bookingType,
+                                confirmReq.tokenSession(),
+                                note,
+                                null,
+                                null,
+                                "QR_CODE"
+                );
+
+                return bookAppointment(tenantPublicId, patient.getPatientPublicId(), bookingRequest);
         }
 
     @Transactional
@@ -1134,7 +1213,8 @@ public class PatientDomainService {
                 attachments,
                 appointment.getBookingType(),
                 appointment.getTokenNumber(),
-                appointment.getTokenSession()
+                appointment.getTokenSession(),
+                appointment.getBookingSource()
         );
     }
 

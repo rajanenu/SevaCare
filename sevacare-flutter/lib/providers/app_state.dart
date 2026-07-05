@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -165,6 +168,22 @@ class HospitalNotifier extends StateNotifier<HospitalState> {
 final hospitalProvider = StateNotifierProvider<HospitalNotifier, HospitalState>(
   (_) => HospitalNotifier(),
 );
+
+/// Hospital hero image (glassmorphism login background), decoded once per
+/// tenant and cached by Riverpod. Purely decorative — resolves to null on any
+/// failure so login never blocks on it.
+final tenantHeroImageProvider =
+    FutureProvider.family<Uint8List?, String>((ref, tenantId) async {
+  if (tenantId.isEmpty) return null;
+  try {
+    final b64 =
+        await ref.watch(repositoryProvider).getTenantHeroImageBase64(tenantId);
+    if (b64 == null) return null;
+    return base64Decode(b64);
+  } catch (_) {
+    return null;
+  }
+});
 
 // ── Auth Provider ─────────────────────────────────────────────────────────────
 

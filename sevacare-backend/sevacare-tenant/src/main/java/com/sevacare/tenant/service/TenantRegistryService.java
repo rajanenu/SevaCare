@@ -17,10 +17,16 @@ public class TenantRegistryService {
 
     private final TenantRegistryRepository tenantRegistryRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final TenantSchemaMaintenanceService schemaMaintenanceService;
 
-    public TenantRegistryService(TenantRegistryRepository tenantRegistryRepository, JdbcTemplate jdbcTemplate) {
+    public TenantRegistryService(
+            TenantRegistryRepository tenantRegistryRepository,
+            JdbcTemplate jdbcTemplate,
+            TenantSchemaMaintenanceService schemaMaintenanceService
+    ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
+        this.schemaMaintenanceService = schemaMaintenanceService;
     }
 
     @Transactional(readOnly = true)
@@ -35,6 +41,40 @@ public class TenantRegistryService {
                         tenant.getTenantThemeKey()
                 ))
                 .toList();
+    }
+
+    /**
+     * Hero image queried via JdbcTemplate (not the entity) so tenant list /
+     * schema-resolution paths never load the large base64 column.
+     */
+    @Transactional(readOnly = true)
+    public DiscoveryDtos.TenantHeroImage getTenantHeroImage(String tenantPublicId) {
+        return jdbcTemplate.query(
+                "SELECT hero_image_base64, hero_image_content_type FROM public.tenant_registry " +
+                        "WHERE tenant_public_id = ? AND tenant_status = 'active'",
+                rs -> rs.next()
+                        ? new DiscoveryDtos.TenantHeroImage(
+                                tenantPublicId,
+                                rs.getString("hero_image_base64"),
+                                rs.getString("hero_image_content_type"))
+                        : new DiscoveryDtos.TenantHeroImage(tenantPublicId, null, null),
+                tenantPublicId
+        );
+    }
+
+    @Transactional
+    public void updateTenantHeroImage(String tenantPublicId, String imageBase64, String contentType) {
+        boolean clearing = imageBase64 == null || imageBase64.isBlank();
+        int updated = jdbcTemplate.update(
+                "UPDATE public.tenant_registry SET hero_image_base64 = ?, hero_image_content_type = ? " +
+                        "WHERE tenant_public_id = ?",
+                clearing ? null : imageBase64,
+                clearing ? null : contentType,
+                tenantPublicId
+        );
+        if (updated == 0) {
+            throw new IllegalArgumentException("Unknown tenant: " + tenantPublicId);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +131,11 @@ public class TenantRegistryService {
         tenant.setTenantSchemaName(schemaName);
         tenant.setTenantStatus("active");
         tenantRegistryRepository.save(tenant);
+
+        // Repair schema shape immediately — a hospital onboarded while the server
+        // keeps running (no restart) must work from the first request, not just
+        // after the next boot-time sweep (TenantAdminSchemaInitializer).
+        schemaMaintenanceService.ensureSchemaShape(tenant, schemaName);
 
         if (contactMobile != null && !contactMobile.isBlank()) {
             seedHospitalAdmin(schemaName, tenantPublicId, contactName, contactMobile, contactEmail);
@@ -181,7 +226,10 @@ public class TenantRegistryService {
                 address VARCHAR(160),
                 about_me TEXT,
                 available_from DATE,
-                ready_to_look_patients BOOLEAN DEFAULT true
+                ready_to_look_patients BOOLEAN DEFAULT true,
+                booking_mode VARCHAR(16) NOT NULL DEFAULT 'BOTH',
+                experience_years INT,
+                qualification VARCHAR(200)
             );
             
             CREATE TABLE IF NOT EXISTS %s.doctor_details (
@@ -221,6 +269,11 @@ public class TenantRegistryService {
                 appointment_slot VARCHAR(80),
                 appointment_status VARCHAR(24) DEFAULT 'upcoming',
                 notes TEXT,
+                consultation_fee INTEGER DEFAULT 0,
+                vitals_summary VARCHAR(1000),
+                booking_type VARCHAR(16) NOT NULL DEFAULT 'SLOT',
+                token_number INTEGER,
+                token_session VARCHAR(16),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (patient_public_id) REFERENCES %s.patient(patient_public_id),
                 FOREIGN KEY (doctor_public_id) REFERENCES %s.doctor(doctor_public_id)
@@ -287,38 +340,37 @@ public class TenantRegistryService {
                 name VARCHAR(160),
                 full_name VARCHAR(160),
                 active BOOLEAN DEFAULT true,
+                user_type VARCHAR(16) DEFAULT 'ADMIN',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS %s.token_counter (
+                tenant_public_id  VARCHAR(24) NOT NULL,
+                doctor_public_id  VARCHAR(24) NOT NULL,
+                token_date        DATE        NOT NULL,
+                session           VARCHAR(16) NOT NULL,
+                last_token        INTEGER     NOT NULL DEFAULT 0,
+                PRIMARY KEY (tenant_public_id, doctor_public_id, token_date, session)
             );
             """;
 
         jdbcTemplate.execute(tenantSchemaDdl.replace("%s", schemaName));
     }
 
-    private static final String GENERIC_ADMIN_MOBILE = "9000000003";
-
+    /**
+     * Seed the hospital's first admin using the contact mobile the hospital
+     * provided at onboarding — that number IS the Hospital Admin login. Once
+     * logged in, this admin can create further admins from the admin dashboard.
+     * (The old "generic temp admin" 9000000003 flow has been removed.)
+     */
     private void seedHospitalAdmin(String schemaName, String tenantPublicId, String contactName, String contactMobile, String contactEmail) {
-        // Seed the real contact admin (if a different mobile is provided)
-        boolean contactIsGeneric = GENERIC_ADMIN_MOBILE.equals(contactMobile);
-        if (!contactIsGeneric) {
-            Integer existingContact = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM " + schemaName + ".admin_user WHERE mobile_number = ?",
-                    Integer.class, contactMobile);
-            if (existingContact == null || existingContact == 0) {
-                jdbcTemplate.update(
-                        "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        nextAdminPublicId(), tenantPublicId, contactMobile, contactEmail, contactName, contactName, true
-                );
-            }
-        }
-
-        // Always seed the generic admin (9000000003) for every hospital
-        Integer existingGeneric = jdbcTemplate.queryForObject(
+        Integer existingContact = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM " + schemaName + ".admin_user WHERE mobile_number = ?",
-                Integer.class, GENERIC_ADMIN_MOBILE);
-        if (existingGeneric == null || existingGeneric == 0) {
+                Integer.class, contactMobile);
+        if (existingContact == null || existingContact == 0) {
             jdbcTemplate.update(
-                    "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    nextAdminPublicId(), tenantPublicId, GENERIC_ADMIN_MOBILE, null, "Generic Admin", "Generic Admin", true
+                    "INSERT INTO " + schemaName + ".admin_user (admin_public_id, tenant_public_id, mobile_number, email, name, full_name, active, user_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    nextAdminPublicId(), tenantPublicId, contactMobile, contactEmail, contactName, contactName, true, "ADMIN"
             );
         }
     }

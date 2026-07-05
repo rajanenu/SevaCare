@@ -64,6 +64,16 @@ public class PlatformAdminController {
         return ContractResponse.of(platformAdminService.deleteTenant(tenantPublicId));
     }
 
+    @PutMapping("/tenants/{tenantPublicId}/hero-image")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ContractResponse<String> updateTenantHeroImage(
+            @PathVariable String tenantPublicId,
+            @RequestBody PlatformAdminDtos.PlatformTenantHeroImageRequest request
+    ) {
+        platformAdminService.updateTenantHeroImage(tenantPublicId, request);
+        return ContractResponse.of(tenantPublicId);
+    }
+
     @PostMapping("/tenants/{tenantPublicId}/qrcode/generate")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ContractResponse<PlatformAdminDtos.PlatformTenantQrCodeView> generateTenantQrCode(

@@ -429,6 +429,7 @@ class DoctorQueueFacetView {
   final String bookingType;
   final int? tokenNumber;
   final String? tokenSession;
+  final String bookingSource;
 
   const DoctorQueueFacetView({
     required this.appointmentPublicId,
@@ -446,7 +447,10 @@ class DoctorQueueFacetView {
     this.bookingType = 'SLOT',
     this.tokenNumber,
     this.tokenSession,
+    this.bookingSource = 'PATIENT_APP',
   });
+
+  bool get isQrBooking => bookingSource == 'QR_CODE';
 
   factory DoctorQueueFacetView.fromJson(Map<String, dynamic> json) => DoctorQueueFacetView(
     appointmentPublicId: json['appointmentPublicId'] as String? ?? '',
@@ -468,6 +472,7 @@ class DoctorQueueFacetView {
     bookingType: json['bookingType'] as String? ?? 'SLOT',
     tokenNumber: json['tokenNumber'] as int?,
     tokenSession: json['tokenSession'] as String?,
+    bookingSource: json['bookingSource'] as String? ?? 'PATIENT_APP',
   );
 }
 
@@ -712,6 +717,7 @@ class AppointmentBookingRequest {
   final String? note;
   final String? vitals;
   final List<AttachmentUploadRequest>? attachments;
+  final String? bookingSource;
 
   const AppointmentBookingRequest({
     required this.tenantPublicId,
@@ -729,6 +735,7 @@ class AppointmentBookingRequest {
     this.note,
     this.vitals,
     this.attachments,
+    this.bookingSource,
   });
 
   Map<String, dynamic> toJson() => {
@@ -748,6 +755,7 @@ class AppointmentBookingRequest {
     if (vitals != null && vitals!.isNotEmpty) 'vitals': vitals,
     if (attachments != null && attachments!.isNotEmpty)
       'attachments': attachments!.map((a) => a.toJson()).toList(),
+    if (bookingSource != null) 'bookingSource': bookingSource,
   };
 }
 
@@ -799,6 +807,53 @@ class StaffBookingStat {
     weekCount: json['weekCount'] as int? ?? 0,
     monthCount: json['monthCount'] as int? ?? 0,
     yearCount: json['yearCount'] as int? ?? 0,
+  );
+}
+
+class BookingSourceCount {
+  final String source; // PATIENT_APP | QR_CODE | IP_STAFF
+  final String label;
+  final int today;
+  final int week;
+  final int month;
+  final int year;
+
+  const BookingSourceCount({
+    required this.source,
+    required this.label,
+    required this.today,
+    required this.week,
+    required this.month,
+    required this.year,
+  });
+
+  factory BookingSourceCount.fromJson(Map<String, dynamic> json) => BookingSourceCount(
+    source: json['source'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    today: json['today'] as int? ?? 0,
+    week: json['week'] as int? ?? 0,
+    month: json['month'] as int? ?? 0,
+    year: json['year'] as int? ?? 0,
+  );
+}
+
+class BookingChannelStats {
+  final String tenantPublicId;
+  final List<BookingSourceCount> sources;
+  final int qrPendingRequests;
+
+  const BookingChannelStats({
+    required this.tenantPublicId,
+    required this.sources,
+    required this.qrPendingRequests,
+  });
+
+  factory BookingChannelStats.fromJson(Map<String, dynamic> json) => BookingChannelStats(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    sources: json['sources'] != null
+        ? (json['sources'] as List).map((e) => BookingSourceCount.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
+    qrPendingRequests: json['qrPendingRequests'] as int? ?? 0,
   );
 }
 
@@ -1552,5 +1607,78 @@ class NotificationCollection {
         ? (json['notifications'] as List).map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList()
         : [],
     unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+// ── QR Appointment Requests (doctor inbox) ──────────────────────────────────────
+
+/// A patient's booking request submitted by scanning a hospital QR code.
+/// Surfaces in the respective doctor's "Booking Requests" inbox.
+class AppointmentRequest {
+  final String requestPublicId;
+  final String patientMobile;
+  final String patientName;
+  final int patientAge;
+  final String symptoms;
+  final String doctorPublicId;
+  final String specialty;
+  final String preferredDate;
+  final String requestStatus; // 'pending' | 'confirmed'
+  final String? assignedSlot;
+  final String? notes;
+  final String? createdAt;
+
+  const AppointmentRequest({
+    required this.requestPublicId,
+    required this.patientMobile,
+    required this.patientName,
+    required this.patientAge,
+    required this.symptoms,
+    required this.doctorPublicId,
+    required this.specialty,
+    required this.preferredDate,
+    required this.requestStatus,
+    this.assignedSlot,
+    this.notes,
+    this.createdAt,
+  });
+
+  bool get isPending => requestStatus.toLowerCase() == 'pending';
+
+  factory AppointmentRequest.fromJson(Map<String, dynamic> json) => AppointmentRequest(
+    requestPublicId: json['requestPublicId'] as String? ?? '',
+    patientMobile: json['patientMobile'] as String? ?? '',
+    patientName: json['patientName'] as String? ?? '',
+    patientAge: (json['patientAge'] as num?)?.toInt() ?? 0,
+    symptoms: json['symptoms'] as String? ?? '',
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    specialty: json['specialty'] as String? ?? '',
+    preferredDate: json['preferredDate']?.toString() ?? '',
+    requestStatus: json['requestStatus'] as String? ?? 'pending',
+    assignedSlot: json['assignedSlot'] as String?,
+    notes: json['notes'] as String?,
+    createdAt: json['createdAt']?.toString(),
+  );
+}
+
+class AppointmentRequestCollection {
+  final String tenantPublicId;
+  final String doctorPublicId;
+  final List<AppointmentRequest> requests;
+
+  const AppointmentRequestCollection({
+    required this.tenantPublicId,
+    required this.doctorPublicId,
+    required this.requests,
+  });
+
+  int get pendingCount => requests.where((r) => r.isPending).length;
+
+  factory AppointmentRequestCollection.fromJson(Map<String, dynamic> json) => AppointmentRequestCollection(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    requests: json['requests'] != null
+        ? (json['requests'] as List).map((e) => AppointmentRequest.fromJson(e as Map<String, dynamic>)).toList()
+        : [],
   );
 }

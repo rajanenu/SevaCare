@@ -46,6 +46,13 @@ public final class PlatformAdminDtos {
     ) {
     }
 
+    /** Hero image upload — pass a null/blank imageBase64 to clear the image. */
+    public record PlatformTenantHeroImageRequest(
+            String imageBase64,
+            String contentType
+    ) {
+    }
+
     public record PlatformOnboardingRequestView(
             String requestPublicId,
             String hospitalName,

@@ -13,8 +13,9 @@ class AppConfig {
 
   // ── Build-time constants ───────────────────────────────────────────────────
   static const String _env = String.fromEnvironment('ENV', defaultValue: 'local');
-  // Backend runs on 8080 locally; override with --dart-define=API_PORT=443 in production.
-  static const String _apiPort = String.fromEnvironment('API_PORT', defaultValue: '8080');
+  // Backend runs on 8081 locally (scripts/start-backend.sh); override with
+  // --dart-define=API_PORT=443 in production.
+  static const String _apiPort = String.fromEnvironment('API_PORT', defaultValue: '8081');
 
   // For Android APK: set to your Mac's local Wi-Fi IP so the phone can reach
   // the backend over the same network. Example:

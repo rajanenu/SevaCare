@@ -24,5 +24,7 @@ export 'connectivity_banner.dart';
 export 'slot_block_sheet.dart';
 export 'prescription_attachment_picker.dart';
 export 'token_session_picker.dart';
+export 'cinematic_intro.dart';
 export 'confirm_dialog.dart';
 export 'doctor_photo.dart';
+export 'staff_photo.dart';

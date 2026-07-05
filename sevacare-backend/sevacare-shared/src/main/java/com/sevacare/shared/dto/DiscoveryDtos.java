@@ -14,6 +14,10 @@ public final class DiscoveryDtos {
     public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty, String themeKey) {
     }
 
+    /** Hero image for a hospital — base64 payload; fields are null when the tenant has no image. */
+    public record TenantHeroImage(String tenantPublicId, String imageBase64, String contentType) {
+    }
+
     public record DoctorSummary(String doctorPublicId, String name, String specialty, String availability, String fee,
             String bookingMode, Integer experienceYears, String qualification) {
     }

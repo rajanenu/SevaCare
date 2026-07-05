@@ -12,6 +12,7 @@ class ApiConstants {
   // Public
   static const String publicTenants = '/public/tenants';
   static const String publicLookups = '/public/lookups';
+  static String publicTenantHeroImage(String tenantId) => '/public/tenants/$tenantId/hero-image';
   static String publicDoctors(String tenantId) => '/public/tenants/$tenantId/doctors';
   static String publicOnboardingRequest = '/public/onboarding/request';
 
@@ -52,6 +53,10 @@ class ApiConstants {
   static String slotBlock(String tenantId, String doctorId, String blockId) => '/doctors/$tenantId/$doctorId/slot-blocks/$blockId';
   static String doctorAvailability(String tenantId, String date) =>
       '/doctors/$tenantId/availability?date=${Uri.encodeComponent(date)}';
+  static String doctorAppointmentRequests(String tenantId, String doctorId) =>
+      '/doctors/$tenantId/$doctorId/appointment-requests';
+  static String confirmAppointmentRequest(String tenantId, String doctorId, String requestId) =>
+      '/doctors/$tenantId/$doctorId/appointment-requests/$requestId/confirm';
 
   // Prescription
   static String prescriptionDetail(String tenantId, String rxId) => '/prescriptions/$tenantId/$rxId/detail';
@@ -72,6 +77,7 @@ class ApiConstants {
   static String adminStaffMember(String tenantId, String staffId) => '/admin/$tenantId/staff/$staffId';
   static String deactivateStaff(String tenantId, String staffId) => '/admin/$tenantId/staff/$staffId/deactivate';
   static String staffBookingStats(String tenantId) => '/admin/$tenantId/staff-booking-stats';
+  static String bookingChannelStats(String tenantId) => '/admin/$tenantId/booking-channel-stats';
   static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search}) {
     final buf = StringBuffer('/admin/$tenantId/patients?page=$page&size=$size');
     if (search != null && search.isNotEmpty) buf.write('&search=${Uri.encodeComponent(search)}');
@@ -99,6 +105,7 @@ class ApiConstants {
   static const String platformOverview = '/platform-admin/overview';
   static const String platformTenants = '/platform-admin/tenants';
   static String platformTenant(String tenantId) => '/platform-admin/tenants/$tenantId';
+  static String platformTenantHeroImage(String tenantId) => '/platform-admin/tenants/$tenantId/hero-image';
   static String generateQrCode(String tenantId) => '/platform-admin/tenants/$tenantId/qrcode/generate';
   static String qrCodeFormData(String uuid) => '/public/qrcode/$uuid/form-data';
   static String qrCodeAppointmentRequest(String uuid) => '/public/qrcode/$uuid/appointment-request';

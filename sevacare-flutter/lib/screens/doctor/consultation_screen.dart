@@ -41,6 +41,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   final _spo2Ctrl = TextEditingController();
   final _sugarCtrl = TextEditingController();
   bool _vitalsExpanded = false;
+  bool _addMedicineExpanded = true;
 
   // Medicine autocomplete
   List<String> _medicineSuggestions = [];
@@ -243,6 +244,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       _medFreqCtrl.clear();
       _medDurationCtrl.clear();
       _medInstructionsCtrl.clear();
+      _addMedicineExpanded = false;
     });
   }
 
@@ -491,57 +493,57 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
             const SizedBox(height: 12),
           ],
 
-          // ── Patient History Panel ──────────────────────────────────────────
-          GestureDetector(
-            onTap: () => setState(() => _historyExpanded = !_historyExpanded),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: _historyExpanded ? SevaCareColors.primarySoft : SevaCareColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SevaCareColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.history_outlined, size: 18, color: SevaCareColors.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _historyLoading
-                          ? 'Loading patient history…'
-                          : _prevPrescriptions.isEmpty
-                              ? 'No previous prescriptions on record'
-                              : 'Previous Prescriptions (${_prevPrescriptions.length})',
-                      style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
+          // ── Patient History Panel (only when there's history to show) ───────
+          if (_historyLoading || _prevPrescriptions.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => setState(() => _historyExpanded = !_historyExpanded),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _historyExpanded ? SevaCareColors.primarySoft : SevaCareColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SevaCareColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_outlined, size: 18, color: SevaCareColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _historyLoading
+                            ? 'Loading patient history…'
+                            : 'Previous Prescriptions (${_prevPrescriptions.length})',
+                        style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
+                      ),
                     ),
-                  ),
-                  Icon(
-                    _historyExpanded ? Icons.expand_less : Icons.expand_more,
-                    size: 20,
-                    color: SevaCareColors.primary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_historyExpanded && _prevPrescriptions.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < _prevPrescriptions.length; i++) ...[
-                    if (i > 0) const SectionDivider(),
-                    _PrevPrescriptionRow(
-                      prescription: _prevPrescriptions[i],
-                      onTap: () => _showPrevPrescriptionDialog(_prevPrescriptions[i]),
+                    Icon(
+                      _historyExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: SevaCareColors.primary,
                     ),
                   ],
-                ],
+                ),
               ),
             ),
+            if (_historyExpanded && _prevPrescriptions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int i = 0; i < _prevPrescriptions.length; i++) ...[
+                      if (i > 0) const SectionDivider(),
+                      _PrevPrescriptionRow(
+                        prescription: _prevPrescriptions[i],
+                        onTap: () => _showPrevPrescriptionDialog(_prevPrescriptions[i]),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
 
           // ── Vitals Recording ──────────────────────────────────────────────
           _VitalsSection(
@@ -579,11 +581,10 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Write Prescription section ─────────────────────────────────────
+          // ── Write Prescription section (single card, accordion to add) ─────
           Text('Write Prescription', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
           const SizedBox(height: 12),
 
-          // Current medicines list
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,26 +595,22 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                     const SizedBox(width: 8),
                     Text('Prescription', style: AppTextStyles.cardTitle(SevaCareColors.text)),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: SevaCareColors.primarySoft,
-                        borderRadius: BorderRadius.circular(99),
+                    if (_medicines.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: SevaCareColors.primarySoft,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          '${_medicines.length} item(s)',
+                          style: AppTextStyles.label(SevaCareColors.primary),
+                        ),
                       ),
-                      child: Text(
-                        '${_medicines.length} item(s)',
-                        style: AppTextStyles.label(SevaCareColors.primary),
-                      ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                if (_medicines.isEmpty)
-                  Text(
-                    'No medicines added yet. Use the form below to add medicines.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                  )
-                else
+                if (_medicines.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   Column(
                     children: [
                       for (int i = 0; i < _medicines.length; i++) ...[
@@ -627,141 +624,140 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                       ],
                     ],
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ── Add medicine form ──────────────────────────────────────────────
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.add_circle_outline, size: 18, color: SevaCareColors.mint),
-                    const SizedBox(width: 8),
-                    Text('Add Medicine', style: AppTextStyles.cardTitle(SevaCareColors.text)),
-                  ],
-                ),
+                ],
                 const SizedBox(height: 12),
-                AppFormField(
-                  label: 'Medicine Name',
-                  controller: _medNameCtrl,
-                  required: true,
-                  placeholder: 'e.g. Paracetamol',
+                const SectionDivider(),
+                const SizedBox(height: 12),
+
+                // ── Accordion: Add Medicine ────────────────────────────────
+                GestureDetector(
+                  onTap: () => setState(() => _addMedicineExpanded = !_addMedicineExpanded),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_circle_outline, size: 18, color: SevaCareColors.mint),
+                      const SizedBox(width: 8),
+                      Text('Add Medicine', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                      const Spacer(),
+                      Icon(
+                        _addMedicineExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: SevaCareColors.mint,
+                      ),
+                    ],
+                  ),
                 ),
-                if (_medicineSuggestions.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: SevaCareColors.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
-                    ),
-                    child: Column(
-                      children: _medicineSuggestions.asMap().entries.map((e) {
-                        final isLast = e.key == _medicineSuggestions.length - 1;
-                        return Column(
-                          children: [
-                            InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () {
-                                _medNameCtrl.text = e.value;
-                                setState(() => _medicineSuggestions = []);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.medication_outlined, size: 14, color: SevaCareColors.primary),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: Text(e.value, style: AppTextStyles.bodyText(SevaCareColors.text))),
-                                    const Icon(Icons.north_west, size: 12, color: SevaCareColors.textMuted),
-                                  ],
+                if (_addMedicineExpanded) ...[
+                  const SizedBox(height: 12),
+                  AppFormField(
+                    label: 'Medicine Name',
+                    controller: _medNameCtrl,
+                    required: true,
+                    placeholder: 'e.g. Paracetamol',
+                  ),
+                  if (_medicineSuggestions.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: SevaCareColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+                      ),
+                      child: Column(
+                        children: _medicineSuggestions.asMap().entries.map((e) {
+                          final isLast = e.key == _medicineSuggestions.length - 1;
+                          return Column(
+                            children: [
+                              InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () {
+                                  _medNameCtrl.text = e.value;
+                                  setState(() => _medicineSuggestions = []);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.medication_outlined, size: 14, color: SevaCareColors.primary),
+                                      const SizedBox(width: 10),
+                                      Expanded(child: Text(e.value, style: AppTextStyles.bodyText(SevaCareColors.text))),
+                                      const Icon(Icons.north_west, size: 12, color: SevaCareColors.textMuted),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (!isLast) const Divider(height: 1, indent: 38, color: SevaCareColors.border),
-                          ],
-                        );
-                      }).toList(),
+                              if (!isLast) const Divider(height: 1, indent: 38, color: SevaCareColors.border),
+                            ],
+                          );
+                        }).toList(),
+                      ),
                     ),
+                  AppFormField(
+                    label: 'Strength',
+                    controller: _medStrengthCtrl,
+                    placeholder: 'e.g. 500mg',
                   ),
-                AppFormField(
-                  label: 'Strength',
-                  controller: _medStrengthCtrl,
-                  placeholder: 'e.g. 500mg',
-                ),
-                AppFormField(
-                  label: 'Frequency',
-                  controller: _medFreqCtrl,
-                  placeholder: 'e.g. Twice daily',
-                ),
-                AppFormField(
-                  label: 'Duration',
-                  controller: _medDurationCtrl,
-                  placeholder: 'e.g. 5 days',
-                ),
-                AppFormField(
-                  label: 'Instructions',
-                  controller: _medInstructionsCtrl,
-                  placeholder: 'e.g. After meals',
-                  maxLines: 2,
-                ),
-                PrimaryButton(
-                  label: 'Add to List',
-                  icon: Icons.add,
-                  onPressed: _addMedicine,
-                  fullWidth: true,
-                ),
+                  AppFormField(
+                    label: 'Frequency',
+                    controller: _medFreqCtrl,
+                    placeholder: 'e.g. Twice daily',
+                  ),
+                  AppFormField(
+                    label: 'Duration',
+                    controller: _medDurationCtrl,
+                    placeholder: 'e.g. 5 days',
+                  ),
+                  AppFormField(
+                    label: 'Instructions',
+                    controller: _medInstructionsCtrl,
+                    placeholder: 'e.g. After meals',
+                    maxLines: 2,
+                  ),
+                  PrimaryButton(
+                    label: 'Add to List',
+                    icon: Icons.add,
+                    onPressed: _addMedicine,
+                    fullWidth: true,
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
           // ── Notes ──────────────────────────────────────────────────────────
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.notes_outlined, size: 18, color: SevaCareColors.textMuted),
-                    const SizedBox(width: 8),
-                    Text('Doctor Notes', style: AppTextStyles.cardTitle(SevaCareColors.text)),
-                    Text(' (optional)', style: AppTextStyles.label(SevaCareColors.textMuted)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _notesCtrl,
-                  maxLines: 4,
-                  style: AppTextStyles.inputText(SevaCareColors.text),
-                  decoration: InputDecoration(
-                    hintText: 'Enter any clinical notes, diagnosis, or instructions...',
-                    hintStyle: AppTextStyles.inputHint(
-                      SevaCareColors.textMuted.withValues(alpha: 0.6),
-                    ),
-                    filled: true,
-                    fillColor: SevaCareColors.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: SevaCareColors.primary, width: 2),
-                    ),
-                  ),
-                ),
-              ],
+          Row(
+            children: [
+              const Icon(Icons.notes_outlined, size: 16, color: SevaCareColors.textMuted),
+              const SizedBox(width: 6),
+              Text('Doctor Notes', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.text)),
+              Text(' (optional)', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _notesCtrl,
+            maxLines: 4,
+            style: AppTextStyles.inputText(SevaCareColors.text),
+            decoration: InputDecoration(
+              hintText: 'Enter any clinical notes, diagnosis, or instructions...',
+              hintStyle: AppTextStyles.inputHint(
+                SevaCareColors.textMuted.withValues(alpha: 0.6),
+              ),
+              filled: true,
+              fillColor: SevaCareColors.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: SevaCareColors.primary, width: 2),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -904,13 +900,6 @@ class _IntakeAssistCard extends StatelessWidget {
               ),
             );
           }),
-          const SizedBox(height: 6),
-          Text(
-            'AI hints from intake data — clinical judgement prevails.',
-            style: AppTextStyles.label(
-              SevaCareColors.textMuted.withValues(alpha: 0.7),
-            ),
-          ),
         ],
       ),
     );
@@ -991,11 +980,6 @@ class _UploadedPrescriptionsCard extends StatelessWidget {
                 );
               },
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Tap a photo to view full size.',
-            style: AppTextStyles.label(SevaCareColors.textMuted),
           ),
         ],
       ),

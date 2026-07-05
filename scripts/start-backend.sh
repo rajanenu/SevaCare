@@ -70,12 +70,16 @@ if [ -z "$JAR_PATH" ]; then
 fi
 
 # Start
+# CORS: allow the local web app plus any phone browser on the LAN (192.168.x /
+# 10.x) hitting the frontend port — needed for mobile-browser testing.
+CORS_ORIGINS="http://localhost:$FRONTEND_PORT,http://192.168.*:$FRONTEND_PORT,http://10.*:$FRONTEND_PORT"
 print_info "Starting backend on $BACKEND_LOCAL_URL..."
 java -jar "$JAR_PATH" \
   --server.port=$BACKEND_PORT \
   --spring.datasource.url=$DB_URL \
   --spring.datasource.username=$DB_USER \
   --spring.datasource.password=$DB_PASSWORD \
+  --sevacare.cors.allowed-origins="$CORS_ORIGINS" \
   >> "$LOGS_DIR/backend.log" 2>&1 &
 
 BACKEND_PID=$!

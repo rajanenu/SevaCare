@@ -41,7 +41,9 @@ public final class PatientDtos {
             String tokenSession,
             String note,
             String vitals,
-            List<AttachmentUploadRequest> attachments
+            List<AttachmentUploadRequest> attachments,
+            // "PATIENT_APP" (default when blank), "QR_CODE", or "IP_STAFF" — how this booking was created.
+            String bookingSource
         ) {
         }
 
@@ -290,7 +292,8 @@ public final class PatientDtos {
                 List<AttachmentView> attachments,
                 String bookingType,
                 Integer tokenNumber,
-                String tokenSession
+                String tokenSession,
+                String bookingSource
             ) {
             }
 

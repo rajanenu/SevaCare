@@ -10,6 +10,7 @@ import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
+import 'queue_board_screen.dart';
 
 // ── Doctor bottom nav items ───────────────────────────────────────────────────
 
@@ -37,11 +38,29 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   bool _loading = false;
   String? _error;
   int _queueFilter = 0; // 0=All, 1=Upcoming, 2=Completed
+  int _pendingBookingRequests = 0;
 
   @override
   void initState() {
     super.initState();
     _loadQueue();
+    _loadBookingRequestCount();
+  }
+
+  /// Fetches the count of pending QR booking requests for the badge. Best-effort:
+  /// failures are swallowed so the dashboard never breaks over the badge.
+  Future<void> _loadBookingRequestCount() async {
+    try {
+      final auth = ref.read(authProvider);
+      final data = await ref.read(repositoryProvider).getDoctorAppointmentRequests(
+            auth.tenantPublicId ?? '',
+            auth.subjectPublicId ?? '',
+            auth.token ?? '',
+          );
+      if (mounted) setState(() => _pendingBookingRequests = data.pendingCount);
+    } catch (_) {
+      // ignore — badge simply won't show
+    }
   }
 
   String get _selectedDate => AppDateUtils.offsetDay(_dayOffset);
@@ -191,7 +210,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                 style: AppTextStyles.cardTitle(SevaCareColors.textOnPrimary),
                               ),
                               const SizedBox(height: 6),
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -217,7 +239,6 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   GestureDetector(
                                     onTap: () => showSlotBlockSheet(context),
                                     child: Container(
@@ -243,6 +264,21 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                       ),
                                     ),
                                   ),
+                                  GestureDetector(
+                                    onTap: () => context.push('/doctor/queue-board'),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.18),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      child: const Icon(Icons.tv_rounded,
+                                          size: 14, color: Colors.white),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -256,6 +292,18 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // ── QR Booking Requests entry (only when there's something new) ─────
+          if (_pendingBookingRequests > 0) ...[
+            _BookingRequestsCard(
+              pendingCount: _pendingBookingRequests,
+              onTap: () async {
+                await context.push('/doctor/booking-requests');
+                _loadBookingRequestCount();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // ── Day selector ─────────────────────────────────────────────────────
           SegmentedControl<int>(
@@ -348,10 +396,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             ),
           ],
           if (!_loading && _error == null) ...[
-            // ── Today's Insight banner ───────────────────────────────────────
-            if (queueView != null)
-              _TodayInsightBanner(queueView: queueView),
-            const SizedBox(height: 16),
+            if (queueView != null && computeQueueStates(queueView.facets).isNotEmpty) ...[
+              _NowServingStrip(states: computeQueueStates(queueView.facets)),
+              const SizedBox(height: 16),
+            ],
             MetricRow(
               tiles: [
                 MetricTile(
@@ -384,20 +432,21 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             const SizedBox(height: 12),
 
             if (filteredFacets.isEmpty)
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(ref, 'No appointments found.'),
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(ref, 'Your queue for this day is clear.'),
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
-                    ),
-                  ],
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 36),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.self_improvement_rounded, size: 32, color: SevaCareColors.border),
+                      const SizedBox(height: 10),
+                      Text(
+                        tr(ref, "You're free! Lighter day today"),
+                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -444,17 +493,23 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
 
                           // Chips row
                           if (facet.medicines.isNotEmpty || facet.followUp ||
-                              (facet.symptoms?.startsWith('Booked by IP-Staff') == true)) ...[
+                              facet.bookingSource == 'IP_STAFF' || facet.isQrBooking) ...[
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 6,
                               runSpacing: 4,
                               children: [
-                                if (facet.symptoms?.startsWith('Booked by IP-Staff') == true)
+                                if (facet.bookingSource == 'IP_STAFF')
                                   _Chip(
                                     label: tr(ref, 'IP-Staff Booking'),
                                     color: const Color(0xFFFFF4EE),
                                     textColor: SevaCareColors.peachForeground,
+                                  ),
+                                if (facet.isQrBooking)
+                                  _Chip(
+                                    label: tr(ref, 'QR Booking'),
+                                    color: SevaCareColors.primarySoft,
+                                    textColor: SevaCareColors.primary,
                                   ),
                                 if (facet.medicines.isNotEmpty)
                                   _Chip(
@@ -533,6 +588,63 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   }
 }
 
+// ── QR Booking Requests entry card ──────────────────────────────────────────────
+
+class _BookingRequestsCard extends StatelessWidget {
+  final int pendingCount;
+  final VoidCallback onTap;
+
+  const _BookingRequestsCard({required this.pendingCount, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: SevaCareColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFD97706).withValues(alpha: 0.45),
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: SevaCareColors.primarySoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.qr_code_scanner_rounded, color: SevaCareColors.primary, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                '$pendingCount new QR booking${pendingCount == 1 ? '' : 's'}',
+                style: AppTextStyles.cardTitle(SevaCareColors.text),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD97706),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text('$pendingCount', style: AppTextStyles.badgeText(Colors.white)),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: SevaCareColors.textMuted, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Small chip widget ─────────────────────────────────────────────────────────
 
 class _Chip extends StatelessWidget {
@@ -562,130 +674,52 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── Today's Insight Banner ─────────────────────────────────────────────────────
+// ── Now Serving strip (compact preview of the live queue board) ───────────────
 
-class _TodayInsightBanner extends ConsumerStatefulWidget {
-  final DoctorQueueDayView queueView;
-  const _TodayInsightBanner({required this.queueView});
-
-  @override
-  ConsumerState<_TodayInsightBanner> createState() => _TodayInsightBannerState();
-}
-
-class _TodayInsightBannerState extends ConsumerState<_TodayInsightBanner>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
+class _NowServingStrip extends ConsumerWidget {
+  final List<SessionQueueState> states;
+  const _NowServingStrip({required this.states});
 
   @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  String get _insightText {
-    final total = widget.queueView.totalAppointments;
-    final pending = widget.queueView.pendingNotes;
-    final avg = widget.queueView.avgConsultMinutes;
-    final done = total - pending;
-    if (total == 0) return 'No appointments today. Enjoy a lighter day!';
-    if (done == total) return 'All $total patients seen today. Excellent work!';
-    if (done == 0) return '$total patients waiting. Your queue starts now.';
-    return '$done/$total patients seen · $pending pending · Avg $avg min/consult';
-  }
-
-  Color get _accentColor {
-    final pending = widget.queueView.pendingNotes;
-    if (pending == 0) return SevaCareColors.mint;
-    if (pending <= 2) return SevaCareColors.peach;
-    return SevaCareColors.primary;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (_, child) {
-        final glow = _pulse.value;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                _accentColor.withValues(alpha: 0.08 + glow * 0.04),
-                _accentColor.withValues(alpha: 0.04),
-              ],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _accentColor.withValues(alpha: 0.22 + glow * 0.10),
-              width: 1.5,
-            ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => context.push('/doctor/queue-board'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: SevaCareColors.heroGradient,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
           ),
-          child: Row(
-            children: [
-              // Pulsing icon
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _accentColor.withValues(alpha: 0.12 + glow * 0.08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.insights_rounded,
-                  color: _accentColor,
-                  size: 22,
-                ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.tv_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr(ref, 'NOW SERVING'),
+                      style: AppTextStyles.label(Colors.white.withValues(alpha: 0.75))),
+                  const SizedBox(height: 2),
+                  Text(
+                    states
+                        .map((s) => '#${s.nowServing ?? '-'} ${s.session == 'EVENING' ? '(Eve)' : '(Morn)'}')
+                        .join('  ·  '),
+                    style: AppTextStyles.cardTitle(Colors.white),
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 7, height: 7,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _accentColor.withValues(alpha: 0.5 + glow * 0.5),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          tr(ref, "TODAY'S INSIGHT"),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: _accentColor,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _insightText,
-                      style: AppTextStyles.bodyText(SevaCareColors.text),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+            Text(tr(ref, 'Open board'), style: AppTextStyles.label(Colors.white.withValues(alpha: 0.85))),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }

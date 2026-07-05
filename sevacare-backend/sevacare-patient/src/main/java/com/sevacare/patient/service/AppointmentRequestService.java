@@ -1,10 +1,13 @@
 package com.sevacare.patient.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.shared.dto.HospitalManagementDtos;
 
@@ -12,9 +15,11 @@ import com.sevacare.shared.dto.HospitalManagementDtos;
 public class AppointmentRequestService {
 
     private final JdbcTemplate jdbc;
+    private final PatientDomainService patientDomainService;
 
-    public AppointmentRequestService(JdbcTemplate jdbc) {
+    public AppointmentRequestService(JdbcTemplate jdbc, PatientDomainService patientDomainService) {
         this.jdbc = jdbc;
+        this.patientDomainService = patientDomainService;
     }
 
     public HospitalManagementDtos.AppointmentRequestView submitAppointmentRequest(
@@ -70,43 +75,79 @@ public class AppointmentRequestService {
         return new HospitalManagementDtos.AppointmentRequestCollection(tenantPublicId, doctorPublicId, requests);
     }
 
+    @Transactional
     public HospitalManagementDtos.AppointmentRequestConfirmResponse confirmAndCreateAppointment(
             String tenantPublicId,
             String doctorPublicId,
             String requestPublicId,
             HospitalManagementDtos.AppointmentRequestConfirmRequest confirmReq
     ) {
-        LocalDateTime now = LocalDateTime.now();
-
-        // Update request status to confirmed
-        jdbc.update(
-            "UPDATE public.appointment_request SET request_status = ?, assigned_slot = ?, notes = ?, updated_at = ? " +
-            "WHERE request_public_id = ? AND tenant_public_id = ? AND doctor_public_id = ?",
-            "confirmed", confirmReq.assignedSlot(), confirmReq.notes(), now,
+        List<PendingRequestRow> rows = jdbc.query(
+            "SELECT patient_mobile, patient_name, patient_age, specialty, preferred_date, request_status " +
+            "FROM public.appointment_request WHERE request_public_id = ? AND tenant_public_id = ? AND doctor_public_id = ?",
+            (rs, rowNum) -> new PendingRequestRow(
+                rs.getString("patient_mobile"),
+                rs.getString("patient_name"),
+                rs.getInt("patient_age"),
+                rs.getString("specialty"),
+                rs.getDate("preferred_date").toLocalDate(),
+                rs.getString("request_status")
+            ),
             requestPublicId, tenantPublicId, doctorPublicId
         );
 
-        // Get patient mobile and details from request
-        var requestDetails = jdbc.queryForMap(
-            "SELECT patient_mobile, patient_name, patient_age FROM public.appointment_request WHERE request_public_id = ?",
-            requestPublicId
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Appointment request not found: " + requestPublicId);
+        }
+        PendingRequestRow row = rows.get(0);
+        if (!"pending".equals(row.requestStatus())) {
+            throw new IllegalStateException("Appointment request is already " + row.requestStatus());
+        }
+
+        // Creates a real patient + appointment via the same path as the patient app and
+        // IP-Staff, so the confirmed QR patient shows up in the doctor's queue/consult
+        // screen, the IP-Staff patient list, and admin totals — not just this table.
+        var bookingResult = patientDomainService.confirmQrAppointmentRequest(
+            tenantPublicId,
+            doctorPublicId,
+            row.patientMobile(),
+            row.patientName(),
+            row.patientAge(),
+            row.specialty(),
+            row.preferredDate(),
+            confirmReq
         );
 
-        // Create actual appointment in tenant schema
-        String appointmentPublicId = "APT-" + ThreadLocalRandom.current().nextInt(1000, 99999);
-        String tenantSchema = "tenant_" + tenantPublicId.toLowerCase().replace("-", "_");
+        String assignedSlotDisplay = "TOKEN".equals(bookingResult.bookingType())
+            ? "Token #" + bookingResult.tokenNumber() + " · " + bookingResult.tokenSession()
+                + " · " + bookingResult.slot()
+            : bookingResult.slot();
 
-        String notes = confirmReq.notes() != null ? confirmReq.notes() : "";
-        jdbc.update(
-            "INSERT INTO " + tenantSchema + ".appointment " +
-            "(appointment_public_id, patient_public_id, doctor_public_id, appointment_slot, appointment_status, notes, tenant_public_id) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            appointmentPublicId, requestDetails.get("patient_mobile"), doctorPublicId,
-            confirmReq.assignedSlot(), "confirmed", notes, tenantPublicId
+        LocalDateTime now = LocalDateTime.now();
+        int updated = jdbc.update(
+            "UPDATE public.appointment_request SET request_status = ?, assigned_slot = ?, notes = ?, " +
+            "appointment_public_id = ?, updated_at = ? " +
+            "WHERE request_public_id = ? AND tenant_public_id = ? AND doctor_public_id = ? AND request_status = 'pending'",
+            "confirmed", assignedSlotDisplay, confirmReq.notes(), bookingResult.appointmentPublicId(), now,
+            requestPublicId, tenantPublicId, doctorPublicId
         );
+
+        if (updated == 0) {
+            throw new IllegalStateException("Appointment request was already confirmed by another request");
+        }
 
         return new HospitalManagementDtos.AppointmentRequestConfirmResponse(
-            requestPublicId, appointmentPublicId, "confirmed", confirmReq.assignedSlot(), now
+            requestPublicId, bookingResult.appointmentPublicId(), "confirmed", assignedSlotDisplay, now
         );
+    }
+
+    private record PendingRequestRow(
+        String patientMobile,
+        String patientName,
+        int patientAge,
+        String specialty,
+        LocalDate preferredDate,
+        String requestStatus
+    ) {
     }
 }

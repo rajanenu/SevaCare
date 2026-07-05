@@ -102,6 +102,7 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
         ];
         if (i < routes.length) context.go(routes[i]);
       },
+      scrollable: false,
       body: RefreshIndicator(
         onRefresh: _load,
         child: SingleChildScrollView(

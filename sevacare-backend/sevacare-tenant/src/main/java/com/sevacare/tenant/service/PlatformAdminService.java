@@ -123,13 +123,18 @@ public class PlatformAdminService {
 
     @Transactional
     public PlatformAdminDtos.PlatformTenantView createTenant(PlatformAdminDtos.PlatformTenantUpsertRequest request) {
+        // Contact mobile is mandatory: it becomes the hospital's first admin login.
+        String contactMobile = normalizeNullable(request.contactMobile());
+        if (contactMobile == null) {
+            throw new IllegalArgumentException("Contact mobile number is required — it becomes the hospital admin login.");
+        }
         String tenantPublicId = tenantRegistryService.nextTenantPublicId();
         TenantRegistry tenant = tenantRegistryService.provisionTenant(
                 tenantPublicId,
                 request.hospitalName().trim(),
                 normalizeThemeKey(request.themeKey()),
                 defaultContactName(request.contactName(), request.hospitalName()),
-                normalizeNullable(request.contactMobile()),
+                contactMobile,
                 normalizeNullable(request.contactEmail())
         );
         tenant.setCity(normalizeNullable(request.city()) != null ? request.city().trim() : "");
@@ -152,6 +157,16 @@ public class PlatformAdminService {
         TenantRegistry saved = tenantRegistryRepository.save(tenant);
         syncHospitalAdmin(saved, request.contactName(), request.contactMobile(), request.contactEmail());
         return toTenantView(saved);
+    }
+
+    @Transactional
+    public void updateTenantHeroImage(String tenantPublicId, PlatformAdminDtos.PlatformTenantHeroImageRequest request) {
+        String imageBase64 = request.imageBase64();
+        if (imageBase64 != null && imageBase64.length() > 4_000_000) {
+            throw new IllegalArgumentException("Hero image too large — please upload an image under ~3 MB.");
+        }
+        findTenant(tenantPublicId); // 404 semantics for unknown tenants
+        tenantRegistryService.updateTenantHeroImage(tenantPublicId, imageBase64, request.contentType());
     }
 
     @Transactional

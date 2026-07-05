@@ -36,6 +36,13 @@ class DoctorPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // When identity is unknown (e.g. the split-second after sign-out while the
+    // profile screen is still mounted), render a neutral avatar instead of the
+    // first pooled stock photo — that pool photo is a real person's face and
+    // caused a jarring "someone else's photo" flash on logout.
+    if (doctorId.isEmpty) {
+      return _NeutralAvatar(width: width, height: height, borderRadius: borderRadius);
+    }
     return ClipRRect(
       borderRadius: borderRadius,
       child: Image.asset(
@@ -45,6 +52,30 @@ class DoctorPhoto extends StatelessWidget {
         fit: fit,
         alignment: alignment,
       ),
+    );
+  }
+}
+
+/// Neutral placeholder shown when no identity is available yet.
+class _NeutralAvatar extends StatelessWidget {
+  final double? width;
+  final double? height;
+  final BorderRadius borderRadius;
+
+  const _NeutralAvatar({this.width, this.height, this.borderRadius = BorderRadius.zero});
+
+  @override
+  Widget build(BuildContext context) {
+    final side = (width ?? height ?? 48);
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: borderRadius,
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.person, color: const Color(0xFF94A3B8), size: side * 0.5),
     );
   }
 }

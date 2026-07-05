@@ -205,20 +205,27 @@ class _AppointmentCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                Icons.access_time,
-                size: 13,
-                color: SevaCareColors.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                appointment.slot,
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-              ),
-            ],
-          ),
+          if (appointment.bookingType == 'TOKEN' && appointment.tokenNumber != null)
+            _TokenTicket(
+              tokenNumber: appointment.tokenNumber!,
+              session: appointment.tokenSession,
+              variant: _variant,
+            )
+          else
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 13,
+                  color: SevaCareColors.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  appointment.slot,
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                ),
+              ],
+            ),
           const SizedBox(height: 4),
           Text(
             appointment.appointmentPublicId,
@@ -286,6 +293,46 @@ class _AppointmentCard extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+// ── Token ticket — a boarding-pass style visual for token bookings ───────────
+
+class _TokenTicket extends StatelessWidget {
+  final int tokenNumber;
+  final String? session;
+  final MetricVariant variant;
+  const _TokenTicket({required this.tokenNumber, this.session, required this.variant});
+
+  Color get _accent => switch (variant) {
+    MetricVariant.mint => SevaCareColors.mint,
+    MetricVariant.danger => SevaCareColors.danger,
+    MetricVariant.peach => SevaCareColors.peach,
+    MetricVariant.primary => SevaCareColors.primary,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.confirmation_number_rounded, size: 18, color: _accent),
+          const SizedBox(width: 8),
+          Text('Token #$tokenNumber', style: AppTextStyles.cardTitle(_accent)),
+          const SizedBox(width: 8),
+          Text(
+            session == 'EVENING' ? 'Evening session' : 'Morning session',
+            style: AppTextStyles.label(SevaCareColors.textMuted),
+          ),
+        ],
+      ),
+    );
   }
 }
 

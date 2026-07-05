@@ -140,17 +140,27 @@ public class HospitalManagementService {
             tenantPublicId
         );
 
+        // Pull the hospital's REAL doctors from its tenant schema so the QR
+        // booking stores the same doctor_public_id (D-xxxx) that the doctor
+        // logs in with. The old query used public.doctor_hospital_enrollment
+        // (DE-xxxxx ids), which never matched a logged-in doctor — so QR
+        // bookings could never reach the doctor's inbox.
+        String schema = tenantSchema(tenantPublicId);
         var doctors = jdbc.query(
-            "SELECT doctor_enrollment_public_id, doctor_name, specialty FROM public.doctor_hospital_enrollment " +
-            "WHERE tenant_public_id = ? AND active = true ORDER BY doctor_name",
+            "SELECT doctor_public_id, full_name, specialty FROM " + schema + ".doctor " +
+            "WHERE active = true ORDER BY full_name",
             (rs, rowNum) -> new HospitalManagementDtos.QRCodeFormDataResponse.DoctorOption(
-                rs.getString("doctor_enrollment_public_id"),
-                rs.getString("doctor_name"),
+                rs.getString("doctor_public_id"),
+                rs.getString("full_name"),
                 rs.getString("specialty")
-            ),
-            tenantPublicId
+            )
         );
 
         return new HospitalManagementDtos.QRCodeFormDataResponse(tenantPublicId, tenantName, doctors);
+    }
+
+    /** Postgres schema name for a tenant, e.g. T-1013 → tenant_t_1013. */
+    public static String tenantSchema(String tenantPublicId) {
+        return "tenant_" + tenantPublicId.toLowerCase().replace("-", "_");
     }
 }

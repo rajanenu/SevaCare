@@ -61,6 +61,12 @@ public class DiscoveryController {
         return ContractResponse.of(new DiscoveryDtos.TenantDirectory(tenantRegistryService.listTenantSummaries()));
     }
 
+    /** Hospital hero image for the login-screen background — public because it renders pre-auth. */
+    @GetMapping("/tenants/{tenantPublicId}/hero-image")
+    public ContractResponse<DiscoveryDtos.TenantHeroImage> getTenantHeroImage(@PathVariable String tenantPublicId) {
+        return ContractResponse.of(tenantRegistryService.getTenantHeroImage(tenantPublicId));
+    }
+
     @GetMapping("/tenants/{tenantPublicId}/doctors")
     public ContractResponse<DiscoveryDtos.DoctorDirectory> listDoctors(@PathVariable String tenantPublicId) {
         String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);

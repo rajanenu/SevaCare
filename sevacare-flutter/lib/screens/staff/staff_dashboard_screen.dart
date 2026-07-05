@@ -77,6 +77,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
         children: [
           _StaffHeroBanner(
             name: auth.subjectName.isNotEmpty ? auth.subjectName : 'Staff',
+            userId: auth.subjectPublicId ?? '',
           ),
           const SizedBox(height: 16),
           _TabBar(
@@ -117,7 +118,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 
 class _StaffHeroBanner extends StatelessWidget {
   final String name;
-  const _StaffHeroBanner({required this.name});
+  final String userId;
+  const _StaffHeroBanner({required this.name, required this.userId});
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -154,16 +156,16 @@ class _StaffHeroBanner extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.35),
+                        color: Colors.white.withValues(alpha: 0.55),
+                        width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.badge_rounded,
-                      size: 26,
-                      color: SevaCareColors.textOnPrimary,
+                    child: StaffPhoto.circle(
+                      userId: userId,
+                      size: 52,
+                      isStaff: true,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1527,6 +1529,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
           tokenSession: isToken ? _tokenSession : null,
           note: 'Booked by IP-Staff: $staffId',
           vitals: _composeVitals(),
+          bookingSource: 'IP_STAFF',
           attachments: _attachments.isEmpty
               ? null
               : _attachments
@@ -1631,253 +1634,259 @@ class _BookTabState extends ConsumerState<_BookTab> {
             const SizedBox(height: 12),
           ],
 
-          // ── Patient Details ───────────────────────────────────────────────────
-          _Card(
-            icon: Icons.person_outline,
-            title: 'Patient Details',
-            child: Column(
-              children: [
-                AppFormField(
-                  label: 'Patient Name',
-                  placeholder: 'Full name',
-                  controller: _nameCtrl,
-                  required: true,
-                  readOnly: _hasPrefill,
-                ),
-                AppFormField(
-                  label: 'Mobile Number',
-                  placeholder: '10-digit mobile',
-                  controller: _mobileCtrl,
-                  required: true,
-                  keyboardType: TextInputType.phone,
-                  readOnly: _hasPrefill,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                ),
-                AppFormField(
-                  label: 'Age',
-                  placeholder: 'Age in years',
-                  controller: _ageCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      'Gender:',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
-                    ),
-                    const SizedBox(width: 12),
-                    _ToggleChip(
-                      label: 'Male',
-                      selected: _gender == 'male',
-                      onTap: () => setState(() => _gender = 'male'),
-                    ),
-                    const SizedBox(width: 8),
-                    _ToggleChip(
-                      label: 'Female',
-                      selected: _gender == 'female',
-                      onTap: () => setState(() => _gender = 'female'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Intake vitals (optional, visible to the doctor at consult) ────────
-          // Same collapsed-accordion format as the doctor's vitals section.
-          _StaffVitalsSection(
-            expanded: _vitalsExpanded,
-            onToggle: () => setState(() => _vitalsExpanded = !_vitalsExpanded),
-            systolicCtrl: _systolicCtrl,
-            diastolicCtrl: _diastolicCtrl,
-            tempCtrl: _tempCtrl,
-            pulseCtrl: _pulseCtrl,
-            weightCtrl: _weightCtrl,
-            spo2Ctrl: _spo2Ctrl,
-            sugarCtrl: _sugarCtrl,
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Prescription attachments ────────────────────────────────────────
+          // ── Booking details: patient, vitals, prescriptions, specialty ────────
           AppCard(
-            padding: const EdgeInsets.all(14),
-            child: PrescriptionAttachmentPicker(
-              key: ValueKey(_attachmentsResetKey),
-              onChanged: (files) => setState(() => _attachments = files),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Specialty & Doctor ────────────────────────────────────────────────
-          _Card(
-            icon: Icons.medical_services_outlined,
-            title: 'Specialty & Doctor',
-            trailing: _loadingSetup
-                ? null
-                : IconButton(
-                    icon: const Icon(
-                      Icons.refresh,
-                      size: 16,
-                      color: SevaCareColors.textMuted,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionHeader(icon: Icons.person_outline, title: 'Patient Details'),
+                const SizedBox(height: 12),
+                Column(
+                  children: [
+                    AppFormField(
+                      label: 'Patient Name',
+                      placeholder: 'Full name',
+                      controller: _nameCtrl,
+                      required: true,
+                      readOnly: _hasPrefill,
                     ),
-                    onPressed: _loadSetup,
-                    tooltip: 'Reload',
-                  ),
-            child: _loadingSetup
-                ? const _Spinner(label: 'Loading specialties & doctors…')
-                : _setupError != null
-                ? _RetryRow(msg: _setupError!, onRetry: _loadSetup)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_setup!.specialties.isEmpty)
+                    AppFormField(
+                      label: 'Mobile Number',
+                      placeholder: '10-digit mobile',
+                      controller: _mobileCtrl,
+                      required: true,
+                      keyboardType: TextInputType.phone,
+                      readOnly: _hasPrefill,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                    ),
+                    AppFormField(
+                      label: 'Age',
+                      placeholder: 'Age in years',
+                      controller: _ageCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
                         Text(
-                          'No specialties configured.',
-                          style: AppTextStyles.bodyText(
-                            SevaCareColors.textMuted,
-                          ),
-                        )
-                      else ...[
-                        AppDropdown<String>(
-                          label: 'Specialty',
-                          value: _setup!.specialties.contains(_specialty)
-                              ? _specialty
-                              : _setup!.specialties.first,
-                          items: _setup!.specialties
-                              .map(
-                                (s) =>
-                                    DropdownMenuItem(value: s, child: Text(s)),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _specialty = v;
-                                _doctorId = '';
-                                _doctorName = '';
-                                _slot = '';
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Choose Doctor',
+                          'Gender:',
                           style: AppTextStyles.label(SevaCareColors.textMuted),
                         ),
-                        const SizedBox(height: 8),
-                        if (_filteredDoctors.isEmpty)
-                          Text(
-                            'No doctors available for this specialty.',
-                            style: AppTextStyles.bodyText(
-                              SevaCareColors.textMuted,
+                        const SizedBox(width: 12),
+                        _ToggleChip(
+                          label: 'Male',
+                          selected: _gender == 'male',
+                          onTap: () => setState(() => _gender = 'male'),
+                        ),
+                        const SizedBox(width: 8),
+                        _ToggleChip(
+                          label: 'Female',
+                          selected: _gender == 'female',
+                          onTap: () => setState(() => _gender = 'female'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                const SectionDivider(),
+                const SizedBox(height: 12),
+
+                // Same collapsed-accordion format as the doctor's vitals section.
+                _StaffVitalsSection(
+                  expanded: _vitalsExpanded,
+                  onToggle: () => setState(() => _vitalsExpanded = !_vitalsExpanded),
+                  systolicCtrl: _systolicCtrl,
+                  diastolicCtrl: _diastolicCtrl,
+                  tempCtrl: _tempCtrl,
+                  pulseCtrl: _pulseCtrl,
+                  weightCtrl: _weightCtrl,
+                  spo2Ctrl: _spo2Ctrl,
+                  sugarCtrl: _sugarCtrl,
+                ),
+
+                const SizedBox(height: 12),
+                const SectionDivider(),
+                const SizedBox(height: 12),
+
+                PrescriptionAttachmentPicker(
+                  key: ValueKey(_attachmentsResetKey),
+                  onChanged: (files) => setState(() => _attachments = files),
+                ),
+
+                const SizedBox(height: 16),
+                const SectionDivider(),
+                const SizedBox(height: 12),
+
+                _SectionHeader(
+                  icon: Icons.medical_services_outlined,
+                  title: 'Specialty & Doctor',
+                  trailing: _loadingSetup
+                      ? null
+                      : IconButton(
+                          icon: const Icon(
+                            Icons.refresh,
+                            size: 16,
+                            color: SevaCareColors.textMuted,
+                          ),
+                          onPressed: _loadSetup,
+                          tooltip: 'Reload',
+                        ),
+                ),
+                const SizedBox(height: 12),
+                _loadingSetup
+                    ? const _Spinner(label: 'Loading specialties & doctors…')
+                    : _setupError != null
+                    ? _RetryRow(msg: _setupError!, onRetry: _loadSetup)
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_setup!.specialties.isEmpty)
+                            Text(
+                              'No specialties configured.',
+                              style: AppTextStyles.bodyText(
+                                SevaCareColors.textMuted,
+                              ),
+                            )
+                          else ...[
+                            AppDropdown<String>(
+                              label: 'Specialty',
+                              value: _setup!.specialties.contains(_specialty)
+                                  ? _specialty
+                                  : _setup!.specialties.first,
+                              items: _setup!.specialties
+                                  .map(
+                                    (s) =>
+                                        DropdownMenuItem(value: s, child: Text(s)),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setState(() {
+                                    _specialty = v;
+                                    _doctorId = '';
+                                    _doctorName = '';
+                                    _slot = '';
+                                  });
+                                }
+                              },
                             ),
-                          )
-                        else
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _filteredDoctors.map((doc) {
-                              final sel = _doctorId == doc.doctorPublicId;
-                              final avail = _availabilityFor(
-                                doc.doctorPublicId,
-                              );
-                              final onLeave = avail?.onLeave ?? false;
-                              final partial =
-                                  avail?.status == 'PARTIALLY_AVAILABLE';
-                              return GestureDetector(
-                                onTap: onLeave
-                                    ? null
-                                    : () {
-                                        setState(() {
-                                          _doctorId = doc.doctorPublicId;
-                                          _doctorName = doc.name;
-                                          _slot = '';
-                                          _bookingType = doc.bookingMode == 'TOKEN' ? 'TOKEN' : 'SLOT';
-                                          _tokenSession = null;
-                                          _tokenPreviewNumber = null;
-                                        });
-                                        _loadBookedSlots();
-                                      },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 140),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: onLeave
-                                        ? SevaCareColors.surfaceMuted
-                                        : sel
-                                        ? SevaCareColors.primary
-                                        : SevaCareColors.surface,
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusPill,
-                                    ),
-                                    border: Border.all(
-                                      color: sel && !onLeave
-                                          ? SevaCareColors.primary
-                                          : SevaCareColors.border,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 12),
+                            Text(
+                              'Choose Doctor',
+                              style: AppTextStyles.label(SevaCareColors.textMuted),
+                            ),
+                            const SizedBox(height: 8),
+                            if (_filteredDoctors.isEmpty)
+                              Text(
+                                'No doctors available for this specialty.',
+                                style: AppTextStyles.bodyText(
+                                  SevaCareColors.textMuted,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _filteredDoctors.map((doc) {
+                                  final sel = _doctorId == doc.doctorPublicId;
+                                  final avail = _availabilityFor(
+                                    doc.doctorPublicId,
+                                  );
+                                  final onLeave = avail?.onLeave ?? false;
+                                  final partial =
+                                      avail?.status == 'PARTIALLY_AVAILABLE';
+                                  return GestureDetector(
+                                    onTap: onLeave
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _doctorId = doc.doctorPublicId;
+                                              _doctorName = doc.name;
+                                              _slot = '';
+                                              _bookingType = doc.bookingMode == 'TOKEN' ? 'TOKEN' : 'SLOT';
+                                              _tokenSession = null;
+                                              _tokenPreviewNumber = null;
+                                            });
+                                            _loadBookedSlots();
+                                          },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 140),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: onLeave
+                                            ? SevaCareColors.surfaceMuted
+                                            : sel
+                                            ? SevaCareColors.primary
+                                            : SevaCareColors.surface,
+                                        borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusPill,
+                                        ),
+                                        border: Border.all(
+                                          color: sel && !onLeave
+                                              ? SevaCareColors.primary
+                                              : SevaCareColors.border,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          DoctorPhoto.circle(doctorId: doc.doctorPublicId, size: 20),
-                                          const SizedBox(width: 6),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              DoctorPhoto.circle(doctorId: doc.doctorPublicId, size: 20),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                doc.name,
+                                                style: AppTextStyles.body(
+                                                  size: 13,
+                                                  weight: FontWeight.w600,
+                                                  color: onLeave
+                                                      ? SevaCareColors.textMuted
+                                                      : sel
+                                                      ? SevaCareColors.textOnPrimary
+                                                      : SevaCareColors.text,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                           Text(
-                                            doc.name,
-                                            style: AppTextStyles.body(
-                                              size: 13,
-                                              weight: FontWeight.w600,
-                                              color: onLeave
-                                                  ? SevaCareColors.textMuted
+                                            onLeave
+                                                ? 'On leave · $_date'
+                                                : partial
+                                                ? '${doc.specialty} · partly busy'
+                                                : doc.experienceYears != null
+                                                ? '${doc.specialty} · ${doc.experienceYears}y Exp'
+                                                : doc.specialty,
+                                            style: AppTextStyles.label(
+                                              onLeave
+                                                  ? SevaCareColors.danger
                                                   : sel
                                                   ? SevaCareColors.textOnPrimary
-                                                  : SevaCareColors.text,
+                                                        .withValues(alpha: 0.75)
+                                                  : SevaCareColors.textMuted,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      Text(
-                                        onLeave
-                                            ? 'On leave · $_date'
-                                            : partial
-                                            ? '${doc.specialty} · partly busy'
-                                            : doc.experienceYears != null
-                                            ? '${doc.specialty} · ${doc.experienceYears}y Exp'
-                                            : doc.specialty,
-                                        style: AppTextStyles.label(
-                                          onLeave
-                                              ? SevaCareColors.danger
-                                              : sel
-                                              ? SevaCareColors.textOnPrimary
-                                                    .withValues(alpha: 0.75)
-                                              : SevaCareColors.textMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                      ],
-                    ],
-                  ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ],
+                      ),
+              ],
+            ),
           ),
 
           // ── Slot / Token mode toggle ─────────────────────────────────────────
@@ -2086,34 +2095,8 @@ class _BookTabState extends ConsumerState<_BookTab> {
             ),
           ],
 
-          // ── Info + errors + submit ─────────────────────────────────────────────
+          // ── Errors + submit ───────────────────────────────────────────────────
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: SevaCareColors.primarySoft,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: SevaCareColors.primary.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.badge_outlined,
-                  size: 14,
-                  color: SevaCareColors.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Appointment is tagged as IP-Staff booking and appears directly in the doctor\'s queue.',
-                    style: AppTextStyles.label(SevaCareColors.primary),
-                  ),
-                ),
-              ],
-            ),
-          ),
           if (_error != null) ...[
             const SizedBox(height: 10),
             _Banner(msg: _error!, isError: true),
@@ -2840,103 +2823,58 @@ class _StaffVitalsSection extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: onToggle,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: expanded ? const Color(0xFFF0FBF7) : SevaCareColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: expanded ? SevaCareColors.mint : SevaCareColors.border,
+          child: Row(
+            children: [
+              Icon(
+                Icons.monitor_heart_outlined,
+                size: 16,
+                color: expanded ? SevaCareColors.mint : SevaCareColors.primary,
               ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: expanded
-                        ? SevaCareColors.mint.withValues(alpha: 0.15)
-                        : SevaCareColors.primarySoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.monitor_heart_outlined,
-                    size: 16,
-                    color: expanded ? SevaCareColors.mint : SevaCareColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Record Vitals (optional)',
-                        style: AppTextStyles.body(
-                          size: 13,
-                          weight: FontWeight.w600,
-                          color: expanded
-                              ? SevaCareColors.mintForeground
-                              : SevaCareColors.primary,
-                        ),
-                      ),
-                      Text(
-                        'BP · Temperature · Weight · Pulse · SpO₂',
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                  color: SevaCareColors.textMuted,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (expanded) ...[
-          const SizedBox(height: 8),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(child: _StaffVitalInput(label: 'Systolic BP', unit: 'mmHg', ctrl: systolicCtrl, hint: '120')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _StaffVitalInput(label: 'Diastolic BP', unit: 'mmHg', ctrl: diastolicCtrl, hint: '80')),
-                ]),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: _StaffVitalInput(label: 'Temperature', unit: '°C', ctrl: tempCtrl, hint: '37.0')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _StaffVitalInput(label: 'Pulse Rate', unit: 'bpm', ctrl: pulseCtrl, hint: '72')),
-                ]),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: _StaffVitalInput(label: 'Weight', unit: 'kg', ctrl: weightCtrl, hint: '70')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _StaffVitalInput(label: 'SpO₂', unit: '%', ctrl: spo2Ctrl, hint: '98')),
-                ]),
-                const SizedBox(height: 10),
-                _StaffVitalInput(label: 'Blood Sugar', unit: 'mg/dL', ctrl: sugarCtrl, hint: '110'),
-                const SizedBox(height: 8),
-                Row(
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 13, color: SevaCareColors.textMuted),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'The doctor sees these in the consultation queue.',
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
-                      ),
+                    Text(
+                      'Record Vitals (optional)',
+                      style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                    ),
+                    Text(
+                      'BP · Temperature · Weight · Pulse · SpO₂',
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                size: 20,
+                color: SevaCareColors.textMuted,
+              ),
+            ],
           ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _StaffVitalInput(label: 'Systolic BP', unit: 'mmHg', ctrl: systolicCtrl, hint: '120')),
+            const SizedBox(width: 12),
+            Expanded(child: _StaffVitalInput(label: 'Diastolic BP', unit: 'mmHg', ctrl: diastolicCtrl, hint: '80')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _StaffVitalInput(label: 'Temperature', unit: '°C', ctrl: tempCtrl, hint: '37.0')),
+            const SizedBox(width: 12),
+            Expanded(child: _StaffVitalInput(label: 'Pulse Rate', unit: 'bpm', ctrl: pulseCtrl, hint: '72')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _StaffVitalInput(label: 'Weight', unit: 'kg', ctrl: weightCtrl, hint: '70')),
+            const SizedBox(width: 12),
+            Expanded(child: _StaffVitalInput(label: 'SpO₂', unit: '%', ctrl: spo2Ctrl, hint: '98')),
+          ]),
+          const SizedBox(height: 10),
+          _StaffVitalInput(label: 'Blood Sugar', unit: 'mg/dL', ctrl: sugarCtrl, hint: '110'),
         ],
       ],
     );
@@ -3014,18 +2952,28 @@ class _Card extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: SevaCareColors.primary),
-            const SizedBox(width: 6),
-            Text(title, style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-            if (trailing != null) ...[const Spacer(), trailing!],
-          ],
-        ),
+        _SectionHeader(icon: icon, title: title, trailing: trailing),
         const SizedBox(height: 12),
         child,
       ],
     ),
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+  const _SectionHeader({required this.icon, required this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 16, color: SevaCareColors.primary),
+      const SizedBox(width: 6),
+      Text(title, style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+      if (trailing != null) ...[const Spacer(), trailing!],
+    ],
   );
 }
 

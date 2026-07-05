@@ -35,6 +35,24 @@ public final class AdminDtos {
     ) {
     }
 
+    // How patients are arriving: patient app, QR walk-in, or IP-Staff front-desk booking.
+    public record BookingSourceCount(
+            String source,
+            String label,
+            int today,
+            int week,
+            int month,
+            int year
+    ) {
+    }
+
+    public record BookingChannelStats(
+            String tenantPublicId,
+            List<BookingSourceCount> sources,
+            int qrPendingRequests
+    ) {
+    }
+
     public record ManagedActor(String publicId, String tenantPublicId, String name, String action) {
     }
 

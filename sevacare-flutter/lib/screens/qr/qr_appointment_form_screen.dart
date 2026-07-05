@@ -27,6 +27,7 @@ class _QrAppointmentFormScreenState
 
   // Form state
   final _nameCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
   final _symptomsCtrl = TextEditingController();
   String? _selectedDoctorPublicId;
@@ -46,6 +47,7 @@ class _QrAppointmentFormScreenState
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _mobileCtrl.dispose();
     _ageCtrl.dispose();
     _symptomsCtrl.dispose();
     super.dispose();
@@ -83,6 +85,11 @@ class _QrAppointmentFormScreenState
       setState(() => _submitError = 'Patient name is required.');
       return;
     }
+    final mobileDigits = _mobileCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (mobileDigits.length != 10) {
+      setState(() => _submitError = 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
     final ageStr = _ageCtrl.text.trim();
     final age = int.tryParse(ageStr) ?? 0;
     if (age <= 0) {
@@ -115,6 +122,7 @@ class _QrAppointmentFormScreenState
         widget.qrcodeUuid,
         {
           'patientName': _nameCtrl.text.trim(),
+          'patientMobile': mobileDigits,
           'patientAge': age,
           'symptoms': _symptomsCtrl.text.trim(),
           'doctorPublicId': _selectedDoctorPublicId!,
@@ -365,6 +373,13 @@ class _QrAppointmentFormScreenState
                       label: 'Full Name',
                       controller: _nameCtrl,
                       placeholder: 'Enter your full name',
+                      required: true,
+                    ),
+                    AppFormField(
+                      label: 'Mobile Number',
+                      controller: _mobileCtrl,
+                      placeholder: '10-digit mobile number',
+                      keyboardType: TextInputType.phone,
                       required: true,
                     ),
                     AppFormField(

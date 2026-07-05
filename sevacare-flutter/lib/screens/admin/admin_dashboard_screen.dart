@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/time_theme.dart';
@@ -44,56 +45,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final hospital = ref.watch(hospitalProvider);
-    final auth = ref.watch(authProvider);
-    final isGeneric = auth.isGenericAdmin;
 
-    // Generic admin: restricted view — only Admin Users tab
-    if (isGeneric) {
-      return AppShell(
-        hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
-        role: UserRole.admin,
-        bottomNavItems: _adminNavItems(),
-        currentNavIndex: widget.initialTab,
-        onNavTap: _handleNavTap,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const PageHeader(title: 'Hospital Setup'),
-            const SizedBox(height: 12),
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                border: Border.all(color: Colors.amber.shade300),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'You are logged in as Generic Admin. Add at least 2 hospital admins to unlock full access.',
-                      style: AppTextStyles.bodyText(Colors.amber.shade800),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const _AdminUsersTab(),
-          ],
-        ),
-      );
-    }
-
-    // Full dashboard for real admins
+    // Full dashboard for every admin (generic/temp-admin restricted view removed)
     const tabDefs = [
       (0, Icons.dashboard_outlined,        'Dashboard'),
-      (1, Icons.inbox_outlined,            'Requests'),
-      (2, Icons.manage_accounts_outlined,  'Admins'),
       (3, Icons.groups_outlined,           'Team'),
+      (1, Icons.inbox_outlined,            'Requests'),
       (4, Icons.bar_chart_outlined,        'Reports'),
+      (2, Icons.manage_accounts_outlined,  'Admins'),
     ];
 
     return AppShell(
@@ -253,6 +212,7 @@ class _DashboardTab extends ConsumerStatefulWidget {
 class _DashboardTabState extends ConsumerState<_DashboardTab> {
   AdminOverview? _overview;
   List<DoctorRecord> _doctors = [];
+  BookingChannelStats? _channelStats;
   bool _loading = true;
   String? _error;
   int _visitSegment = 1; // 0=Today, 1=Week, 2=Month, 3=Year
@@ -278,12 +238,14 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
       final results = await Future.wait([
         repo.getAdminOverview(tenantId, token),
         repo.listDoctorRecords(tenantId, token),
+        repo.getBookingChannelStats(tenantId, token),
       ]);
 
       if (mounted) {
         setState(() {
           _overview = results[0] as AdminOverview;
           _doctors = results[1] as List<DoctorRecord>;
+          _channelStats = results[2] as BookingChannelStats;
           _loading = false;
         });
       }
@@ -342,15 +304,6 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
       SegmentItem<int>(value: 3, label: 'This Year'),
     ];
 
-    // Pull overview metric values for patient visits section
-    final totalVisits = overview?.metrics.isNotEmpty == true ? overview!.metrics[0].value : '0';
-    final bookedSlots = overview?.metrics.length != null && overview!.metrics.length > 1
-        ? overview.metrics[1].value
-        : '0';
-    final prescriptions = overview?.metrics.length != null && overview!.metrics.length > 2
-        ? overview.metrics[2].value
-        : '0';
-
     // Derive "Today at a glance" numbers from metrics
     final todayVisits    = int.tryParse(overview?.metrics.isNotEmpty == true
         ? overview!.metrics[0].value : '0') ?? 0;
@@ -375,39 +328,6 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
             context.go('/admin');
           },
         ),
-        const SizedBox(height: 24),
-
-        // ── Business Analytics Micro-Cards ─────────────────────────────────────
-        _AnalyticsMicroCards(overview: overview, doctors: _doctors),
-
-        // ── Hospital Overview ──────────────────────────────────────────────────
-        Text('Hospital Overview', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-        const SizedBox(height: 12),
-        if (overview != null && overview.metrics.isNotEmpty) ...[
-          MetricRow(
-            tiles: [
-              for (int i = 0; i < overview.metrics.length && i < 3; i++)
-                MetricTile(
-                  value: overview.metrics[i].value,
-                  label: overview.metrics[i].label,
-                  variant: i == 0
-                      ? MetricVariant.primary
-                      : i == 1
-                          ? MetricVariant.mint
-                          : MetricVariant.peach,
-                  trend: overview.metrics[i].trend,
-                ),
-            ],
-          ),
-        ] else ...[
-          MetricRow(
-            tiles: [
-              MetricTile(value: '0', label: 'Daily Visits', variant: MetricVariant.primary),
-              MetricTile(value: '0', label: 'Booked Slots', variant: MetricVariant.mint),
-              MetricTile(value: '0', label: 'Prescriptions Issued', variant: MetricVariant.peach),
-            ],
-          ),
-        ],
         const SizedBox(height: 24),
 
         // ── Doctors by Department ─────────────────────────────────────────────
@@ -448,8 +368,8 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
           ),
         const SizedBox(height: 24),
 
-        // ── Patient Visits ─────────────────────────────────────────────────────
-        Text('Patient Visits', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        // ── Patient Sources (how patients are arriving) ────────────────────────
+        Text('Patient Sources', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         const SizedBox(height: 12),
         SegmentedControl<int>(
           items: visitSegments,
@@ -459,20 +379,69 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         const SizedBox(height: 12),
         MetricRow(
           tiles: [
-            MetricTile(value: totalVisits, label: 'Total Visits', variant: MetricVariant.primary),
-            MetricTile(value: bookedSlots, label: 'Upcoming', variant: MetricVariant.mint),
+            MetricTile(
+              value: '${_countForSegment('PATIENT_APP')}',
+              label: 'Patient App',
+              variant: MetricVariant.primary,
+            ),
+            MetricTile(
+              value: '${_countForSegment('QR_CODE')}',
+              label: 'QR Code',
+              variant: MetricVariant.mint,
+            ),
           ],
         ),
         const SizedBox(height: 8),
         MetricRow(
           tiles: [
-            MetricTile(value: prescriptions, label: 'Completed', variant: MetricVariant.peach),
-            MetricTile(value: '0', label: 'Cancelled', variant: MetricVariant.danger),
+            MetricTile(
+              value: '${_countForSegment('IP_STAFF')}',
+              label: 'IP-Staff',
+              variant: MetricVariant.peach,
+            ),
+            MetricTile(value: '', label: '', variant: MetricVariant.peach),
           ],
         ),
+        if ((_channelStats?.qrPendingRequests ?? 0) > 0) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SevaCareColors.warningSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SevaCareColors.warning.withValues(alpha: 0.4)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.qr_code_scanner_outlined, color: SevaCareColors.warning, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_channelStats!.qrPendingRequests} QR booking request${_channelStats!.qrPendingRequests == 1 ? '' : 's'} awaiting doctor confirmation',
+                  style: AppTextStyles.bodyText(SevaCareColors.warning),
+                ),
+              ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 16),
       ],
     );
+  }
+
+  int _countForSegment(String source) {
+    final match = _channelStats?.sources.where((s) => s.source == source).toList() ?? const [];
+    if (match.isEmpty) return 0;
+    final s = match.first;
+    switch (_visitSegment) {
+      case 0:
+        return s.today;
+      case 2:
+        return s.month;
+      case 3:
+        return s.year;
+      default:
+        return s.week;
+    }
   }
 }
 
@@ -685,158 +654,7 @@ class _GlanceTile extends StatelessWidget {
   }
 }
 
-// ── Analytics Micro-Cards ─────────────────────────────────────────────────────
-
-class _AnalyticsMicroCards extends StatefulWidget {
-  final AdminOverview? overview;
-  final List<DoctorRecord> doctors;
-
-  const _AnalyticsMicroCards({required this.overview, required this.doctors});
-
-  @override
-  State<_AnalyticsMicroCards> createState() => _AnalyticsMicroCardsState();
-}
-
-class _AnalyticsMicroCardsState extends State<_AnalyticsMicroCards>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _fade;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  String _topDepartment() {
-    final map = <String, int>{};
-    for (final d in widget.doctors) {
-      map[d.specialty] = (map[d.specialty] ?? 0) + 1;
-    }
-    if (map.isEmpty) return 'N/A';
-    return map.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final overview = widget.overview;
-    final totalVisitsStr =
-        overview?.metrics.isNotEmpty == true ? overview!.metrics[0].value : '0';
-    final bookedStr =
-        overview != null && overview.metrics.length > 1 ? overview.metrics[1].value : '0';
-
-    final totalVisits = int.tryParse(totalVisitsStr) ?? 0;
-    final booked = int.tryParse(bookedStr) ?? 0;
-
-    final revenue = totalVisits * 500;
-    final revenueStr = revenue >= 1000
-        ? '₹${(revenue / 1000).toStringAsFixed(1)}K'
-        : '₹$revenue';
-
-    final fillRate = totalVisits > 0 ? ((booked / totalVisits) * 100).round() : 0;
-    final topDept = widget.doctors.isNotEmpty ? _topDepartment() : 'N/A';
-    final activeDoctors = widget.doctors.where((d) => d.active).length;
-
-    final cards = [
-      _MicroCard(
-        icon: Icons.currency_rupee_rounded,
-        label: 'Est. Revenue',
-        value: revenueStr,
-        sub: 'from $totalVisits visits',
-        gradient: const LinearGradient(
-          colors: [Color(0xFF10B981), Color(0xFF059669)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _MicroCard(
-        icon: Icons.schedule_rounded,
-        label: 'Peak Hour',
-        value: '10–12 AM',
-        sub: 'highest bookings',
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _MicroCard(
-        icon: Icons.medical_services_rounded,
-        label: 'Top Specialty',
-        value: topDept,
-        sub: '${widget.doctors.length} doctors total',
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _MicroCard(
-        icon: Icons.pie_chart_rounded,
-        label: 'Slot Fill Rate',
-        value: '$fillRate%',
-        sub: '$activeDoctors active doctors',
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-    ];
-
-    return FadeTransition(
-      opacity: _fade,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('Business Insights', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF10B981)],
-                  ),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: const Text(
-                  'LIVE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.65,
-            children: cards,
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
+// ── Gradient stat micro-card (used by the Reports tab) ───────────────────────
 
 class _MicroCard extends StatelessWidget {
   final IconData icon;
@@ -1116,13 +934,6 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
     }
   }
 
-  String _initials(String fullName) {
-    final parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-    return (parts[0].substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     final filterSegments = [
@@ -1286,9 +1097,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          AppAvatar(
-                            initials: _initials(admin.fullName),
-                            hue: AppAvatar.hueFromString(admin.adminPublicId),
+                          StaffPhoto.circle(
+                            userId: admin.adminPublicId,
                             size: 48,
                           ),
                           const SizedBox(width: 12),
@@ -1482,10 +1292,9 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   List<DoctorRecord> _doctors = [];
   bool _loading = false;
   String? _error;
-  bool _showAddForm = false;
+  int _doctorSubTab = 1; // 0 = Add Doctor, 1 = View Doctors
   String? _nextDoctorId;
   String? _selectedSpecialtyFilter;
-  bool _doctorsLoaded = false;
 
   // Add form state
   final _nameCtrl = TextEditingController();
@@ -1543,7 +1352,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   @override
   void initState() {
     super.initState();
-    // Doctors are loaded on demand — user selects a specialty first
+    _loadDoctors();
+    _loadNextDoctorId();
   }
 
   @override
@@ -1570,7 +1380,6 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
         setState(() {
           _doctors = list;
           _loading = false;
-          _doctorsLoaded = true;
         });
       }
     } catch (e) {
@@ -1593,22 +1402,19 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     } catch (_) {}
   }
 
-  void _toggleAddForm() {
+  void _resetAddForm() {
     setState(() {
-      _showAddForm = !_showAddForm;
       _formError = null;
       _formSuccess = null;
-      if (_showAddForm) {
-        _nameCtrl.clear();
-        _mobileCtrl.clear();
-        _feeCtrl.clear();
-        _experienceCtrl.clear();
-        _qualificationCtrl.clear();
-        _selectedSpecialty = 'General Physician';
-        _selectedAvailability = 'Available';
-        _selectedBookingMode = 'BOTH';
-        _loadNextDoctorId();
-      }
+      _nameCtrl.clear();
+      _mobileCtrl.clear();
+      _feeCtrl.clear();
+      _experienceCtrl.clear();
+      _qualificationCtrl.clear();
+      _selectedSpecialty = 'General Physician';
+      _selectedAvailability = 'Available';
+      _selectedBookingMode = 'BOTH';
+      _loadNextDoctorId();
     });
   }
 
@@ -1664,7 +1470,8 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
         setState(() {
           _saving = false;
           _formSuccess = 'Doctor record created successfully.';
-          _showAddForm = false;
+          _doctorSubTab = 1;
+          _selectedSpecialtyFilter = _selectedSpecialty;
         });
         await _loadDoctors();
       }
@@ -1803,393 +1610,418 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Workspace card
-        AppCard(
-          child: Column(
+        SegmentedControl<int>(
+          items: const [
+            SegmentItem<int>(value: 0, label: 'Add Doctor', icon: Icons.person_add_outlined),
+            SegmentItem<int>(value: 1, label: 'View Doctors', icon: Icons.groups_outlined),
+          ],
+          selected: _doctorSubTab,
+          onChanged: (v) {
+            setState(() => _doctorSubTab = v);
+            if (v == 0) _resetAddForm();
+          },
+        ),
+        const SizedBox(height: 16),
+        if (_doctorSubTab == 0) _buildAddDoctorForm() else _buildViewDoctors(),
+      ],
+    );
+  }
+
+  Widget _buildAddDoctorForm() {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('New Doctor', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          if (_nextDoctorId != null) ...[
+            const SizedBox(height: 4),
+            Text('ID: $_nextDoctorId', style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ],
+          const SizedBox(height: 12),
+          AppFormField(
+            label: 'Doctor Full Name',
+            controller: _nameCtrl,
+            required: true,
+            placeholder: 'Dr. Full Name',
+          ),
+          AppDropdown<String>(
+            label: 'Specialty',
+            value: _selectedSpecialty,
+            required: true,
+            items: _specialties
+                .map((s) => DropdownMenuItem<String>(value: s, child: Text(s)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedSpecialty = v);
+            },
+          ),
+          AppFormField(
+            label: 'Mobile Number',
+            controller: _mobileCtrl,
+            required: true,
+            placeholder: '10-digit mobile (used for doctor login)',
+            keyboardType: TextInputType.phone,
+          ),
+          AppFormField(
+            label: 'Fee',
+            controller: _feeCtrl,
+            required: true,
+            placeholder: '₹500',
+          ),
+          AppDropdown<String>(
+            label: 'Availability',
+            value: _selectedAvailability,
+            items: _availabilityOptions
+                .map((a) => DropdownMenuItem<String>(value: a, child: Text(a)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedAvailability = v);
+            },
+          ),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Doctor workspace', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-              const SizedBox(height: 4),
-              Text(
-                'Manage the hospital\'s doctor roster.',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  PrimaryButton(
-                    label: _showAddForm ? 'Cancel' : 'Add Doctor',
-                    icon: _showAddForm ? Icons.close : Icons.add,
-                    compact: true,
-                    onPressed: _toggleAddForm,
-                  ),
-                  const SizedBox(width: 8),
-                  IconBtn(
-                    icon: Icons.refresh,
-                    tooltip: 'Refresh',
-                    onPressed: _loading ? null : _loadDoctors,
-                  ),
-                ],
+              Expanded(
+                child: AppFormField(
+                  label: 'Years of Experience',
+                  controller: _experienceCtrl,
+                  placeholder: 'e.g. 10',
+                  keyboardType: TextInputType.number,
+                ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-
-        // Add form
-        if (_showAddForm) ...[
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('New Doctor', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-                if (_nextDoctorId != null) ...[
-                  const SizedBox(height: 4),
-                  Text('ID: $_nextDoctorId', style: AppTextStyles.label(SevaCareColors.textMuted)),
-                ],
-                const SizedBox(height: 12),
-                AppFormField(
-                  label: 'Doctor Full Name',
-                  controller: _nameCtrl,
-                  required: true,
-                  placeholder: 'Dr. Full Name',
-                ),
-                AppDropdown<String>(
-                  label: 'Specialty',
-                  value: _selectedSpecialty,
-                  required: true,
-                  items: _specialties
-                      .map((s) => DropdownMenuItem<String>(value: s, child: Text(s)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedSpecialty = v);
-                  },
-                ),
-                AppFormField(
-                  label: 'Mobile Number',
-                  controller: _mobileCtrl,
-                  required: true,
-                  placeholder: '10-digit mobile (used for doctor login)',
-                  keyboardType: TextInputType.phone,
-                ),
-                AppFormField(
-                  label: 'Fee',
-                  controller: _feeCtrl,
-                  required: true,
-                  placeholder: '₹500',
-                ),
-                AppDropdown<String>(
-                  label: 'Availability',
-                  value: _selectedAvailability,
-                  items: _availabilityOptions
-                      .map((a) => DropdownMenuItem<String>(value: a, child: Text(a)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedAvailability = v);
-                  },
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: AppFormField(
-                        label: 'Years of Experience',
-                        controller: _experienceCtrl,
-                        placeholder: 'e.g. 10',
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
-                ),
-                AppFormField(
-                  label: 'Qualification',
-                  controller: _qualificationCtrl,
-                  placeholder: 'e.g. MS Cardiology, USA',
-                ),
-                AppDropdown<String>(
-                  label: 'Booking Mode',
-                  value: _selectedBookingMode,
-                  items: _bookingModeOptions
-                      .map((e) => DropdownMenuItem<String>(value: e.key, child: Text(e.value)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedBookingMode = v);
-                  },
-                ),
-                if (_formError != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: SevaCareColors.errorSurface,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (_formSuccess != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: SevaCareColors.successSurface,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(_formSuccess!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground)),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                PrimaryButton(
-                  label: 'Save Doctor',
-                  isLoading: _saving,
-                  onPressed: _saving ? null : _saveDoctor,
-                  fullWidth: true,
-                ),
-              ],
+          AppFormField(
+            label: 'Qualification',
+            controller: _qualificationCtrl,
+            placeholder: 'e.g. MS Cardiology, USA',
+          ),
+          AppDropdown<String>(
+            label: 'Booking Mode',
+            value: _selectedBookingMode,
+            items: _bookingModeOptions
+                .map((e) => DropdownMenuItem<String>(value: e.key, child: Text(e.value)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedBookingMode = v);
+            },
+          ),
+          if (_formError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SevaCareColors.errorSurface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
             ),
+            const SizedBox(height: 8),
+          ],
+          if (_formSuccess != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SevaCareColors.successSurface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(_formSuccess!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground)),
+            ),
+            const SizedBox(height: 8),
+          ],
+          PrimaryButton(
+            label: 'Save Doctor',
+            isLoading: _saving,
+            onPressed: _saving ? null : _saveDoctor,
+            fullWidth: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewDoctors() {
+    if (_loading && _doctors.isEmpty) return const ShimmerList(count: 3);
+
+    if (_error != null) {
+      return AppCard(
+        child: Column(
+          children: [
+            Text('Error loading doctors', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+            const SizedBox(height: 8),
+            Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            const SizedBox(height: 12),
+            PrimaryButton(label: 'Retry', onPressed: _loadDoctors),
+          ],
+        ),
+      );
+    }
+
+    if (_selectedSpecialtyFilter == null) {
+      final counts = <String, int>{};
+      for (final d in _doctors) {
+        counts[d.specialty] = (counts[d.specialty] ?? 0) + 1;
+      }
+      final specialties = counts.keys.toList()..sort();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Browse by specialty', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              ),
+              IconBtn(icon: Icons.refresh, tooltip: 'Refresh', onPressed: _loading ? null : _loadDoctors),
+            ],
           ),
           const SizedBox(height: 12),
-        ],
-
-        // Specialty filter
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Filter by Specialty', style: AppTextStyles.label(SevaCareColors.textMuted)),
-              const SizedBox(height: 8),
-              AppDropdown<String?>(
-                label: 'Select Specialty',
-                value: _selectedSpecialtyFilter,
-                items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('— All Specialties —')),
-                  ..._specialties.map((s) => DropdownMenuItem<String?>(value: s, child: Text(s))),
-                ],
-                onChanged: (v) {
-                  setState(() => _selectedSpecialtyFilter = v);
-                  if (!_doctorsLoaded) _loadDoctors();
-                },
+          if (specialties.isEmpty)
+            AppCard(
+              child: Text(
+                'No doctors found. Use "Add Doctor" to create one.',
+                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Doctor list
-        if (!_doctorsLoaded && !_loading && _doctors.isEmpty)
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.medical_services_outlined, color: SevaCareColors.textMuted, size: 32),
-                const SizedBox(height: 8),
-                Text(
-                  'Select a specialty above to load doctors.',
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                ),
-              ],
+            )
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: specialties.map((s) {
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedSpecialtyFilter = s),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SevaCareColors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.medical_services_outlined, size: 16, color: SevaCareColors.primary),
+                        const SizedBox(width: 8),
+                        Text(s, style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.text)),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: SevaCareColors.primarySoft,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text('${counts[s]}', style: AppTextStyles.label(SevaCareColors.primary)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-          )
-        else if (_loading)
-          const ShimmerList(count: 3)
-        else if (_error != null)
+        ],
+      );
+    }
+
+    final filteredDoctors = _doctors.where((d) => d.specialty == _selectedSpecialtyFilter).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => setState(() => _selectedSpecialtyFilter = null),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.arrow_back, size: 16, color: SevaCareColors.primary),
+                  const SizedBox(width: 4),
+                  Text('All specialties', style: AppTextStyles.label(SevaCareColors.primary)),
+                ],
+              ),
+            ),
+            const Spacer(),
+            IconBtn(icon: Icons.refresh, tooltip: 'Refresh', onPressed: _loading ? null : _loadDoctors),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(_selectedSpecialtyFilter!, style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        const SizedBox(height: 12),
+        if (filteredDoctors.isEmpty)
           AppCard(
-            child: Column(
-              children: [
-                Text('Error loading doctors', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
-                const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                const SizedBox(height: 12),
-                PrimaryButton(label: 'Retry', onPressed: _loadDoctors),
-              ],
+            child: Text(
+              'No doctors found for this specialty.',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
             ),
           )
         else
-          Builder(
-            builder: (context) {
-              final filteredDoctors = _selectedSpecialtyFilter == null
-                  ? _doctors
-                  : _doctors.where((d) => d.specialty == _selectedSpecialtyFilter).toList();
-              if (filteredDoctors.isEmpty) {
-                return AppCard(
-                  child: Text(
-                    'No doctors found. Add your first doctor above.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                  ),
-                );
-              }
-              return Column(
-                children: [
-                  for (final doctor in filteredDoctors) ...[
-                    AppCard(
-                      child: Column(
+          Column(
+            children: [
+              for (final doctor in filteredDoctors) ...[
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              DoctorPhoto.circle(
-                                doctorId: doctor.doctorPublicId,
-                                size: 44,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          DoctorPhoto.circle(
+                            doctorId: doctor.doctorPublicId,
+                            size: 44,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  doctor.doctorPublicId,
+                                  style: AppTextStyles.label(SevaCareColors.textMuted),
+                                ),
+                                Text(
+                                  doctor.fullName,
+                                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
+                                  runSpacing: 4,
                                   children: [
-                                    Text(
-                                      doctor.doctorPublicId,
-                                      style: AppTextStyles.label(SevaCareColors.textMuted),
-                                    ),
-                                    Text(
-                                      doctor.fullName,
-                                      style: AppTextStyles.cardTitle(SevaCareColors.text),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: [
-                                        Container(
-                                          constraints: const BoxConstraints(maxWidth: 180),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: SevaCareColors.primarySoft,
-                                            borderRadius: BorderRadius.circular(99),
-                                          ),
-                                          child: Text(
-                                            doctor.specialty,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: AppTextStyles.label(SevaCareColors.primary),
-                                          ),
-                                        ),
-                                        Text(
-                                          doctor.fee,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: AppTextStyles.body(
-                                            size: 13,
-                                            weight: FontWeight.w600,
-                                            color: SevaCareColors.peachForeground,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Availability: ${doctor.availability}',
-                                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                                    ),
-                                    Text(
-                                      'Mobile: ${doctor.mobileNumber ?? 'Not set'}',
-                                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                                    ),
-                                    if (doctor.experienceYears != null || (doctor.qualification?.isNotEmpty ?? false))
-                                      Text(
-                                        [
-                                          if (doctor.experienceYears != null) '${doctor.experienceYears}y Exp',
-                                          if (doctor.qualification?.isNotEmpty ?? false) doctor.qualification,
-                                        ].join(' · '),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                    Container(
+                                      constraints: const BoxConstraints(maxWidth: 180),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: SevaCareColors.primarySoft,
+                                        borderRadius: BorderRadius.circular(99),
                                       ),
+                                      child: Text(
+                                        doctor.specialty,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTextStyles.label(SevaCareColors.primary),
+                                      ),
+                                    ),
+                                    Text(
+                                      doctor.fee,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.body(
+                                        size: 13,
+                                        weight: FontWeight.w600,
+                                        color: SevaCareColors.peachForeground,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              ),
-                              StatusBadge(status: doctor.active ? 'active' : 'inactive'),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // Quick availability toggle
-                              if (doctor.availability != 'On Leave')
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap: () => _updateDoctorAvailability(doctor, 'On Leave'),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFFF4EE),
-                                        borderRadius: BorderRadius.circular(99),
-                                        border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.5)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.event_busy_outlined, size: 13, color: SevaCareColors.peach),
-                                          const SizedBox(width: 4),
-                                          Text('Mark Leave', style: AppTextStyles.label(SevaCareColors.peach)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap: () => _updateDoctorAvailability(doctor, 'Available'),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: SevaCareColors.mintSoft,
-                                        borderRadius: BorderRadius.circular(99),
-                                        border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.5)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.event_available_outlined, size: 13, color: SevaCareColors.mint),
-                                          const SizedBox(width: 4),
-                                          Text('Mark Available', style: AppTextStyles.label(SevaCareColors.mintForeground)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Availability: ${doctor.availability}',
+                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                                 ),
-                              GestureDetector(
-                                onTap: () => _cycleBookingMode(doctor),
+                                Text(
+                                  'Mobile: ${doctor.mobileNumber ?? 'Not set'}',
+                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                ),
+                                if (doctor.experienceYears != null || (doctor.qualification?.isNotEmpty ?? false))
+                                  Text(
+                                    [
+                                      if (doctor.experienceYears != null) '${doctor.experienceYears}y Exp',
+                                      if (doctor.qualification?.isNotEmpty ?? false) doctor.qualification,
+                                    ].join(' · '),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          StatusBadge(status: doctor.active ? 'active' : 'inactive'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          // Quick availability toggle
+                          if (doctor.availability != 'On Leave')
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () => _updateDoctorAvailability(doctor, 'On Leave'),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: SevaCareColors.primarySoft,
+                                    color: const Color(0xFFFFF4EE),
                                     borderRadius: BorderRadius.circular(99),
-                                    border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                                    border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.5)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.confirmation_number_outlined, size: 13, color: SevaCareColors.primary),
+                                      const Icon(Icons.event_busy_outlined, size: 13, color: SevaCareColors.peach),
                                       const SizedBox(width: 4),
-                                      Text(_bookingModeLabel(doctor.bookingMode), style: AppTextStyles.label(SevaCareColors.primary)),
+                                      Text('Mark Leave', style: AppTextStyles.label(SevaCareColors.peach)),
                                     ],
                                   ),
                                 ),
                               ),
-                              const Spacer(),
-                              IconBtn(
-                                icon: Icons.delete_outline,
-                                iconColor: SevaCareColors.danger,
-                                bgColor: SevaCareColors.errorSurface,
-                                tooltip: 'Delete doctor',
-                                onPressed: () => _deleteDoctor(doctor.doctorPublicId, doctor.fullName),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () => _updateDoctorAvailability(doctor, 'Available'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: SevaCareColors.mintSoft,
+                                    borderRadius: BorderRadius.circular(99),
+                                    border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.event_available_outlined, size: 13, color: SevaCareColors.mint),
+                                      const SizedBox(width: 4),
+                                      Text('Mark Available', style: AppTextStyles.label(SevaCareColors.mintForeground)),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ],
+                            ),
+                          GestureDetector(
+                            onTap: () => _cycleBookingMode(doctor),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: SevaCareColors.primarySoft,
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.confirmation_number_outlined, size: 13, color: SevaCareColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(_bookingModeLabel(doctor.bookingMode), style: AppTextStyles.label(SevaCareColors.primary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          IconBtn(
+                            icon: Icons.delete_outline,
+                            iconColor: SevaCareColors.danger,
+                            bgColor: SevaCareColors.errorSurface,
+                            tooltip: 'Delete doctor',
+                            onPressed: () => _deleteDoctor(doctor.doctorPublicId, doctor.fullName),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              );
-            },
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
           ),
-        const SizedBox(height: 16),
       ],
     );
   }
@@ -2334,40 +2166,70 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
         const SizedBox(height: 12),
 
         // Appointment metrics
-        MetricRow(
-          tiles: [
-            MetricTile(value: totalVisits.toString(), label: 'Total Visits', variant: MetricVariant.primary),
-            MetricTile(value: upcoming.toString(), label: 'Upcoming', variant: MetricVariant.mint),
-          ],
-        ),
-        const SizedBox(height: 8),
-        MetricRow(
-          tiles: [
-            MetricTile(value: completed.toString(), label: 'Completed', variant: MetricVariant.peach),
-            MetricTile(
-              value: '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(0) : 0}%',
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.65,
+          children: [
+            _MicroCard(
+              icon: Icons.people_alt_rounded,
+              label: 'Total Visits',
+              value: totalVisits.toString(),
+              sub: periods[_timeFilter].toLowerCase(),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            _MicroCard(
+              icon: Icons.schedule_rounded,
+              label: 'Upcoming',
+              value: upcoming.toString(),
+              sub: 'booked ahead',
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            _MicroCard(
+              icon: Icons.check_circle_rounded,
+              label: 'Completed',
+              value: completed.toString(),
+              sub: 'visits done',
+              gradient: const LinearGradient(
+                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            _MicroCard(
+              icon: Icons.pie_chart_rounded,
               label: 'Completion',
-              variant: MetricVariant.danger,
+              value: '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(0) : 0}%',
+              sub: 'of total visits',
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 20),
 
         // Clinic health tips section
-        Text('Clinic Insights', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        Text('Clinic Insights · ${periods[_timeFilter]}', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
         const SizedBox(height: 12),
         AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InfoRow(label: 'Period', value: periods[_timeFilter]),
-              InfoRow(label: 'Total Appointments', value: totalVisits.toString()),
-              InfoRow(label: 'Upcoming / Booked', value: upcoming.toString()),
-              InfoRow(label: 'Completed Consultations', value: completed.toString()),
-              InfoRow(label: 'Completion Rate',
-                  value: '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(1) : 0}%'),
-              InfoRow(label: 'Est. Revenue (₹500/visit)', value: revenueLabel),
-            ],
+          child: _AppointmentBreakdownChart(
+            total: totalVisits,
+            upcoming: upcoming,
+            completed: completed,
           ),
         ),
         const SizedBox(height: 12),
@@ -2395,6 +2257,118 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
           ),
         ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+// ── Visual appointment breakdown (donut) — replaces the old text table ───────
+
+class _AppointmentBreakdownChart extends StatelessWidget {
+  final int total;
+  final int upcoming;
+  final int completed;
+  const _AppointmentBreakdownChart({
+    required this.total,
+    required this.upcoming,
+    required this.completed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final other = (total - upcoming - completed).clamp(0, total);
+    final pct = total > 0 ? ((completed / total) * 100).round() : 0;
+
+    if (total == 0) {
+      return Column(
+        children: [
+          Icon(Icons.bar_chart_rounded, size: 32, color: SevaCareColors.border),
+          const SizedBox(height: 10),
+          Text('No appointments in this period yet', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 120,
+          height: 120,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              PieChart(
+                PieChartData(
+                  sectionsSpace: 3,
+                  centerSpaceRadius: 38,
+                  sections: [
+                    PieChartSectionData(
+                      value: completed.toDouble(),
+                      color: SevaCareColors.mint,
+                      title: '',
+                      radius: 20,
+                    ),
+                    PieChartSectionData(
+                      value: upcoming.toDouble(),
+                      color: SevaCareColors.primary,
+                      title: '',
+                      radius: 20,
+                    ),
+                    if (other > 0)
+                      PieChartSectionData(
+                        value: other.toDouble(),
+                        color: SevaCareColors.border,
+                        title: '',
+                        radius: 20,
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$pct%', style: AppTextStyles.display(size: 22, weight: FontWeight.w800, color: SevaCareColors.text)),
+                  Text('done', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _LegendRow(color: SevaCareColors.mint, label: 'Completed', value: completed),
+              const SizedBox(height: 10),
+              _LegendRow(color: SevaCareColors.primary, label: 'Upcoming', value: upcoming),
+              if (other > 0) ...[
+                const SizedBox(height: 10),
+                _LegendRow(color: SevaCareColors.border, label: 'Cancelled / other', value: other),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  final Color color;
+  final String label;
+  final int value;
+  const _LegendRow({required this.color, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: AppTextStyles.bodyText(SevaCareColors.textMuted))),
+        Text('$value', style: AppTextStyles.cardTitle(SevaCareColors.text)),
       ],
     );
   }
@@ -2555,31 +2529,6 @@ class _StaffManagementTabState extends ConsumerState<_StaffManagementTab> {
         PageHeader(
           title: 'IP-Staff',
           subtitle: 'Manage hospital staff who can register patients and book appointments.',
-        ),
-        const SizedBox(height: 4),
-
-        // Info banner
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: SevaCareColors.primarySoft,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline_rounded, size: 16, color: SevaCareColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Only registered staff members can log in as IP-Staff. '
-                  'Add a staff member here, then they can log in using their mobile number.',
-                  style: AppTextStyles.label(SevaCareColors.primary),
-                ),
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 16),
 
@@ -2784,30 +2733,15 @@ class _StaffTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = staff.fullName.trim().isNotEmpty
-        ? staff.fullName.trim().split(' ').take(2).map((w) => w[0].toUpperCase()).join()
-        : '?';
-
     return AppCard(
       child: Row(
         children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(
-              color: staff.active
-                  ? SevaCareColors.primary.withValues(alpha: 0.12)
-                  : SevaCareColors.surfaceMuted,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: staff.active ? SevaCareColors.primary : SevaCareColors.textMuted,
-                ),
-              ),
+          Opacity(
+            opacity: staff.active ? 1.0 : 0.45,
+            child: StaffPhoto.circle(
+              userId: staff.adminPublicId,
+              size: 42,
+              isStaff: true,
             ),
           ),
           const SizedBox(width: 12),

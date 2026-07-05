@@ -28,8 +28,6 @@ public class AdminDomainService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDomainService.class);
 
-    public static final String GENERIC_ADMIN_MOBILE = "9000000003";
-
     private final AdminUserRepository adminUserRepository;
     private final DoctorDomainService doctorDomainService;
     private final PatientDomainService patientDomainService;
@@ -70,13 +68,6 @@ public class AdminDomainService {
         String normalizedMobileNumber = normalize(mobileNumber);
         if (normalizedMobileNumber == null) {
             throw new IllegalArgumentException("Admin mobile number is required");
-        }
-
-        if (GENERIC_ADMIN_MOBILE.equals(normalizedMobileNumber)) {
-            long realAdminCount = adminUserRepository.countByTenantPublicIdAndActiveTrueAndMobileNumberNot(tenantPublicId, GENERIC_ADMIN_MOBILE);
-            if (realAdminCount >= 2) {
-                throw new IllegalArgumentException("Generic admin access is disabled. Your hospital already has active admins.");
-            }
         }
 
         return adminUserRepository.findFirstByTenantPublicIdAndMobileNumberAndActiveTrueOrderByAdminPublicIdAsc(tenantPublicId, normalizedMobileNumber)
@@ -371,7 +362,7 @@ public class AdminDomainService {
     }
 
     private AdminDtos.AdminUserView toAdminUserView(AdminUser adminUser) {
-        boolean isGeneric = GENERIC_ADMIN_MOBILE.equals(adminUser.getMobileNumber());
+        boolean isGeneric = false; // generic/temp admin flow removed — contact mobile is the admin
         return new AdminDtos.AdminUserView(
                 adminUser.getAdminPublicId(),
                 adminUser.getTenantPublicId(),
@@ -415,6 +406,62 @@ public class AdminDomainService {
                     "SELECT COUNT(*) FROM " + schemaName + ".appointment WHERE tenant_public_id = ? AND notes LIKE ? " +
                     "AND appointment_slot >= ? AND appointment_slot <= ?",
                     Long.class, tenantPublicId, "%" + marker + "%", fromDate, toDate + " 23:59");
+            return count == null ? 0 : count.intValue();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    // How patients are arriving at this hospital: Patient App vs QR walk-in vs
+    // IP-Staff front-desk booking, plus how many QR requests are still awaiting a
+    // doctor's confirmation. Mirrors getStaffBookingStats' today/week/month/year
+    // windows but groups by the explicit booking_source column instead of a notes marker.
+    @Transactional(readOnly = true)
+    public AdminDtos.BookingChannelStats getBookingChannelStats(String tenantPublicId) {
+        String schemaName = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        LocalDate today = LocalDate.now();
+        String todayStr = today.toString();
+        String weekStart = today.minusDays(6).toString();
+        String monthStart = today.withDayOfMonth(1).toString();
+        String yearStart = today.withDayOfYear(1).toString();
+
+        List<AdminDtos.BookingSourceCount> sources = new ArrayList<>();
+        for (String[] source : new String[][] {
+                {"PATIENT_APP", "Patient App"},
+                {"QR_CODE", "QR Code"},
+                {"IP_STAFF", "IP-Staff"}
+        }) {
+            String code = source[0];
+            String label = source[1];
+            sources.add(new AdminDtos.BookingSourceCount(
+                    code,
+                    label,
+                    countBySource(schemaName, tenantPublicId, code, todayStr, todayStr),
+                    countBySource(schemaName, tenantPublicId, code, weekStart, todayStr),
+                    countBySource(schemaName, tenantPublicId, code, monthStart, todayStr),
+                    countBySource(schemaName, tenantPublicId, code, yearStart, todayStr)
+            ));
+        }
+
+        int qrPendingRequests = 0;
+        try {
+            Long count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM public.appointment_request WHERE tenant_public_id = ? AND request_status = 'pending'",
+                    Long.class, tenantPublicId);
+            qrPendingRequests = count == null ? 0 : count.intValue();
+        } catch (Exception e) {
+            log.warn("qr_pending_requests_count_failed tenantPublicId={}", tenantPublicId, e);
+        }
+
+        return new AdminDtos.BookingChannelStats(tenantPublicId, sources, qrPendingRequests);
+    }
+
+    private int countBySource(String schemaName, String tenantPublicId, String source, String fromDate, String toDate) {
+        try {
+            Long count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM " + schemaName + ".appointment WHERE tenant_public_id = ? AND booking_source = ? " +
+                    "AND appointment_slot >= ? AND appointment_slot <= ?",
+                    Long.class, tenantPublicId, source, fromDate, toDate + " 23:59");
             return count == null ? 0 : count.intValue();
         } catch (Exception e) {
             return 0;

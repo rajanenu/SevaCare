@@ -110,8 +110,7 @@ public class HospitalManagementController {
             throw new IllegalArgumentException("QR Code not found");
         }
 
-        // For now, using a placeholder mobile; in production, this would come from authenticated session
-        String patientMobile = req.patientName().replaceFirst("\\s+.*", "").toLowerCase();
+        String patientMobile = req.patientMobile().replaceAll("\\D", "");
         return ContractResponse.of(
             appointmentRequestService.submitAppointmentRequest(qrcode.tenantPublicId(), patientMobile, req)
         );

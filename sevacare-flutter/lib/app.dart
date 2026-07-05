@@ -18,9 +18,11 @@ import 'screens/patient/medical_history_screen.dart';
 import 'screens/prescription/prescriptions_screen.dart';
 import 'screens/prescription/prescription_detail_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
+import 'screens/doctor/queue_board_screen.dart';
 import 'screens/doctor/consultation_screen.dart';
 import 'screens/doctor/doctor_prescriptions_screen.dart';
 import 'screens/doctor/doctor_requests_screen.dart';
+import 'screens/doctor/doctor_appointment_requests_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/platform_admin/platform_admin_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -30,6 +32,7 @@ import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/search/global_search_screen.dart';
 import 'screens/staff/staff_dashboard_screen.dart';
+import 'widgets/cinematic_intro.dart';
 
 /// Shared slide+fade page transition used by every GoRoute.
 CustomTransitionPage<void> _slidePage(
@@ -61,11 +64,16 @@ class SevaCareApp extends ConsumerStatefulWidget {
 
 class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   late final GoRouter _router;
+  bool _showIntro = true;
 
   @override
   void initState() {
     super.initState();
     _router = _buildRouter();
+    // Cinematic intro plays once per launch — but never in front of a scanned
+    // QR deep link, where the user expects the form immediately.
+    final initialPath = _router.routeInformationProvider.value.uri.path;
+    _showIntro = !initialPath.startsWith('/qrcode');
     // Wire 401 auto-logout: any unauthorised response clears the session and
     // sends the user back to the welcome screen.
     apiClient.onUnauthorized = () {
@@ -97,6 +105,15 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
+      builder: (context, child) => Stack(
+        children: [
+          ?child,
+          if (_showIntro)
+            CinematicIntro(
+              onFinished: () => setState(() => _showIntro = false),
+            ),
+        ],
+      ),
     );
   }
 
@@ -226,6 +243,14 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           path: '/doctor/requests',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const DoctorRequestsScreen()),
         ),
+        GoRoute(
+          path: '/doctor/booking-requests',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const DoctorAppointmentRequestsScreen()),
+        ),
+        GoRoute(
+          path: '/doctor/queue-board',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const QueueBoardScreen()),
+        ),
 
         // ── Admin ─────────────────────────────────────────────────────────────
         GoRoute(
@@ -246,7 +271,7 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         ),
         GoRoute(
           path: '/admin/reports',
-          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 5)),
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const AdminDashboardScreen(initialTab: 4)),
         ),
         GoRoute(
           path: '/admin/profile',

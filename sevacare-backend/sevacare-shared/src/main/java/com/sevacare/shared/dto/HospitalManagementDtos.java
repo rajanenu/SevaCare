@@ -83,6 +83,7 @@ public final class HospitalManagementDtos {
     // ==================== Appointment Request (QR-based flow) ====================
     public record AppointmentRequestSubmitRequest(
             @NotBlank String patientName,
+            @NotBlank String patientMobile,
             @Min(1) int patientAge,
             @NotBlank String symptoms,
             @NotBlank String doctorPublicId,
@@ -116,7 +117,12 @@ public final class HospitalManagementDtos {
     }
 
     public record AppointmentRequestConfirmRequest(
-            @NotBlank String assignedSlot,
+            // "SLOT" (fixed time) or "TOKEN" (queue-order, uses the request's preferred date).
+            @NotBlank String bookingType,
+            // "yyyy-MM-dd HH:mm" — required when bookingType is SLOT.
+            String slot,
+            // "MORNING" or "EVENING" — required when bookingType is TOKEN.
+            String tokenSession,
             String notes
     ) {
     }

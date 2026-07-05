@@ -474,6 +474,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
                 ],
 
+                // ── Admin / Staff Card ───────────────────────────────────────
+                if (widget.role == UserRole.admin || widget.role == UserRole.staff) ...[
+                  StaffCardWidget(
+                    userId:           auth.subjectPublicId ?? '',
+                    name:             _nameCtrl.text.isNotEmpty ? _nameCtrl.text : auth.subjectName,
+                    mobile:           _mobileCtrl.text,
+                    hospitalName:     hospitalName,
+                    isStaff:          widget.role == UserRole.staff,
+                    photoBytes:       displayPhotoBytes,
+                    onCameraPressed:  _pickImage,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // ── Personal Information (accordion) ─────────────────────────
                 _AccordionCard(
                   title: 'Personal Information',

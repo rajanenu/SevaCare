@@ -13,11 +13,13 @@ import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
 
-// Default mobile numbers per role (local dev convenience)
+// Default mobile numbers per role (local dev convenience).
+// Admin/staff have no shared default — the hospital admin logs in with the
+// contact mobile provided at onboarding, and staff with their own number.
 String _defaultMobile(UserRole role) => switch (role) {
   UserRole.patient => '9000000001',
   UserRole.doctor => '9000000002',
-  UserRole.admin || UserRole.staff => '9000000003',
+  UserRole.admin || UserRole.staff => '',
   UserRole.platformAdmin => '9000000999',
 };
 
@@ -342,8 +344,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ? hospitalState.hospitalName
               : 'SevaCare');
 
+    // Hospital hero image as a glassmorphism backdrop once a hospital is
+    // selected — decorative, so a missing/failed image just means no backdrop.
+    final heroImageBytes = isPlatformAdmin
+        ? null
+        : ref
+              .watch(tenantHeroImageProvider(hospitalState.tenantPublicId))
+              .valueOrNull;
+
     return AppShell(
       hospitalName: headerName,
+      backgroundImageBytes: heroImageBytes,
       showBackButton: true,
       onBack: () => context.go(isPlatformAdmin ? '/' : '/search'),
       // No role shown in header — persona chip appears after login

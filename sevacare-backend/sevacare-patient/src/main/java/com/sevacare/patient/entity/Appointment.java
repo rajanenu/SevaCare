@@ -47,6 +47,10 @@ public class Appointment {
     @Column(name = "token_session", length = 16)
     private String tokenSession;
 
+    // PATIENT_APP (default), QR_CODE, or IP_STAFF — how this appointment was created
+    @Column(name = "booking_source", nullable = false, length = 20)
+    private String bookingSource = "PATIENT_APP";
+
     public String getAppointmentPublicId() {
         return appointmentPublicId;
     }
@@ -133,5 +137,13 @@ public class Appointment {
 
     public void setTokenSession(String tokenSession) {
         this.tokenSession = tokenSession;
+    }
+
+    public String getBookingSource() {
+        return bookingSource;
+    }
+
+    public void setBookingSource(String bookingSource) {
+        this.bookingSource = bookingSource;
     }
 }

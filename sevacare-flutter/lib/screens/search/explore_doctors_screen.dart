@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -39,7 +40,16 @@ class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
   }
 
   void _loginToBook() {
-    context.go('/search');
+    // Select this hospital so the login screen is scoped to it, then go to
+    // login (previously this incorrectly bounced back to Search Hospitals).
+    ref.read(hospitalProvider.notifier).selectHospital(TenantSummary(
+          tenantPublicId: widget.tenantId,
+          hospitalName: widget.hospitalName,
+          city: '',
+          specialty: '',
+          themeKey: 'premium',
+        ));
+    context.go('/login');
   }
 
   @override
@@ -81,7 +91,10 @@ class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.58,
                 ),
-                itemBuilder: (context, index) => _DoctorProfileCard(doctor: doctors[index]),
+                itemBuilder: (context, index) => StaggeredItem(
+                  index: index,
+                  child: _DoctorProfileCard(doctor: doctors[index]),
+                ),
               );
             },
           ),
@@ -177,12 +190,24 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation<Color>(SevaCareColors.primary),
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE2E8F0),
+      highlightColor: const Color(0xFFF7FAFC),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.58,
+        ),
+        itemBuilder: (context, index) => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );
@@ -223,7 +248,13 @@ class _EmptyState extends StatelessWidget {
         children: [
           const Icon(Icons.medical_services_outlined, size: 32, color: SevaCareColors.textMuted),
           const SizedBox(height: 12),
-          Text('No doctors listed yet', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          Text('No doctors registered yet', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          const SizedBox(height: 6),
+          Text(
+            'This hospital hasn\'t added any doctors yet. Please check back soon.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          ),
         ],
       ),
     );

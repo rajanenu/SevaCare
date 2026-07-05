@@ -33,6 +33,17 @@ class SevaCareRepository {
     }).toList();
   }
 
+  /// Hospital hero image (login-screen background). Returns the base64
+  /// payload, or null when the hospital has no image uploaded.
+  Future<String?> getTenantHeroImageBase64(String tenantId) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.publicTenantHeroImage(tenantId),
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+    final b64 = data['imageBase64'] as String?;
+    return (b64 == null || b64.isEmpty) ? null : b64;
+  }
+
   Future<ReferenceLookups> getLookups() async {
     return _client.get<ReferenceLookups>(
       ApiConstants.publicLookups,
@@ -503,6 +514,14 @@ class SevaCareRepository {
     return data.map((e) => StaffBookingStat.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<BookingChannelStats> getBookingChannelStats(String tenantId, String token) async {
+    return _client.get<BookingChannelStats>(
+      ApiConstants.bookingChannelStats(tenantId),
+      fromJson: (d) => BookingChannelStats.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<void> deleteStaff(String tenantId, String staffId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.adminStaffMember(tenantId, staffId),
@@ -546,6 +565,20 @@ class SevaCareRepository {
       ApiConstants.platformTenant(tenantId),
       body: body.toJson(),
       fromJson: (d) => PlatformTenantRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  /// Uploads (or clears, when [imageBase64] is null) a hospital's hero image.
+  Future<void> uploadPlatformTenantHeroImage(
+    String tenantId,
+    String token,
+    String? imageBase64, {
+    String contentType = 'image/jpeg',
+  }) async {
+    await _client.put<dynamic>(
+      ApiConstants.platformTenantHeroImage(tenantId),
+      body: {'imageBase64': imageBase64, 'contentType': contentType},
       extraHeaders: {'Authorization': 'Bearer $token'},
     );
   }
@@ -629,6 +662,43 @@ class SevaCareRepository {
       ApiConstants.qrCodeAppointmentRequest(qrcodeUuid),
       body: body,
       fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  // ── Doctor Booking Requests (QR appointment requests inbox) ──────────────────
+
+  Future<AppointmentRequestCollection> getDoctorAppointmentRequests(
+    String tenantId,
+    String doctorId,
+    String token,
+  ) async {
+    return _client.get<AppointmentRequestCollection>(
+      ApiConstants.doctorAppointmentRequests(tenantId, doctorId),
+      fromJson: (d) => AppointmentRequestCollection.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<Map<String, dynamic>> confirmDoctorAppointmentRequest(
+    String tenantId,
+    String doctorId,
+    String requestId,
+    String token, {
+    required String bookingType,
+    String? slot,
+    String? tokenSession,
+    String? notes,
+  }) async {
+    return _client.post<Map<String, dynamic>>(
+      ApiConstants.confirmAppointmentRequest(tenantId, doctorId, requestId),
+      body: {
+        'bookingType': bookingType,
+        if (slot != null && slot.isNotEmpty) 'slot': slot,
+        if (tokenSession != null && tokenSession.isNotEmpty) 'tokenSession': tokenSession,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
 

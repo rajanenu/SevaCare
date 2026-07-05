@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/date_utils.dart';
@@ -184,11 +188,6 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               label: 'Onboarding Req',
               variant: MetricVariant.peach,
             ),
-            MetricTile(
-              value: '${ov?.approvedOnboardings ?? 0}',
-              label: 'Approved',
-              variant: MetricVariant.mint,
-            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -196,6 +195,11 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
         // Second metric row
         MetricRow(
           tiles: [
+            MetricTile(
+              value: '${ov?.approvedOnboardings ?? 0}',
+              label: 'Approved',
+              variant: MetricVariant.mint,
+            ),
             MetricTile(
               value: '${ov?.platformAdmins ?? 0}',
               label: 'Platform Admins',
@@ -357,6 +361,11 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
       setState(() => _formError = 'Hospital name is required.');
       return;
     }
+    final contactMobile = _contactMobileCtrl.text.trim();
+    if (contactMobile.isEmpty) {
+      setState(() => _formError = 'Contact mobile is required — it becomes the hospital admin login.');
+      return;
+    }
     final confirmed = await showConfirmDialog(
       context,
       title: 'Create Hospital',
@@ -379,8 +388,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           pinCode: _pinCodeCtrl.text.trim().isNotEmpty ? _pinCodeCtrl.text.trim() : null,
           themeKey: _selectedTheme,
           contactName: _contactNameCtrl.text.trim().isNotEmpty ? _contactNameCtrl.text.trim() : null,
-          contactMobile:
-              _contactMobileCtrl.text.trim().isNotEmpty ? _contactMobileCtrl.text.trim() : null,
+          contactMobile: contactMobile,
           contactEmail:
               _contactEmailCtrl.text.trim().isNotEmpty ? _contactEmailCtrl.text.trim() : null,
         ),
@@ -400,6 +408,44 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           _saving = false;
           _formError = e.toString();
         });
+      }
+    }
+  }
+
+  /// Picks a hospital image from the gallery and uploads it as the tenant's
+  /// hero image — shown as the glass background on the hospital's login page.
+  Future<void> _uploadHeroImage(PlatformTenantRecord tenant) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      final repo = ref.read(repositoryProvider);
+      await repo.uploadPlatformTenantHeroImage(
+        tenant.tenantPublicId,
+        widget.token,
+        base64Encode(bytes),
+        contentType: picked.mimeType ?? 'image/jpeg',
+      );
+      // Drop the cached login background so the new image shows immediately
+      ref.invalidate(tenantHeroImageProvider(tenant.tenantPublicId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Hospital image updated for ${tenant.hospitalName}. '
+              'It now appears on the login screen background.'),
+          backgroundColor: SevaCareColors.mintForeground,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Image upload failed: $e'),
+          backgroundColor: SevaCareColors.danger,
+        ));
       }
     }
   }
@@ -484,9 +530,12 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   }
 
   void _showQrDialog(String hospitalName, String publicId, String uuid) {
-    final baseUrl = '${Uri.base.scheme}://${Uri.base.host}'
-        '${Uri.base.port != 80 && Uri.base.port != 443 ? ':${Uri.base.port}' : ''}';
-    final qrLink = '$baseUrl/#/qrcode/$uuid/appointment-form';
+    // The QR must encode a URL any patient's phone camera can open — the
+    // backend serves a self-contained booking page at this path. AppConfig
+    // .apiBaseUrl already resolves to a reachable host (the Mac's LAN IP baked
+    // into the APK, or the serving host on web), unlike Uri.base which is
+    // file://:0 inside the mobile app and produces an unscannable link.
+    final qrLink = '${AppConfig.apiBaseUrl}/public/qrcode/$uuid/book';
 
     showDialog(
       context: context,
@@ -628,8 +677,16 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                 AppFormField(
                   label: 'Contact Mobile',
                   controller: _contactMobileCtrl,
+                  required: true,
                   placeholder: '+91 XXXXXXXXXX',
                   keyboardType: TextInputType.phone,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: Text(
+                    'This number becomes the hospital admin login. They can add more admins after signing in.',
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
                 ),
                 AppFormField(
                   label: 'Contact Email',
@@ -717,6 +774,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                     }),
                     onDelete: () => _deleteTenant(tenant.tenantPublicId, tenant.hospitalName),
                     onToggleStatus: () => _toggleTenantStatus(tenant),
+                    onUploadImage: () => _uploadHeroImage(tenant),
                     onGenerateQr: _generatingQrFor != null ? null : () => _generateQrCode(tenant),
                     onShowQr: _qrCodes.containsKey(tenant.tenantPublicId)
                         ? () => _showQrDialog(tenant.hospitalName, '', _qrCodes[tenant.tenantPublicId]!)
@@ -769,6 +827,7 @@ class _HospitalCard extends StatelessWidget {
   final VoidCallback? onToggleStatus;
   final VoidCallback? onGenerateQr;
   final VoidCallback? onShowQr;
+  final VoidCallback? onUploadImage;
 
   const _HospitalCard({
     required this.tenant,
@@ -780,6 +839,7 @@ class _HospitalCard extends StatelessWidget {
     this.onToggleStatus,
     this.onGenerateQr,
     this.onShowQr,
+    this.onUploadImage,
   });
 
   @override
@@ -894,6 +954,14 @@ class _HospitalCard extends StatelessWidget {
                       tooltip: qrGenerated ? 'Show QR Code' : 'Generate QR Code',
                       onPressed: qrGenerated ? onShowQr : onGenerateQr,
                     ),
+                  const SizedBox(width: 8),
+                  IconBtn(
+                    icon: Icons.image_outlined,
+                    iconColor: SevaCareColors.mintForeground,
+                    bgColor: SevaCareColors.mintSoft,
+                    tooltip: 'Upload hospital image (login background)',
+                    onPressed: onUploadImage,
+                  ),
                   const Spacer(),
                   Text(
                     tenant.themeKey.toUpperCase(),

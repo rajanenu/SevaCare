@@ -190,7 +190,7 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
 
 // ── Hospital Card ──────────────────────────────────────────────────────────────
 
-class _HospitalCard extends StatelessWidget {
+class _HospitalCard extends ConsumerWidget {
   final TenantSummary tenant;
   final VoidCallback onTap;
   final bool isRecent;
@@ -198,7 +198,12 @@ class _HospitalCard extends StatelessWidget {
   const _HospitalCard({required this.tenant, required this.onTap, this.isRecent = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Hospital photo (if the platform admin uploaded one) — also warms the
+    // cache so the login screen's glass background appears instantly.
+    final heroBytes =
+        ref.watch(tenantHeroImageProvider(tenant.tenantPublicId)).valueOrNull;
+
     return AppCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -208,31 +213,43 @@ class _HospitalCard extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                // Hospital avatar / logomark
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: SevaCareColors.buttonGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                // Hospital photo, else letter logomark
+                if (heroBytes != null)
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  ),
-                  child: Center(
-                    child: Text(
-                      tenant.hospitalName.isNotEmpty
-                          ? tenant.hospitalName[0].toUpperCase()
-                          : 'H',
-                      style: AppTextStyles.display(
-                        size: 18,
-                        weight: FontWeight.w700,
-                        color: SevaCareColors.textOnPrimary,
+                    child: Image.memory(
+                      heroBytes,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: SevaCareColors.buttonGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: Center(
+                      child: Text(
+                        tenant.hospitalName.isNotEmpty
+                            ? tenant.hospitalName[0].toUpperCase()
+                            : 'H',
+                        style: AppTextStyles.display(
+                          size: 18,
+                          weight: FontWeight.w700,
+                          color: SevaCareColors.textOnPrimary,
+                        ),
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(width: 12),
                 // Name and meta
                 Expanded(

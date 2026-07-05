@@ -193,6 +193,15 @@ public class AdminController {
         return ContractResponse.of(adminDomainService.getStaffBookingStats(tenantPublicId));
     }
 
+    @GetMapping("/{tenantPublicId}/booking-channel-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.BookingChannelStats> getBookingChannelStats(@PathVariable String tenantPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.getBookingChannelStats(tenantPublicId));
+    }
+
     @GetMapping("/{tenantPublicId}/patients")
     @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<AdminDtos.PatientPage> listPatients(

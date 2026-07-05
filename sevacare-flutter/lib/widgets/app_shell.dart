@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +37,11 @@ class AppShell extends StatelessWidget {
   /// jump back to top when switching tabs so the frame doesn't jump around.
   final ScrollController? scrollController;
 
+  /// Optional hospital hero image rendered as a glassmorphism backdrop behind
+  /// the whole page (blurred + frosted gradient) — used by the login screen
+  /// once a hospital is selected.
+  final Uint8List? backgroundImageBytes;
+
   const AppShell({
     super.key,
     required this.body,
@@ -49,6 +56,7 @@ class AppShell extends StatelessWidget {
     this.compactScroll = false,
     this.scrollable = true,
     this.scrollController,
+    this.backgroundImageBytes,
   });
 
   String _homeFor(UserRole r) => switch (r) {
@@ -85,8 +93,22 @@ class AppShell extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: OrbBackground(
-          child: Column(
+          child: Stack(
             children: [
+              // Glassmorphism hospital backdrop — fades in once the image loads
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 450),
+                  child: backgroundImageBytes == null
+                      ? const SizedBox.shrink(key: ValueKey('no-hero-bg'))
+                      : _GlassImageBackdrop(
+                          key: const ValueKey('hero-bg'),
+                          bytes: backgroundImageBytes!,
+                        ),
+                ),
+              ),
+              Column(
+                children: [
               SafeArea(
                 bottom: false,
                 child: Center(
@@ -158,8 +180,56 @@ class AppShell extends StatelessWidget {
                     ),
                   ),
                 ),
+                ],
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Glassmorphism hospital backdrop ────────────────────────────────────────────
+// Blurred hero image with a frosted gradient that stays recognizable at the
+// top and fades into the scaffold background toward the form area, keeping
+// the foreground cards readable.
+class _GlassImageBackdrop extends StatelessWidget {
+  final Uint8List bytes;
+  const _GlassImageBackdrop({super.key, required this.bytes});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    return IgnorePointer(
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              gaplessPlayback: true,
+            ),
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      bg.withValues(alpha: 0.28),
+                      bg.withValues(alpha: 0.72),
+                      bg.withValues(alpha: 0.96),
+                    ],
+                    stops: const [0.0, 0.42, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
