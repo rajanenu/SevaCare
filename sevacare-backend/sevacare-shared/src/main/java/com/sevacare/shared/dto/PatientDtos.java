@@ -201,7 +201,10 @@ public final class PatientDtos {
                 @NotBlank String doctorPublicId,
                 @NotBlank String doctorName,
                 List<MedicineUploadRequest> medicines,
-                String notes
+                String notes,
+                // When set, a follow_up medical-history record is created for
+                // today + this many days.
+                Integer followUpDays
             ) {
             }
 
@@ -306,5 +309,40 @@ public final class PatientDtos {
                 int avgConsultMinutes,
                 List<DoctorQueueFacetView> facets
             ) {
+            }
+
+            /** Patient's rating + optional comment for a completed appointment. One per appointment. */
+            public record ReviewSubmitRequest(
+                @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) int rating,
+                String comment
+            ) {
+            }
+
+            public record ReviewSubmitResult(
+                String appointmentPublicId,
+                String doctorPublicId,
+                int rating,
+                String comment
+            ) {
+            }
+
+            /** Live queue position for a patient's own TOKEN-type appointment, for in-app "your turn is near" alerts. */
+            public record QueueStatusView(
+                String doctorPublicId,
+                String date,
+                String tokenSession,
+                Integer yourToken,
+                Integer nowServingToken,
+                int tokensAhead,
+                int estimatedWaitMinutes,
+                boolean alreadyServed
+            ) {
+            }
+
+            /** Profile photo — base64 payload, null when none uploaded. */
+            public record PhotoView(String photoBase64) {
+            }
+
+            public record PhotoUpdateRequest(String photoBase64) {
             }
 }

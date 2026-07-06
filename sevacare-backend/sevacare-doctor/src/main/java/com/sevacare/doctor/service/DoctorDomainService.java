@@ -1,7 +1,10 @@
 package com.sevacare.doctor.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,18 +50,34 @@ public class DoctorDomainService {
 
     @Transactional(readOnly = true)
     public DiscoveryDtos.DoctorDirectory listDoctors(String tenantPublicId) {
+        Map<String, double[]> ratingsByDoctor = new HashMap<>();
+        String schema = com.sevacare.shared.tenant.TenantContext.tenantSchema();
+        jdbcTemplate.query(
+                "SELECT doctor_public_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count FROM "
+                        + schema + ".doctor_review GROUP BY doctor_public_id",
+                rs -> {
+                    ratingsByDoctor.put(rs.getString("doctor_public_id"),
+                            new double[] { rs.getDouble("avg_rating"), rs.getInt("review_count") });
+                }
+        );
+
         List<DiscoveryDtos.DoctorSummary> doctors = doctorRepository.findByTenantPublicIdAndActiveTrueOrderByDoctorPublicIdAsc(tenantPublicId)
                 .stream()
-                .map(doctor -> new DiscoveryDtos.DoctorSummary(
-                doctor.getDoctorPublicId(),
-                doctor.getFullName(),
-                doctor.getSpecialty(),
-                doctor.getAvailability(),
-                doctor.getFee(),
-                doctor.getBookingMode(),
-                doctor.getExperienceYears(),
-                doctor.getQualification()
-            ))
+                .map(doctor -> {
+                    double[] rating = ratingsByDoctor.get(doctor.getDoctorPublicId());
+                    return new DiscoveryDtos.DoctorSummary(
+                        doctor.getDoctorPublicId(),
+                        doctor.getFullName(),
+                        doctor.getSpecialty(),
+                        doctor.getAvailability(),
+                        doctor.getFee(),
+                        doctor.getBookingMode(),
+                        doctor.getExperienceYears(),
+                        doctor.getQualification(),
+                        rating == null ? null : rating[0],
+                        rating == null ? 0 : (int) rating[1]
+                    );
+                })
             .toList();
 
         return new DiscoveryDtos.DoctorDirectory(tenantPublicId, doctors);
@@ -310,6 +329,36 @@ public class DoctorDomainService {
             jdbcTemplate.update("DELETE FROM " + schema + ".doctor WHERE doctor_public_id = ?", doctorPublicId);
 
             log.info("doctor_delete tenantPublicId={} doctorPublicId={}", tenantPublicId, doctorPublicId);
+        }
+
+        /**
+         * Self-service "delete my account". Only disables login — every
+         * appointment, prescription and other record tied to this
+         * doctorPublicId is left untouched.
+         */
+        @Transactional
+        public void requestAccountDeletion(String tenantPublicId, String doctorPublicId) {
+            Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
+                    .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));
+            doctor.setActive(false);
+            doctor.setDeletionRequestedAt(LocalDateTime.now());
+            doctorRepository.save(doctor);
+            log.info("doctor_account_deletion_requested tenantPublicId={} doctorPublicId={}", tenantPublicId, doctorPublicId);
+        }
+
+        @Transactional(readOnly = true)
+        public PatientDtos.PhotoView getDoctorPhoto(String tenantPublicId, String doctorPublicId) {
+            Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
+                    .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));
+            return new PatientDtos.PhotoView(doctor.getPhotoBase64());
+        }
+
+        @Transactional
+        public void updateDoctorPhoto(String tenantPublicId, String doctorPublicId, String photoBase64) {
+            Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
+                    .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));
+            doctor.setPhotoBase64(photoBase64);
+            doctorRepository.save(doctor);
         }
 
         private int extractDoctorIdNumber(String doctorPublicId) {

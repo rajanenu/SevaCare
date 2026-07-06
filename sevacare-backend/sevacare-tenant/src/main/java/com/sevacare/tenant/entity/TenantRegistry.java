@@ -31,10 +31,15 @@ public class TenantRegistry {
     @Column(name = "pin_code", nullable = false, length = 10)
     private String pinCode = "";
 
+    @Column(name = "email", length = 160)
+    private String email;
+
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
     public String getPinCode() { return pinCode; }
     public void setPinCode(String pinCode) { this.pinCode = pinCode; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public String getTenantPublicId() {
         return tenantPublicId;

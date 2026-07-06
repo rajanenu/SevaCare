@@ -4,17 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/responsive/breakpoints.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/theme/app_theme.dart';
-import '../core/theme/role_style.dart';
 import '../data/models/models.dart';
 import '../providers/app_state.dart';
+import 'app_nav_rail.dart';
 import 'bottom_nav.dart';
 import 'connectivity_banner.dart';
 import 'orb_background.dart';
-
-const double _kMaxContentWidth = 520;
 
 class AppShell extends StatelessWidget {
   final Widget body;
@@ -42,6 +41,11 @@ class AppShell extends StatelessWidget {
   /// once a hospital is selected.
   final Uint8List? backgroundImageBytes;
 
+  /// Overrides the breakpoint-derived content max width (see
+  /// [contentMaxWidthFor]) for screens that want a wider content column on
+  /// tablet/desktop than the shell's default (e.g. data-heavy dashboards).
+  final double? maxContentWidthOverride;
+
   const AppShell({
     super.key,
     required this.body,
@@ -57,6 +61,7 @@ class AppShell extends StatelessWidget {
     this.scrollable = true,
     this.scrollController,
     this.backgroundImageBytes,
+    this.maxContentWidthOverride,
   });
 
   String _homeFor(UserRole r) => switch (r) {
@@ -107,80 +112,110 @@ class AppShell extends StatelessWidget {
                         ),
                 ),
               ),
-              Column(
-                children: [
-              SafeArea(
-                bottom: false,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _kMaxContentWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _TopBar(
-                          hospitalName: hospitalName,
-                          role: role,
-                          actions: headerActions,
-                          showBackButton: showBackButton,
-                          onBack: onBack,
-                        ),
-                        const ConnectivityBanner(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _kMaxContentWidth,
-                    ),
-                    child: scrollable
-                        ? SingleChildScrollView(
-                            controller: scrollController,
-                            physics: const BouncingScrollPhysics(),
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                16,
-                                16,
-                                hasBottomNav ? 8 : 32,
-                              ),
-                              child: body,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = MediaQuery.sizeOf(context).width;
+                  final maxContentWidth =
+                      maxContentWidthOverride ?? contentMaxWidthFor(width);
+                  // Rail replaces the bottom nav on tablet/desktop widths —
+                  // mobile keeps the exact original bottom-nav Column layout.
+                  final useRail =
+                      hasBottomNav && screenSizeOf(width) != ScreenSize.mobile;
+
+                  final mainColumn = Column(
+                    children: [
+                      SafeArea(
+                        bottom: false,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxContentWidth,
                             ),
-                          )
-                        : Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              16,
-                              16,
-                              hasBottomNav ? 8 : 32,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _TopBar(
+                                  hospitalName: hospitalName,
+                                  role: role,
+                                  actions: headerActions,
+                                  showBackButton: showBackButton,
+                                  onBack: onBack,
+                                ),
+                                const ConnectivityBanner(),
+                              ],
                             ),
-                            child: body,
                           ),
-                  ),
-                ),
-              ),
-              if (hasBottomNav)
-                SafeArea(
-                  top: false,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _kMaxContentWidth,
+                        ),
                       ),
-                      child: AppBottomNav(
-                        items: bottomNavItems!,
-                        currentIndex: currentNavIndex ?? 0,
-                        onTap: onNavTap ?? (_) {},
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxContentWidth,
+                            ),
+                            child: scrollable
+                                ? SingleChildScrollView(
+                                    controller: scrollController,
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                        16,
+                                        16,
+                                        16,
+                                        hasBottomNav && !useRail ? 8 : 32,
+                                      ),
+                                      child: body,
+                                    ),
+                                  )
+                                : Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      16,
+                                      16,
+                                      hasBottomNav && !useRail ? 8 : 32,
+                                    ),
+                                    child: body,
+                                  ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                ],
+                      if (hasBottomNav && !useRail)
+                        SafeArea(
+                          top: false,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: maxContentWidth,
+                              ),
+                              child: AppBottomNav(
+                                items: bottomNavItems!,
+                                currentIndex: currentNavIndex ?? 0,
+                                onTap: onNavTap ?? (_) {},
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+
+                  if (!useRail) return mainColumn;
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SafeArea(
+                        right: false,
+                        child: AppNavRail(
+                          items: bottomNavItems!,
+                          currentIndex: currentNavIndex ?? 0,
+                          onTap: onNavTap ?? (_) {},
+                          role: role,
+                        ),
+                      ),
+                      Expanded(child: mainColumn),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -368,24 +403,7 @@ class _TopBar extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (actions != null && actions!.isNotEmpty)
-            ...actions!
-          else if (role != null)
-            Semantics(
-              label: '${role!.label} account',
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: role!.bgColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: role!.fgColor.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Icon(role!.icon, size: 14, color: role!.fgColor),
-              ),
-            ),
+          if (actions != null && actions!.isNotEmpty) ...actions!,
           // Search — available for all authenticated roles
           if (role != null && role != UserRole.platformAdmin) ...[
             const SizedBox(width: 2),

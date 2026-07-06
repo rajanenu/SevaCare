@@ -21,6 +21,7 @@ import com.sevacare.patient.repository.PatientRepository;
 import com.sevacare.patient.repository.PrescriptionRepository;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.AdminDtos;
+import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.tenant.service.TenantRegistryService;
 
 @Service
@@ -253,6 +254,50 @@ public class AdminDomainService {
         return toAdminUserView(saved);
     }
 
+    /**
+     * Self-service "delete my account" for both ADMIN and STAFF (same table).
+     * Only disables login — patients, appointments, prescriptions and every
+     * other record this user touched are left untouched.
+     */
+    @Transactional
+    public void requestAccountDeletion(String tenantPublicId, String adminPublicId) {
+        AdminUser adminUser = adminUserRepository.findById(adminPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + adminPublicId));
+        if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Admin does not belong to tenant");
+        }
+        if ("ADMIN".equals(adminUser.getUserType()) && adminUser.isActive()
+                && adminUserRepository.countByTenantPublicIdAndActiveTrue(tenantPublicId) <= 1) {
+            throw new IllegalStateException("Cannot delete the last active admin user for this hospital");
+        }
+        adminUser.setActive(false);
+        adminUser.setDeletionRequestedAt(LocalDateTime.now());
+        adminUserRepository.save(adminUser);
+        log.info("admin_user_account_deletion_requested tenantPublicId={} adminPublicId={} userType={}",
+                tenantPublicId, adminPublicId, adminUser.getUserType());
+    }
+
+    @Transactional(readOnly = true)
+    public PatientDtos.PhotoView getAdminPhoto(String tenantPublicId, String adminPublicId) {
+        AdminUser adminUser = adminUserRepository.findById(adminPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + adminPublicId));
+        if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Admin does not belong to tenant");
+        }
+        return new PatientDtos.PhotoView(adminUser.getPhotoBase64());
+    }
+
+    @Transactional
+    public void updateAdminPhoto(String tenantPublicId, String adminPublicId, String photoBase64) {
+        AdminUser adminUser = adminUserRepository.findById(adminPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + adminPublicId));
+        if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
+            throw new IllegalArgumentException("Admin does not belong to tenant");
+        }
+        adminUser.setPhotoBase64(photoBase64);
+        adminUserRepository.save(adminUser);
+    }
+
     @Transactional
     public AdminDtos.DeleteActorResult deleteAdminUser(String tenantPublicId, String adminPublicId) {
         AdminUser adminUser = adminUserRepository.findById(adminPublicId)
@@ -471,11 +516,30 @@ public class AdminDomainService {
     @Transactional(readOnly = true)
     public AdminDtos.PatientPage listPatientsWithLastAppointment(
             String tenantPublicId, int page, int size, String search) {
+        return listPatientsWithLastAppointment(tenantPublicId, page, size, search, null, null);
+    }
+
+    // Whitelisted sort columns — sortBy is user-supplied and must never be
+    // concatenated into SQL directly (SQL injection via ORDER BY).
+    private static final java.util.Map<String, String> PATIENT_SORT_COLUMNS = java.util.Map.of(
+            "name", "p.full_name",
+            "age", "p.age",
+            "lastAppointment", "last_appointment"
+    );
+
+    @Transactional(readOnly = true)
+    public AdminDtos.PatientPage listPatientsWithLastAppointment(
+            String tenantPublicId, int page, int size, String search, String sortBy, String sortDir) {
         String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
         int safeSize   = Math.max(1, Math.min(size, 100));
         int safeOffset = Math.max(0, page) * safeSize;
         boolean hasSearch = search != null && !search.isBlank();
         String like = hasSearch ? "%" + search.trim().toLowerCase() + "%" : null;
+
+        String orderBy = (sortBy != null && PATIENT_SORT_COLUMNS.containsKey(sortBy))
+                ? PATIENT_SORT_COLUMNS.get(sortBy) + " " + ("asc".equalsIgnoreCase(sortDir) ? "ASC" : "DESC")
+                        + " NULLS LAST, p.patient_public_id DESC"
+                : "p.patient_public_id DESC";
 
         // Total count
         String countSql = "SELECT COUNT(*) FROM " + schema + ".patient WHERE tenant_public_id = ?" +
@@ -495,10 +559,11 @@ public class AdminDomainService {
                 FROM %s.patient p
                 WHERE p.tenant_public_id = ?
                 %s
-                ORDER BY p.patient_public_id DESC
+                ORDER BY %s
                 LIMIT ? OFFSET ?
                 """.formatted(schema, schema,
-                hasSearch ? "AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "");
+                hasSearch ? "AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "",
+                orderBy);
 
         Object[] dataArgs = hasSearch
                 ? new Object[]{tenantPublicId, like, like, safeSize, safeOffset}

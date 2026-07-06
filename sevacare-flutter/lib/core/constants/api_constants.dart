@@ -37,6 +37,13 @@ class ApiConstants {
       '/patients/$tenantId/$patientId/appointments/$apptId/cancel';
   static String rescheduleAppointment(String tenantId, String patientId, String apptId) =>
       '/patients/$tenantId/$patientId/appointments/$apptId/reschedule';
+  static String submitReview(String tenantId, String patientId, String apptId) =>
+      '/patients/$tenantId/$patientId/appointments/$apptId/review';
+  static String queueStatus(String tenantId, String patientId, String apptId) =>
+      '/patients/$tenantId/$patientId/appointments/$apptId/queue-status';
+  static String deletePatientAccount(String tenantId, String patientId) =>
+      '/patients/$tenantId/$patientId/account';
+  static String patientPhoto(String tenantId, String patientId) => '/patients/$tenantId/$patientId/photo';
 
   // Doctor
   static String doctorDashboard(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/dashboard';
@@ -57,6 +64,9 @@ class ApiConstants {
       '/doctors/$tenantId/$doctorId/appointment-requests';
   static String confirmAppointmentRequest(String tenantId, String doctorId, String requestId) =>
       '/doctors/$tenantId/$doctorId/appointment-requests/$requestId/confirm';
+  static String deleteDoctorAccount(String tenantId, String doctorId) =>
+      '/doctors/$tenantId/$doctorId/account';
+  static String doctorPhoto(String tenantId, String doctorId) => '/doctors/$tenantId/$doctorId/photo';
 
   // Prescription
   static String prescriptionDetail(String tenantId, String rxId) => '/prescriptions/$tenantId/$rxId/detail';
@@ -78,12 +88,17 @@ class ApiConstants {
   static String deactivateStaff(String tenantId, String staffId) => '/admin/$tenantId/staff/$staffId/deactivate';
   static String staffBookingStats(String tenantId) => '/admin/$tenantId/staff-booking-stats';
   static String bookingChannelStats(String tenantId) => '/admin/$tenantId/booking-channel-stats';
-  static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search}) {
+  static String hospitalProfile(String tenantId) => '/admin/$tenantId/hospital-profile';
+  static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search, String? sortBy, String? sortDir}) {
     final buf = StringBuffer('/admin/$tenantId/patients?page=$page&size=$size');
     if (search != null && search.isNotEmpty) buf.write('&search=${Uri.encodeComponent(search)}');
+    if (sortBy != null && sortBy.isNotEmpty) buf.write('&sortBy=${Uri.encodeComponent(sortBy)}');
+    if (sortDir != null && sortDir.isNotEmpty) buf.write('&sortDir=${Uri.encodeComponent(sortDir)}');
     return buf.toString();
   }
   static String adminDeletePatient(String tenantId, String patientId) => '/admin/$tenantId/patients/$patientId';
+  static String deleteAdminOrStaffAccount(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/account';
+  static String adminOrStaffPhoto(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/photo';
 
   // Leave Requests
   static String leaveRequests(String tenantId, String doctorId) => '/$tenantId/doctors/$doctorId/leave-requests';
@@ -113,4 +128,5 @@ class ApiConstants {
   static const String platformAdminUsers = '/platform-admin/users';
   static String platformAdminUser(String adminId) => '/platform-admin/users/$adminId';
   static String deactivatePlatformAdmin(String adminId) => '/platform-admin/users/$adminId/deactivate';
+  static String deletePlatformAdminAccount(String adminId) => '/platform-admin/users/$adminId/account';
 }

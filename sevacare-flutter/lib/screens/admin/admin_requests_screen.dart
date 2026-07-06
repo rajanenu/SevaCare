@@ -212,6 +212,10 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
   Widget build(BuildContext context) {
     final pending = _requests?.requests.where((r) => r.status == 'PENDING').length ?? 0;
 
+    // Fixed-frame layout: the section header and sub-tab bar are pinned;
+    // only the content region below scrolls. Switching sub-tabs swaps the
+    // content in place, so nothing above it ever moves. Requires a bounded
+    // height from the parent (the admin dashboard's tab area provides one).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -244,7 +248,26 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (_tab == 0) _buildLeaveTab() else _buildMessageTab(),
+        Expanded(
+          child: IndexedStack(
+            index: _tab,
+            sizing: StackFit.expand,
+            children: [
+              SingleChildScrollView(
+                primary: false,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildLeaveTab(),
+              ),
+              SingleChildScrollView(
+                primary: false,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildMessageTab(),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

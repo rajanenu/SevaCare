@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SevaCare — The Operating System for Healthcare</title>
+<meta name="description" content="SevaCare is an end-to-end healthcare ERP platform connecting Hospital Admins, Doctors, Patients, Staff, Pharmacy and Insurance in one system. Onboard your hospital in under 60 seconds.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SevaCare — The Operating System for Healthcare">
+<meta property="og:description" content="An end-to-end healthcare ERP for Hospital Admins, Doctors, Patients, Staff, Pharmacy and Insurance. Onboard your hospital in under 60 seconds.">
+<meta property="og:image" content="assets/shot-dashboard.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SevaCare — The Operating System for Healthcare">
+<meta name="twitter:description" content="An end-to-end healthcare ERP for every role in the care journey. Releasing soon on Google Play and the App Store.">
+<meta name="theme-color" content="#5148CC">
+<!-- Inline SVG favicon fallback so the tab icon works even before logo.png is added -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235148CC'/%3E%3Cstop offset='1' stop-color='%2352C499'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='url(%23g)'/%3E%3Ctext x='50' y='68' font-family='Arial,sans-serif' font-size='52' font-weight='800' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────────────────────── -->
+<header class="nav" id="nav">
+  <div class="container nav__inner">
+    <a href="#top" class="nav__brand">
+      <span class="nav__logo-slot">
+        <img src="assets/logo.png" alt="SevaCare logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span class="nav__logo-fallback">S</span>
+      </span>
+      <span class="nav__wordmark">SevaCare</span>
+    </a>
+    <nav class="nav__links">
+      <a href="#platform">Platform</a>
+      <a href="#who-its-for">Who it's for</a>
+      <a href="#features">Features</a>
+      <a href="#team">Team</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a href="#contact" class="btn btn--primary btn--sm">Get in touch</a>
+    <button class="nav__burger" id="navBurger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <nav class="nav__mobile" id="navMobile">
+    <a href="#platform">Platform</a>
+    <a href="#who-its-for">Who it's for</a>
+    <a href="#in-action">See it in action</a>
+    <a href="#features">Features</a>
+    <a href="#team">Team</a>
+    <a href="#contact">Contact</a>
+    <a href="#contact" class="btn btn--primary btn--sm">Get in touch</a>
+  </nav>
+</header>
+
+<!-- ── Hero ────────────────────────────────────────────────────────────── -->
+<section class="hero" id="top">
+  <div class="hero__glow"></div>
+  <div class="container hero__inner">
+    <div class="hero__copy">
+      <span class="eyebrow">Healthcare ERP · Multi-tenant Platform</span>
+      <h1>The operating system for modern healthcare, <span class="text-gradient">end to end.</span></h1>
+      <p class="tagline">service — is right there in the name.</p>
+      <p class="hero__sub">
+        SevaCare is not a hospital. It's a complete ERP platform that runs the
+        entire medical journey — for Hospital Admins, Doctors, Patients, Staff,
+        Pharmacy and Insurance — all inside one connected system.
+      </p>
+      <div class="hero__ctas">
+        <a href="#contact" class="btn btn--primary">Request a walkthrough</a>
+        <a href="#in-action" class="btn btn--ghost">See it in action ↓</a>
+      </div>
+      <!-- Releasing soon on the app stores -->
+      <div class="hero__stores">
+        <span class="hero__stores-note">📱 The SevaCare app is releasing soon on</span>
+        <div class="store-badges">
+          <a class="store-badge store-badge--light" href="#" onclick="return false;" aria-label="Google Play — coming soon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 3.5v17c0 .4.4.6.7.4l9.3-8.9L4.7 3.1c-.3-.2-.7 0-.7.4z" fill="#34A853"/>
+              <path d="M14 12l3.5-3.3 2.8 1.6c.9.5.9 1.8 0 2.3l-2.8 1.6L14 12z" fill="#FBBC04"/>
+              <path d="M4.7 3.1L14 12l3.5-3.3L5.9 2.6c-.4-.2-.9-.1-1.2.5z" fill="#4285F4"/>
+              <path d="M4.7 20.9L14 12l3.5 3.3-11.6 6.1c-.4.2-.9.1-1.2-.5z" fill="#EA4335"/>
+            </svg>
+            <span><small>Coming soon on</small>Google Play</span>
+          </a>
+          <a class="store-badge store-badge--light" href="#" onclick="return false;" aria-label="App Store — coming soon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.05 12.54c-.03-2.36 1.93-3.49 2.02-3.55-1.1-1.61-2.81-1.83-3.42-1.85-1.45-.15-2.84.86-3.57.86-.74 0-1.88-.84-3.09-.82-1.59.02-3.06.93-3.88 2.35-1.65 2.87-.42 7.12 1.19 9.45.79 1.14 1.73 2.42 2.96 2.38 1.19-.05 1.64-.77 3.08-.77 1.43 0 1.84.77 3.09.74 1.28-.02 2.09-1.16 2.87-2.31.9-1.32 1.28-2.6 1.3-2.67-.03-.01-2.5-.96-2.55-3.81zM14.7 5.6c.65-.79 1.09-1.89.97-2.98-.94.04-2.07.62-2.74 1.41-.6.7-1.13 1.82-.99 2.89 1.05.08 2.11-.53 2.76-1.32z"/>
+            </svg>
+            <span><small>Coming soon on the</small>App Store</span>
+          </a>
+        </div>
+      </div>
+      <div class="hero__stats">
+        <div><strong>6+</strong><span>Roles unified</span></div>
+        <div><strong>60s</strong><span>Hospital onboarding</span></div>
+        <div><strong>0</strong><span>Paper trails</span></div>
+      </div>
+    </div>
+    <div class="hero__visual">
+      <div class="hero__art hero__art--shots">
+        <img class="hero__shot hero__shot--main" src="assets/shot-dashboard.jpg"
+             alt="SevaCare admin dashboard — patients, appointments, revenue and staff in one view">
+        <img class="hero__shot hero__shot--secondary" src="assets/shot-onboarding.jpg"
+             alt="Onboarding a new hospital on SevaCare in under a minute">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 60-second onboarding strip ──────────────────────────────────────── -->
+<section class="chai-strip">
+  <div class="container chai-strip__inner">
+    <span class="chai-strip__emoji">☕</span>
+    <p>
+      <strong>New hospital? You're live in under 60 seconds.</strong><br>
+      Onboarding on SevaCare is quicker than your chai break — one form, and your
+      hospital gets its own secure, branded instance instantly.
+    </p>
+    <a href="#contact" class="btn btn--primary btn--sm">Onboard my hospital</a>
+  </div>
+</section>
+
+<!-- ── Positioning / Platform ──────────────────────────────────────────── -->
+<section class="section" id="platform">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Not a hospital. An ERP platform.</span>
+      <h2>One system, every role, one source of truth.</h2>
+      <p>
+        Hospitals don't run on a single app today — they run on registers, WhatsApp
+        groups, phone calls and a dozen disconnected tools. SevaCare replaces that
+        sprawl with a single multi-tenant platform: every hospital gets its own
+        secure, branded instance, while every person involved in care — from the
+        admin who onboards the hospital to the patient booking a token — works
+        inside the same connected system.
+      </p>
+    </div>
+    <div class="platform-grid">
+      <div class="platform-card">
+        <div class="platform-card__icon">🏥</div>
+        <h3>Multi-tenant by design</h3>
+        <p>Each hospital or clinic gets an isolated schema, its own branding, and its own admins — provisioned in minutes, not months.</p>
+      </div>
+      <div class="platform-card">
+        <div class="platform-card__icon">🔗</div>
+        <h3>Connected, not siloed</h3>
+        <p>Bookings, prescriptions, queues, and reviews flow between every role automatically — no manual re-entry, no lost paperwork.</p>
+      </div>
+      <div class="platform-card">
+        <div class="platform-card__icon">📈</div>
+        <h3>Built to extend</h3>
+        <p>Today: booking, queues, records. Tomorrow: pharmacy dispensing and insurance claims — on the same foundation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Who it's for ────────────────────────────────────────────────────── -->
+<section class="section section--muted" id="who-its-for">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Who it's for</span>
+      <h2>Every person in the care journey, one app each.</h2>
+      <p>SevaCare gives each role exactly the view they need — nothing more, nothing hidden.</p>
+    </div>
+    <div class="role-grid">
+      <div class="role-card">
+        <div class="role-card__icon">🧑‍💼</div>
+        <h3>Hospital Admins</h3>
+        <p>Onboard the hospital, manage doctors and staff, track revenue and channel analytics, all from one dashboard.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-card__icon">🩺</div>
+        <h3>Doctors</h3>
+        <p>Run consultations, manage queues, write prescriptions, and build a public reputation through patient ratings.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-card__icon">🧑‍🤝‍🧑</div>
+        <h3>Patients</h3>
+        <p>Discover nearby hospitals, book a slot or a token, track the live queue, and keep every prescription in one place.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-card__icon">🗂️</div>
+        <h3>Staff</h3>
+        <p>Handle walk-ins, QR-code bookings and in-person registration without ever touching a paper register.</p>
+      </div>
+      <div class="role-card role-card--coming">
+        <div class="role-card__icon">💊</div>
+        <h3>Pharmacy</h3>
+        <p>Dispense against digital prescriptions with full traceability back to the consulting doctor.</p>
+        <span class="pill">On the roadmap</span>
+      </div>
+      <div class="role-card role-card--coming">
+        <div class="role-card__icon">🛡️</div>
+        <h3>Insurance</h3>
+        <p>Verify coverage and settle claims directly against the same patient and treatment record — no duplicate paperwork.</p>
+        <span class="pill">On the roadmap</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ────────────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">What's already built</span>
+      <h2>Real features, running today.</h2>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="feature__icon">🎟️</div>
+        <h4>Slot + Token booking</h4>
+        <p>Patients choose a fixed time slot or an unlimited queue-order token — whichever the doctor supports.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">📡</div>
+        <h4>Live queue & wait alerts</h4>
+        <p>Patients see their real position and get an "almost your turn" alert — no more waiting-room guesswork.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">⭐</div>
+        <h4>Doctor ratings & reviews</h4>
+        <p>Verified, post-consultation 5-star reviews build trust before a patient ever books.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">📋</div>
+        <h4>Digital prescriptions</h4>
+        <p>Every prescription and medical history record lives with the patient, searchable, forever.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">📍</div>
+        <h4>Nearby & pincode search</h4>
+        <p>Detect location once, and see hospitals in your own pincode surface first.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">🔳</div>
+        <h4>QR-code walk-in booking</h4>
+        <p>Walk-in patients scan a hospital QR code to join the queue without a front-desk detour.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">📊</div>
+        <h4>Admin analytics</h4>
+        <p>Channel mix, staff performance, and revenue — in one dashboard, updated live.</p>
+      </div>
+      <div class="feature">
+        <div class="feature__icon">🔐</div>
+        <h4>Secure by tenant</h4>
+        <p>Every hospital's data is isolated at the schema level — no cross-tenant leakage, ever.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── See it in action ────────────────────────────────────────────────── -->
+<section class="section" id="in-action">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">See it in action</span>
+      <h2>A real ERP, not a mock-up.</h2>
+      <p>From the first onboarding form to the daily admin dashboard — this is what running a hospital on SevaCare looks like.</p>
+    </div>
+    <div class="shots-grid">
+      <figure class="shot-card">
+        <img src="assets/shot-appointments.jpg" alt="Smart patient appointments — easy scheduling, real-time availability and automated reminders">
+      </figure>
+      <figure class="shot-card">
+        <img src="assets/shot-doctors.jpg" alt="Complete doctor management — detailed profiles, consultation schedules and specializations">
+      </figure>
+      <figure class="shot-card">
+        <img src="assets/shot-onboarding.jpg" alt="Quick hospital onboarding — go live in under a minute">
+      </figure>
+      <figure class="shot-card">
+        <img src="assets/shot-dashboard.jpg" alt="Powerful admin dashboard — manage your entire hospital, staff, billing and reports from one place">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ── Clients ─────────────────────────────────────────────────────────── -->
+<section class="section section--muted" id="clients">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Recently onboarded</span>
+      <h2>Hospitals already running on SevaCare.</h2>
+    </div>
+    <div class="client-grid">
+      <div class="client-card">
+        <div class="client-card__logo client-card__logo--lk">LK</div>
+        <div>
+          <h3>Lakshmi Kishore Hospital</h3>
+          <p>Proddatur, Andhra Pradesh · Multi-speciality</p>
+        </div>
+      </div>
+      <div class="client-card">
+        <div class="client-card__logo client-card__logo--jc">JC</div>
+        <div>
+          <h3>Jeevan Care Hospital</h3>
+          <p>Bangalore, Karnataka · General medicine</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Team ────────────────────────────────────────────────────────────── -->
+<section class="section" id="team">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Team</span>
+      <h2>Built by people who wanted healthcare to feel simple.</h2>
+    </div>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-card__photo">
+          <img src="assets/founder-sravani.jpg" alt="Sravani Reddy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="team-card__fallback">SR</div>
+        </div>
+        <h3>Sravani Reddy</h3>
+        <span class="team-card__role">CEO</span>
+        <p class="team-card__bio">
+          Gold medalist from CBIT with extensive experience managing IT
+          applications end to end — including <strong>corpxapp.com</strong> and
+          the SevaCare platform itself. Sravani drives SevaCare's vision,
+          operations and hospital partnerships, making sure every hospital that
+          onboards feels the "60-second" promise from day one.
+        </p>
+      </div>
+      <div class="team-card">
+        <div class="team-card__photo">
+          <img src="assets/founder-rajasekhar.jpg" alt="Rajasekhar Reddy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="team-card__fallback">RR</div>
+        </div>
+        <h3>Rajasekhar Reddy</h3>
+        <span class="team-card__role">Co-founder</span>
+        <p class="team-card__bio">
+          15+ years in IT, delivering healthcare, enterprise and e-commerce web
+          and mobile applications that millions of users rely on today. His
+          flagship healthcare contribution is <strong>MMIS (Medicaid Management
+          Information System)</strong> — a US Federal Government–approved system
+          operated by US federal and state governments. He also brings deep
+          experience from <strong>AXA Life Insurance</strong> and many more
+          healthcare platforms, and now leads product and engineering at
+          SevaCare — architecting it as a secure, multi-tenant ERP from the
+          ground up.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Contact ─────────────────────────────────────────────────────────── -->
+<section class="section contact" id="contact">
+  <div class="container contact__inner">
+    <div>
+      <span class="eyebrow">Contact</span>
+      <h2>Let's bring your hospital onto SevaCare.</h2>
+      <p>Reach out and we'll walk you through onboarding, pricing, and rollout.</p>
+      <ul class="contact__list">
+        <li>📧 <a href="mailto:hello@sevacareapp.com">hello@sevacareapp.com</a></li>
+        <li>📞 <a href="tel:+917975277345">+91 79752 77345</a></li>
+        <li>📍 Bangalore, India</li>
+      </ul>
+    </div>
+    <form class="contact__form" onsubmit="event.preventDefault(); window.location.href='mailto:hello@sevacareapp.com?subject=' + encodeURIComponent('SevaCare enquiry from ' + document.getElementById('cf-name').value) + '&body=' + encodeURIComponent(document.getElementById('cf-message').value + '\n\nFrom: ' + document.getElementById('cf-name').value + ' (' + document.getElementById('cf-email').value + ')');">
+      <label>Name<input id="cf-name" type="text" required placeholder="Your name"></label>
+      <label>Email<input id="cf-email" type="email" required placeholder="you@hospital.com"></label>
+      <label>Message<textarea id="cf-message" rows="4" required placeholder="Tell us about your hospital"></textarea></label>
+      <button type="submit" class="btn btn--primary btn--block">Send message</button>
+    </form>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <span class="nav__logo-slot">
+        <img src="assets/logo.png" alt="SevaCare logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span class="nav__logo-fallback">S</span>
+      </span>
+      <span class="nav__wordmark">SevaCare</span>
+    </div>
+    <p class="footer__tag">service — is right there in the name.</p>
+
+    <!-- App store badges -->
+    <div class="footer__stores">
+      <span class="footer__stores-note">Releasing soon on</span>
+      <div class="store-badges">
+        <a class="store-badge" href="#" onclick="return false;" aria-label="Google Play — coming soon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 3.5v17c0 .4.4.6.7.4l9.3-8.9L4.7 3.1c-.3-.2-.7 0-.7.4z" fill="#34A853"/>
+            <path d="M14 12l3.5-3.3 2.8 1.6c.9.5.9 1.8 0 2.3l-2.8 1.6L14 12z" fill="#FBBC04"/>
+            <path d="M4.7 3.1L14 12l3.5-3.3L5.9 2.6c-.4-.2-.9-.1-1.2.5z" fill="#4285F4"/>
+            <path d="M4.7 20.9L14 12l3.5 3.3-11.6 6.1c-.4.2-.9.1-1.2-.5z" fill="#EA4335"/>
+          </svg>
+          <span><small>Coming soon on</small>Google Play</span>
+        </a>
+        <a class="store-badge" href="#" onclick="return false;" aria-label="App Store — coming soon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.05 12.54c-.03-2.36 1.93-3.49 2.02-3.55-1.1-1.61-2.81-1.83-3.42-1.85-1.45-.15-2.84.86-3.57.86-.74 0-1.88-.84-3.09-.82-1.59.02-3.06.93-3.88 2.35-1.65 2.87-.42 7.12 1.19 9.45.79 1.14 1.73 2.42 2.96 2.38 1.19-.05 1.64-.77 3.08-.77 1.43 0 1.84.77 3.09.74 1.28-.02 2.09-1.16 2.87-2.31.9-1.32 1.28-2.6 1.3-2.67-.03-.01-2.5-.96-2.55-3.81zM14.7 5.6c.65-.79 1.09-1.89.97-2.98-.94.04-2.07.62-2.74 1.41-.6.7-1.13 1.82-.99 2.89 1.05.08 2.11-.53 2.76-1.32z"/>
+          </svg>
+          <span><small>Coming soon on the</small>App Store</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Social links -->
+    <div class="footer__social">
+      <span class="footer__stores-note">Follow us</span>
+      <div class="social-icons">
+        <a href="#" onclick="return false;" aria-label="Instagram" title="Instagram">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.2c3.2 0 3.6 0 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.25.07 1.65.07 4.85s0 3.6-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.25.06-1.65.07-4.85.07s-3.6 0-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.2 15.6 2.2 15.2 2.2 12s0-3.6.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.4 2.2 8.8 2.2 12 2.2m0-2.2C8.74 0 8.33 0 7.05.07 5.78.13 4.9.33 4.14.63a5.9 5.9 0 0 0-2.13 1.38A5.9 5.9 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05 0 8.33 0 8.74 0 12s0 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.8.72 1.48 1.38 2.13a5.9 5.9 0 0 0 2.13 1.38c.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67 0 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.38 5.9 5.9 0 0 0 1.38-2.13c.3-.76.5-1.64.56-2.91.07-1.28.07-1.69.07-4.95s0-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67 0 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.15A4 4 0 1 1 16 12a4 4 0 0 1-4 4zm7.85-10.4a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>
+        </a>
+        <a href="#" onclick="return false;" aria-label="X (Twitter)" title="X (Twitter)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.6l5.24 6.93zm-1.29 19.5h2.04L6.49 3.24H4.3z"/></svg>
+        </a>
+        <a href="#" onclick="return false;" aria-label="LinkedIn" title="LinkedIn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.55C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.72C24 .77 23.2 0 22.22 0z"/></svg>
+        </a>
+        <a href="#" onclick="return false;" aria-label="Facebook" title="Facebook">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.89v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.09 24 18.1 24 12.07z"/></svg>
+        </a>
+        <a href="#" onclick="return false;" aria-label="YouTube" title="YouTube">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12z"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="footer__links">
+      <a href="#platform">Platform</a>
+      <a href="#who-its-for">Who it's for</a>
+      <a href="#features">Features</a>
+      <a href="#team">Team</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <p class="footer__copy">© <span id="year"></span> SevaCare. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

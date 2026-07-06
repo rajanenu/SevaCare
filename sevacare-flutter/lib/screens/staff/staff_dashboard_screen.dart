@@ -27,16 +27,9 @@ class StaffDashboardScreen extends ConsumerStatefulWidget {
 
 class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
   int _tab = 0;
-  final _scrollCtrl = ScrollController();
 
   // When staff taps "Book" on a patient card, pre-fill booking form
   PatientRecord? _prefillPatient;
-
-  @override
-  void dispose() {
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
 
   static const _bottomNav = [
     BottomNavItem(
@@ -63,10 +56,12 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     final auth = ref.watch(authProvider);
     final hospital = ref.watch(hospitalProvider);
 
+    // Fixed-frame layout: the hero banner and tab bar are pinned; each tab
+    // owns its scroll area below, so switching tabs never moves the frame.
     return AppShell(
       hospitalName: hospital.hospitalName,
       role: auth.role,
-      scrollController: _scrollCtrl,
+      scrollable: false,
       bottomNavItems: _bottomNav,
       currentNavIndex: 0,
       onNavTap: (i) {
@@ -87,29 +82,39 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 _tab = i;
                 if (i != 0) _prefillPatient = null;
               });
-              // Keep the frame steady — snap back to top on tab switch
-              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
             },
           ),
           const SizedBox(height: 16),
-          // All tabs stay mounted (Offstage) so switching doesn't refetch
-          // or flash loading states.
-          Offstage(
-            offstage: _tab != 0,
-            child: _BookTab(
-              key: ValueKey(_prefillPatient?.patientPublicId ?? '__new__'),
-              prefill: _prefillPatient,
-              onClearPrefill: () => setState(() => _prefillPatient = null),
+          // All tabs stay mounted (IndexedStack) so switching doesn't refetch
+          // or flash loading states, and each keeps its own scroll position.
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              sizing: StackFit.expand,
+              children: [
+                _tabPage(_BookTab(
+                  key: ValueKey(_prefillPatient?.patientPublicId ?? '__new__'),
+                  prefill: _prefillPatient,
+                  onClearPrefill: () => setState(() => _prefillPatient = null),
+                )),
+                _tabPage(const _DoctorsTab()),
+                _tabPage(_PatientsTab(onBookForPatient: _bookForExistingPatient)),
+                _tabPage(const _StaffRequestsTab()),
+              ],
             ),
           ),
-          Offstage(offstage: _tab != 1, child: const _DoctorsTab()),
-          Offstage(
-            offstage: _tab != 2,
-            child: _PatientsTab(onBookForPatient: _bookForExistingPatient),
-          ),
-          Offstage(offstage: _tab != 3, child: const _StaffRequestsTab()),
         ],
       ),
+    );
+  }
+
+  // Scrollable content region for one tab — lives below the pinned frame.
+  Widget _tabPage(Widget child) {
+    return SingleChildScrollView(
+      primary: false,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: child,
     );
   }
 }
@@ -1688,6 +1693,12 @@ class _BookTabState extends ConsumerState<_BookTab> {
                           selected: _gender == 'female',
                           onTap: () => setState(() => _gender = 'female'),
                         ),
+                        const SizedBox(width: 8),
+                        _ToggleChip(
+                          label: 'Other',
+                          selected: _gender == 'other',
+                          onTap: () => setState(() => _gender = 'other'),
+                        ),
                       ],
                     ),
                   ],
@@ -2138,6 +2149,59 @@ class _BookTabState extends ConsumerState<_BookTab> {
 
 // ── Patients Tab ──────────────────────────────────────────────────────────────
 
+/// Tappable column header with an up/down sort-direction indicator — shows a
+/// neutral icon when this column isn't the active sort, and a filled arrow
+/// matching the current direction when it is.
+class _SortableHeader extends StatelessWidget {
+  final String label;
+  final String column;
+  final String? activeColumn;
+  final String dir;
+  final VoidCallback onTap;
+  final MainAxisAlignment alignment;
+
+  const _SortableHeader({
+    required this.label,
+    required this.column,
+    required this.activeColumn,
+    required this.dir,
+    required this.onTap,
+    this.alignment = MainAxisAlignment.start,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activeColumn == column;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisAlignment: alignment,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              style: AppTextStyles.label(SevaCareColors.primary),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Icon(
+            !active
+                ? Icons.unfold_more_rounded
+                : (dir == 'asc' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded),
+            size: 13,
+            color: active
+                ? SevaCareColors.primary
+                : SevaCareColors.primary.withValues(alpha: 0.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PatientsTab extends ConsumerStatefulWidget {
   final ValueChanged<PatientRecord> onBookForPatient;
   const _PatientsTab({required this.onBookForPatient});
@@ -2157,9 +2221,24 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
   bool _loadingMore = false;
   String? _error;
 
+  String? _sortBy;
+  String _sortDir = 'asc';
+
   static const _pageSize = 10;
 
   bool get _hasMore => _patients.length < _total;
+
+  void _toggleSort(String column) {
+    setState(() {
+      if (_sortBy == column) {
+        _sortDir = _sortDir == 'asc' ? 'desc' : 'asc';
+      } else {
+        _sortBy = column;
+        _sortDir = 'asc';
+      }
+    });
+    _load(reset: true);
+  }
 
   @override
   void initState() {
@@ -2208,6 +2287,8 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
             _pageSize,
             _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
             auth.token ?? '',
+            sortBy: _sortBy,
+            sortDir: _sortDir,
           );
       final list = (data['patients'] as List? ?? [])
           .map((e) => PatientSummary.fromJson(e as Map<String, dynamic>))
@@ -2244,6 +2325,8 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
             _pageSize,
             _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
             auth.token ?? '',
+            sortBy: _sortBy,
+            sortDir: _sortDir,
           );
       final list = (data['patients'] as List? ?? [])
           .map((e) => PatientSummary.fromJson(e as Map<String, dynamic>))
@@ -2332,6 +2415,12 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
                       label: 'Female',
                       selected: gender == 'female',
                       onTap: () => setDlg(() => gender = 'female'),
+                    ),
+                    const SizedBox(width: 8),
+                    _ToggleChip(
+                      label: 'Other',
+                      selected: gender == 'other',
+                      onTap: () => setDlg(() => gender = 'other'),
                     ),
                   ],
                 ),
@@ -2694,25 +2783,34 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
                     children: [
                       Expanded(
                         flex: 3,
-                        child: Text(
-                          'Name',
-                          style: AppTextStyles.label(SevaCareColors.primary),
+                        child: _SortableHeader(
+                          label: 'Name',
+                          column: 'name',
+                          activeColumn: _sortBy,
+                          dir: _sortDir,
+                          onTap: () => _toggleSort('name'),
                         ),
                       ),
                       SizedBox(
-                        width: 36,
-                        child: Text(
-                          'Age',
-                          style: AppTextStyles.label(SevaCareColors.primary),
-                          textAlign: TextAlign.center,
+                        width: 52,
+                        child: _SortableHeader(
+                          label: 'Age',
+                          column: 'age',
+                          activeColumn: _sortBy,
+                          dir: _sortDir,
+                          alignment: MainAxisAlignment.center,
+                          onTap: () => _toggleSort('age'),
                         ),
                       ),
                       Expanded(
                         flex: 2,
-                        child: Text(
-                          'Last Appt',
-                          style: AppTextStyles.label(SevaCareColors.primary),
-                          textAlign: TextAlign.center,
+                        child: _SortableHeader(
+                          label: 'Last Appt',
+                          column: 'lastAppointment',
+                          activeColumn: _sortBy,
+                          dir: _sortDir,
+                          alignment: MainAxisAlignment.center,
+                          onTap: () => _toggleSort('lastAppointment'),
                         ),
                       ),
                       SizedBox(

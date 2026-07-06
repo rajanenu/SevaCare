@@ -793,6 +793,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
+                                          if (doc.averageRating != null) ...[
+                                            const SizedBox(height: 2),
+                                            RatingStars(
+                                                averageRating: doc.averageRating,
+                                                reviewCount: doc.reviewCount),
+                                          ],
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [

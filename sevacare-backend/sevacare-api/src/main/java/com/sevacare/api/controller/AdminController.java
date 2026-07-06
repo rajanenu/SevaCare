@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sevacare.admin.service.AdminDomainService;
 import com.sevacare.shared.dto.AdminDtos;
 import com.sevacare.shared.dto.ContractResponse;
+import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.shared.tenant.TenantContext;
+import com.sevacare.tenant.service.TenantRegistryService;
 
 import jakarta.validation.Valid;
 
@@ -25,9 +27,34 @@ import jakarta.validation.Valid;
 public class AdminController {
 
     private final AdminDomainService adminDomainService;
+    private final TenantRegistryService tenantRegistryService;
 
-    public AdminController(AdminDomainService adminDomainService) {
+    public AdminController(AdminDomainService adminDomainService, TenantRegistryService tenantRegistryService) {
         this.adminDomainService = adminDomainService;
+        this.tenantRegistryService = tenantRegistryService;
+    }
+
+    // Hospital-level support email — separate from any admin's personal profile email
+    @GetMapping("/{tenantPublicId}/hospital-profile")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.HospitalProfileView> getHospitalProfile(@PathVariable String tenantPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(new AdminDtos.HospitalProfileView(tenantRegistryService.getTenantEmail(tenantPublicId)));
+    }
+
+    @PutMapping("/{tenantPublicId}/hospital-profile")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.HospitalProfileView> updateHospitalProfile(
+            @PathVariable String tenantPublicId,
+            @Valid @RequestBody AdminDtos.HospitalProfileUpdateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        tenantRegistryService.updateTenantEmail(tenantPublicId, request.email());
+        return ContractResponse.of(new AdminDtos.HospitalProfileView(tenantRegistryService.getTenantEmail(tenantPublicId)));
     }
 
     @GetMapping("/{tenantPublicId}/overview")
@@ -52,7 +79,7 @@ public class AdminController {
     }
 
     @GetMapping("/{tenantPublicId}/users/{adminPublicId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ContractResponse<AdminDtos.AdminUserView> getAdminUser(@PathVariable String tenantPublicId, @PathVariable String adminPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
@@ -82,7 +109,7 @@ public class AdminController {
     }
 
     @PutMapping("/{tenantPublicId}/users/{adminPublicId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ContractResponse<AdminDtos.AdminUserView> updateAdminUser(
             @PathVariable String tenantPublicId,
             @PathVariable String adminPublicId,
@@ -116,6 +143,44 @@ public class AdminController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(adminDomainService.deleteAdminUser(tenantPublicId, adminPublicId));
+    }
+
+    // Self-service account deletion (ADMIN or STAFF deleting their own account)
+    // — disables login only; patients, appointments and history are untouched.
+    @DeleteMapping("/{tenantPublicId}/users/{adminPublicId}/account")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<String> deleteMyAccount(
+            @PathVariable String tenantPublicId,
+            @PathVariable String adminPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        adminDomainService.requestAccountDeletion(tenantPublicId, adminPublicId);
+        return ContractResponse.of("deleted");
+    }
+
+    @GetMapping("/{tenantPublicId}/users/{adminPublicId}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<PatientDtos.PhotoView> getPhoto(@PathVariable String tenantPublicId, @PathVariable String adminPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.getAdminPhoto(tenantPublicId, adminPublicId));
+    }
+
+    @PutMapping("/{tenantPublicId}/users/{adminPublicId}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<String> updatePhoto(
+            @PathVariable String tenantPublicId,
+            @PathVariable String adminPublicId,
+            @RequestBody PatientDtos.PhotoUpdateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        adminDomainService.updateAdminPhoto(tenantPublicId, adminPublicId, request.photoBase64());
+        return ContractResponse.of("saved");
     }
 
     @GetMapping("/{tenantPublicId}/staff")
@@ -208,11 +273,13 @@ public class AdminController {
             @PathVariable String tenantPublicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        return ContractResponse.of(adminDomainService.listPatientsWithLastAppointment(tenantPublicId, page, size, search));
+        return ContractResponse.of(adminDomainService.listPatientsWithLastAppointment(tenantPublicId, page, size, search, sortBy, sortDir));
     }
 
     @PostMapping("/patients")

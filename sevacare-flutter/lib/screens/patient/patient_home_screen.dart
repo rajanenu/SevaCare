@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/i18n/i18n.dart';
@@ -60,11 +62,43 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
   bool _loading = true;
   String? _error;
   int _dayOffset = 0;
+  final Set<String> _reviewedApptIds = {};
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadDismissedRatings();
+  }
+
+  static String _dismissKey(String patientId) =>
+      'dismissedRatePrompts_$patientId';
+
+  /// Restores which completed appointments the patient already rated or
+  /// declined to rate, so the Rate option stays hidden across sessions.
+  Future<void> _loadDismissedRatings() async {
+    try {
+      final patientId = ref.read(authProvider).subjectPublicId ?? '';
+      if (patientId.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final ids = prefs.getStringList(_dismissKey(patientId)) ?? [];
+      if (mounted && ids.isNotEmpty) {
+        setState(() => _reviewedApptIds.addAll(ids));
+      }
+    } catch (_) {}
+  }
+
+  /// Hides the Rate option for this appointment and remembers the choice.
+  Future<void> _hideRatePrompt(String appointmentId) async {
+    setState(() => _reviewedApptIds.add(appointmentId));
+    try {
+      final patientId = ref.read(authProvider).subjectPublicId ?? '';
+      if (patientId.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final key = _dismissKey(patientId);
+      final ids = <String>{...?prefs.getStringList(key), appointmentId};
+      await prefs.setStringList(key, ids.toList());
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -98,7 +132,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     final data = _homeData;
     if (data == null) return [];
     final targetDate = AppDateUtils.offsetDay(offset);
-    return data.appointments.where((a) {
+    final matches = data.appointments.where((a) {
       try {
         final slotDate = DateFormat(
           'yyyy-MM-dd',
@@ -108,6 +142,25 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         return false;
       }
     }).toList();
+    matches.sort(_appointmentPriorityComparator);
+    return matches;
+  }
+
+  // Upcoming/in-progress appointments always surface above completed or
+  // cancelled ones, so the patient sees what's next first.
+  static int _priorityRank(AppointmentView a) {
+    final s = AppDateUtils.effectiveApptStatus(a.status, a.slot).toLowerCase();
+    return (s == 'completed' || s == 'cancelled' || s == 'canceled') ? 1 : 0;
+  }
+
+  static int _appointmentPriorityComparator(
+    AppointmentView a,
+    AppointmentView b,
+  ) {
+    final rankA = _priorityRank(a);
+    final rankB = _priorityRank(b);
+    if (rankA != rankB) return rankA.compareTo(rankB);
+    return a.slot.compareTo(b.slot);
   }
 
   int _completedCount(List<AppointmentView> appts) =>
@@ -118,7 +171,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(tr(ref, 'Cancel Appointment')),
-        content: Text(tr(ref, 'Are you sure you want to cancel this appointment?')),
+        content: Text(
+          tr(ref, 'Are you sure you want to cancel this appointment?'),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -151,6 +206,123 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
             backgroundColor: SevaCareColors.danger,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _rateVisit(AppointmentView appt) async {
+    int rating = 5;
+    final commentController = TextEditingController();
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 12,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+              ),
+              child: Stack(
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        tr(ref, 'Rate your visit'),
+                        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appt.doctorName.isNotEmpty
+                            ? 'Dr. ${stripDoctorPrefix(appt.doctorName)}'
+                            : '',
+                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      RatingStarsPicker(
+                        value: rating,
+                        onChanged: (v) => setSheetState(() => rating = v),
+                      ),
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: commentController,
+                        label: tr(ref, 'Comments (optional)'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      PrimaryButton(
+                        label: tr(ref, 'Submit'),
+                        fullWidth: true,
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                      ),
+                    ],
+                  ),
+                  // Rating is optional — always give an obvious way to skip it.
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: SevaCareColors.textMuted,
+                      ),
+                      tooltip: tr(ref, 'Skip'),
+                      onPressed: () => Navigator.pop(sheetContext, false),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (submitted != true) {
+      // Patient chose not to rate — remove the Rate option silently so it
+      // doesn't keep reappearing in the queue.
+      await _hideRatePrompt(appt.appointmentPublicId);
+      return;
+    }
+    final auth = ref.read(authProvider);
+    final repo = ref.read(repositoryProvider);
+    try {
+      await repo.submitReview(
+        auth.tenantPublicId ?? '',
+        auth.subjectPublicId ?? '',
+        appt.appointmentPublicId,
+        auth.token ?? '',
+        rating,
+        commentController.text.trim().isEmpty
+            ? null
+            : commentController.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr(ref, 'Thanks for your feedback!'))),
+        );
+        await _hideRatePrompt(appt.appointmentPublicId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              extractErrorMessage(e, fallback: 'Could not submit review.'),
+            ),
+            backgroundColor: SevaCareColors.danger,
+          ),
+        );
+        await _hideRatePrompt(appt.appointmentPublicId);
       }
     }
   }
@@ -246,7 +418,12 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
 
                     // ── #3: Colour-differentiated quick actions ─────────────
                     GridView.count(
-                      crossAxisCount: 2,
+                      crossAxisCount: columnsForWidth(
+                        MediaQuery.sizeOf(context).width,
+                        mobileCols: 2,
+                        tabletCols: 3,
+                        desktopCols: 4,
+                      ),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisSpacing: 12,
@@ -350,6 +527,20 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                       ),
                     const SizedBox(height: 16),
 
+                    // Day-dependent region (metrics + queue). Kept at least a
+                    // viewport tall so switching days never shrinks the page
+                    // below the current scroll offset — that scroll clamp is
+                    // what used to make the frame visibly jump.
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: math.max(
+                          300,
+                          MediaQuery.sizeOf(context).height - 220,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                     // ── Metrics ─────────────────────────────────────────────
                     MetricRow(
                       tiles: [
@@ -407,23 +598,30 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final appt = dayAppts[index];
-                          final isCancellable = ![
-                            'cancelled',
-                            'canceled',
-                            'completed',
-                          ].contains(
-                            AppDateUtils.effectiveApptStatus(
-                              appt.status,
-                              appt.slot,
-                            ).toLowerCase(),
-                          );
+                          final isCancellable =
+                              !['cancelled', 'canceled', 'completed'].contains(
+                                AppDateUtils.effectiveApptStatus(
+                                  appt.status,
+                                  appt.slot,
+                                ).toLowerCase(),
+                              );
+                          final isReviewable =
+                              appt.status.toLowerCase() == 'completed' &&
+                              !_reviewedApptIds.contains(
+                                appt.appointmentPublicId,
+                              );
                           return _JourneyCard(
                             appt: appt,
                             isCancellable: isCancellable,
                             onCancel: () => _cancelAppointment(appt),
+                            isReviewable: isReviewable,
+                            onRate: () => _rateVisit(appt),
                           );
                         },
                       ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -685,11 +883,15 @@ class _JourneyCard extends ConsumerWidget {
   final AppointmentView appt;
   final bool isCancellable;
   final VoidCallback onCancel;
+  final bool isReviewable;
+  final VoidCallback onRate;
 
   const _JourneyCard({
     required this.appt,
     required this.isCancellable,
     required this.onCancel,
+    this.isReviewable = false,
+    required this.onRate,
   });
 
   static const _steps = ['Booked', 'Confirmed', 'Consulting', 'Done'];
@@ -763,6 +965,21 @@ class _JourneyCard extends ConsumerWidget {
             steps: translatedSteps,
             icons: _icons,
           ),
+          if (isReviewable) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onRate,
+                icon: const Icon(Icons.star_outline_rounded, size: 18),
+                label: Text(tr(ref, 'Rate your visit')),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SevaCareColors.primary,
+                  side: const BorderSide(color: SevaCareColors.primary),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -812,6 +1029,10 @@ class _JourneyTimeline extends StatelessWidget {
         final idx = i ~/ 2;
         final done = activeStep > idx;
         final active = activeStep == idx;
+        // The final "Done" step reads better as a completion color (green)
+        // rather than the same brand purple used for in-progress steps.
+        final isFinalDone = done && idx == steps.length - 1;
+        final doneColor = isFinalDone ? SevaCareColors.success : SevaCareColors.primary;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -821,7 +1042,7 @@ class _JourneyTimeline extends StatelessWidget {
               height: 28,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: done
+                gradient: (done && !isFinalDone)
                     ? const LinearGradient(
                         colors: SevaCareColors.buttonGradient,
                         begin: Alignment.topLeft,
@@ -829,7 +1050,7 @@ class _JourneyTimeline extends StatelessWidget {
                       )
                     : null,
                 color: done
-                    ? null
+                    ? (isFinalDone ? SevaCareColors.success : null)
                     : (active ? null : SevaCareColors.surfaceMuted),
                 border: active
                     ? Border.all(color: SevaCareColors.primary, width: 2)
@@ -837,7 +1058,7 @@ class _JourneyTimeline extends StatelessWidget {
                 boxShadow: done
                     ? [
                         BoxShadow(
-                          color: SevaCareColors.primary.withValues(alpha: 0.30),
+                          color: doneColor.withValues(alpha: 0.30),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -863,7 +1084,7 @@ class _JourneyTimeline extends StatelessWidget {
                   size: 9,
                   weight: (done || active) ? FontWeight.w700 : FontWeight.w500,
                   color: done
-                      ? SevaCareColors.primary
+                      ? doneColor
                       : (active
                             ? SevaCareColors.primary
                             : SevaCareColors.textMuted),
@@ -1029,17 +1250,21 @@ class _DayNavBtn extends StatelessWidget {
 
 // ── Live Queue Banner ─────────────────────────────────────────────────────────
 
-class _LiveQueueBanner extends StatefulWidget {
+class _LiveQueueBanner extends ConsumerStatefulWidget {
   final List<AppointmentView> todayAppointments;
   const _LiveQueueBanner({required this.todayAppointments});
 
   @override
-  State<_LiveQueueBanner> createState() => _LiveQueueBannerState();
+  ConsumerState<_LiveQueueBanner> createState() => _LiveQueueBannerState();
 }
 
-class _LiveQueueBannerState extends State<_LiveQueueBanner>
+class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  Timer? _pollTimer;
+  QueueStatusView? _status;
+  String? _trackedAppointmentId;
+  String? _trackedDoctorName;
 
   @override
   void initState() {
@@ -1048,47 +1273,87 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+    _refreshStatus();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshStatus(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_LiveQueueBanner old) {
+    super.didUpdateWidget(old);
+    _refreshStatus();
   }
 
   @override
   void dispose() {
     _pulse.dispose();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
-  ({int position, int waitMins, String doctorName, String slot})?
-  get _queueInfo {
-    final now = DateTime.now();
-    final upcoming = widget.todayAppointments
-        .where(
-          (a) => ![
-            'completed',
-            'cancelled',
-            'canceled',
-          ].contains(a.status.toLowerCase()),
-        )
-        .where((a) {
-          try {
-            return DateTime.parse(a.slot).toLocal().isAfter(now);
-          } catch (_) {
-            return true;
-          }
-        })
-        .toList();
-    if (upcoming.isEmpty) return null;
-    final first = upcoming.first;
-    return (
-      position: 1,
-      waitMins: 10,
-      doctorName: first.doctorName,
-      slot: first.slot,
-    );
+  AppointmentView? get _trackedAppointment {
+    final tokenAppts =
+        widget.todayAppointments
+            .where(
+              (a) =>
+                  a.bookingType == 'TOKEN' &&
+                  ![
+                    'completed',
+                    'cancelled',
+                    'canceled',
+                  ].contains(a.status.toLowerCase()),
+            )
+            .toList()
+          ..sort((a, b) => (a.tokenNumber ?? 0).compareTo(b.tokenNumber ?? 0));
+    return tokenAppts.isEmpty ? null : tokenAppts.first;
+  }
+
+  Future<void> _refreshStatus() async {
+    final appt = _trackedAppointment;
+    if (appt == null) {
+      if (mounted)
+        setState(() {
+          _status = null;
+          _trackedAppointmentId = null;
+        });
+      return;
+    }
+    _trackedDoctorName = appt.doctorName;
+    _trackedAppointmentId = appt.appointmentPublicId;
+    try {
+      final auth = ref.read(authProvider);
+      final repo = ref.read(repositoryProvider);
+      final status = await repo.getQueueStatus(
+        auth.tenantPublicId ?? '',
+        auth.subjectPublicId ?? '',
+        appt.appointmentPublicId,
+        auth.token ?? '',
+      );
+      if (mounted) setState(() => _status = status);
+    } catch (_) {
+      // Silently keep the last known status — a transient network hiccup
+      // shouldn't flash an error banner during routine polling.
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final info = _queueInfo;
-    if (info == null) return const SizedBox.shrink();
+    final status = _status;
+    if (_trackedAppointmentId == null || status == null) {
+      return const SizedBox.shrink();
+    }
+    final info = (
+      position: status.tokensAhead + 1,
+      waitMins: status.estimatedWaitMinutes,
+      doctorName: _trackedDoctorName ?? '',
+      almostYourTurn: status.tokensAhead <= 3,
+    );
+
+    final accentColor = info.almostYourTurn
+        ? SevaCareColors.danger
+        : SevaCareColors.primary;
 
     return AnimatedBuilder(
       animation: _pulse,
@@ -1100,16 +1365,12 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
             color: SevaCareColors.primarySoft,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: SevaCareColors.primary.withValues(
-                alpha: 0.20 + glow * 0.15,
-              ),
+              color: accentColor.withValues(alpha: 0.20 + glow * 0.15),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: SevaCareColors.primary.withValues(
-                  alpha: 0.06 + glow * 0.06,
-                ),
+                color: accentColor.withValues(alpha: 0.06 + glow * 0.06),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1125,9 +1386,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                     height: 26 + glow * 6,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: SevaCareColors.primary.withValues(
-                        alpha: 0.08 + glow * 0.06,
-                      ),
+                      color: accentColor.withValues(alpha: 0.08 + glow * 0.06),
                     ),
                   ),
                   Container(
@@ -1137,7 +1396,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                       shape: BoxShape.circle,
                       color: SevaCareColors.primarySoft,
                       border: Border.all(
-                        color: SevaCareColors.primary.withValues(alpha: 0.30),
+                        color: accentColor.withValues(alpha: 0.30),
                       ),
                     ),
                     child: Center(
@@ -1146,7 +1405,7 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                         style: AppTextStyles.body(
                           size: 11,
                           weight: FontWeight.w800,
-                          color: SevaCareColors.primary,
+                          color: accentColor,
                         ),
                       ),
                     ),
@@ -1197,17 +1456,20 @@ class _LiveQueueBannerState extends State<_LiveQueueBanner>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '~${info.waitMins} min',
+                    info.almostYourTurn
+                        ? tr(ref, 'Almost your turn!')
+                        : '~${info.waitMins} min',
                     style: AppTextStyles.body(
                       size: 14,
                       weight: FontWeight.w700,
-                      color: SevaCareColors.primary,
+                      color: accentColor,
                     ),
                   ),
-                  Text(
-                    'est. wait',
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
-                  ),
+                  if (!info.almostYourTurn)
+                    Text(
+                      'est. wait',
+                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                    ),
                 ],
               ),
             ],

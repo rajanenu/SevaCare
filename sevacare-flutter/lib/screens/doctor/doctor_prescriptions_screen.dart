@@ -161,6 +161,16 @@ class _PrescriptionCard extends StatelessWidget {
                 '+${rx.medicines.length - 3} more',
                 style: AppTextStyles.badgeText(SevaCareColors.textMuted),
               ),
+          ] else if (rx.notes != null && rx.notes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const SectionDivider(),
+            const SizedBox(height: 8),
+            Text(
+              rx.notes!,
+              style: AppTextStyles.bodyText(SevaCareColors.text),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),

@@ -106,4 +106,11 @@ public final class AdminDtos {
             int size
     ) {
     }
+
+    /** Hospital-level support/contact email — distinct from any individual admin's personal email. */
+    public record HospitalProfileView(String email) {
+    }
+
+    public record HospitalProfileUpdateRequest(String email) {
+    }
 }

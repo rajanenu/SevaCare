@@ -51,6 +51,25 @@ class AppDateUtils {
     return formatDisplay(apiDate);
   }
 
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  /// Absolute weekday-day-month label, e.g. "Mon 06 Jul", regardless of
+  /// whether the date is today/yesterday/tomorrow.
+  static String weekdayDateLabel(String apiDate) {
+    try {
+      final dt = DateTime.parse(apiDate);
+      final weekday = _weekdays[dt.weekday - 1];
+      final month = _months[dt.month - 1];
+      return '$weekday ${dt.day.toString().padLeft(2, '0')} $month';
+    } catch (_) {
+      return timelineLabel(apiDate);
+    }
+  }
+
   static String formatSlot(String? slot) {
     if (slot == null || slot.isEmpty) return '-';
     try {

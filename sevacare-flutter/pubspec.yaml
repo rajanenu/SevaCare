@@ -54,6 +54,10 @@ dependencies:
   # Charts for insights/reports
   fl_chart: ^0.69.2
 
+  # Location detection for "Nearby Hospitals"
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

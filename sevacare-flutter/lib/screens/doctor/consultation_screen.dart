@@ -49,20 +49,47 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   bool _submitting = false;
   String? _error;
 
+  // Follow-up reminder — selected before completing, sent with the prescription
+  int? _followUpDays;
+
   // Patient history
   List<PrescriptionDetailView> _prevPrescriptions = [];
   bool _historyLoading = false;
   bool _historyExpanded = false;
 
+  // Captured eagerly in initState — `ref` cannot be used inside dispose()
+  // (Riverpod marks it disposed by then), so the notifiers themselves are
+  // held instead. Must be assigned in initState, not via a lazy `late`
+  // initializer, since a lazy initializer would only run on first access —
+  // which would be inside dispose() itself, too late to read `ref`.
+  late final StateController<String?> _selectedPatientCtrl;
+  late final StateController<String?> _selectedAppointmentCtrl;
+  late final StateController<DoctorQueueFacetView?> _selectedFacetCtrl;
+
   @override
   void initState() {
     super.initState();
+    _selectedPatientCtrl = ref.read(doctorSelectedPatientIdProvider.notifier);
+    _selectedAppointmentCtrl = ref.read(doctorSelectedAppointmentIdProvider.notifier);
+    _selectedFacetCtrl = ref.read(doctorSelectedFacetProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPatientHistory());
     _medNameCtrl.addListener(_onMedicineNameChanged);
   }
 
   @override
   void dispose() {
+    // Clear the selected patient/appointment/facet so the next time this
+    // screen is opened via the bottom nav (rather than "Start Consult" on a
+    // specific queue card) it starts on a blank consult view instead of
+    // showing whichever patient was last consulted. Riverpod forbids
+    // modifying provider state synchronously during dispose(), so this is
+    // deferred to the next microtask, after the widget tree finishes
+    // unmounting.
+    Future.microtask(() {
+      _selectedPatientCtrl.state = null;
+      _selectedAppointmentCtrl.state = null;
+      _selectedFacetCtrl.state = null;
+    });
     _medNameCtrl.removeListener(_onMedicineNameChanged);
     _medNameCtrl.dispose();
     _medStrengthCtrl.dispose();
@@ -202,22 +229,6 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     );
   }
 
-  Future<void> _completeConsultation(String appointmentId) async {
-    try {
-      final auth = ref.read(authProvider);
-      final hospital = ref.read(hospitalProvider);
-      final repo = ref.read(repositoryProvider);
-      await repo.completeConsultation(
-        hospital.tenantPublicId,
-        auth.subjectPublicId ?? '',
-        appointmentId,
-        auth.token ?? '',
-      );
-    } catch (_) {
-      // Completion is best-effort; prescription already saved
-    }
-  }
-
   void _addMedicine() {
     final name = _medNameCtrl.text.trim();
     if (name.isEmpty) {
@@ -252,9 +263,122 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     setState(() => _medicines.removeAt(index));
   }
 
-  Future<void> _issuePrescription() async {
-    if (_medicines.isEmpty) {
-      setState(() => _error = 'Add at least one medicine before issuing a prescription.');
+  /// Shows exactly what a template will add before touching the prescription —
+  /// templates cover multiple medicines at once, so a silent bulk-add left
+  /// doctors unsure whether anything had happened.
+  void _previewTemplate(_RxTemplate template) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        title: Row(
+          children: [
+            Icon(template.icon, size: 20, color: template.color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(template.label, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${template.medicines.length} medicine(s) will be added to the prescription list:',
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                ),
+                const SizedBox(height: 10),
+                for (final m in template.medicines)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.circle, size: 6, color: template.color),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${m.name} ${m.strength}',
+                                  style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.text)),
+                              Text('${m.freq} · ${m.dur} · ${m.note}',
+                                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: template.color.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(template.notes, style: AppTextStyles.label(template.color)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(child: SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx, false))),
+              const SizedBox(width: 10),
+              Expanded(child: PrimaryButton(label: 'Add ${template.medicines.length}', onPressed: () => Navigator.pop(ctx, true))),
+            ],
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed != true || !mounted) return;
+      setState(() {
+        _medicines.addAll(template.medicines.map((m) => MedicineView(
+              name: m.name,
+              strength: m.strength,
+              frequency: m.freq,
+              duration: m.dur,
+              instructions: m.note,
+            )));
+        if (template.notes.isNotEmpty && _notesCtrl.text.isEmpty) {
+          _notesCtrl.text = template.notes;
+        }
+        _addMedicineExpanded = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${template.medicines.length} medicine(s) added — review them below.'),
+          backgroundColor: SevaCareColors.mint,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    });
+  }
+
+  /// Single action: issues the prescription and marks the appointment
+  /// completed in one sequential call — every second matters here, since the
+  /// live queue only advances once the appointment flips to "completed".
+  /// Medicines are optional — a note or recorded vitals is enough on its own.
+  Future<void> _completeConsultation() async {
+    final vitalsStr = _buildVitalsString();
+    final userNotes = _notesCtrl.text.trim();
+
+    if (_medicines.isEmpty && userNotes.isEmpty && vitalsStr == null) {
+      setState(() => _error = 'Add a medicine, a note, or vitals before completing the consultation.');
       return;
     }
 
@@ -265,6 +389,17 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       setState(() => _error = 'No patient selected. Please go back and select a patient.');
       return;
     }
+
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Complete Consultation?',
+      message: _medicines.isEmpty
+          ? 'This will mark the appointment as completed with your notes/vitals. This cannot be undone.'
+          : 'This will issue the prescription and mark the appointment as completed. This cannot be undone.',
+      confirmLabel: 'Complete',
+      isDanger: false,
+    );
+    if (!confirmed) return;
 
     setState(() {
       _submitting = true;
@@ -278,13 +413,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       final doctorId = auth.subjectPublicId ?? '';
 
       final doctorName = auth.subjectName.isNotEmpty ? auth.subjectName : 'Doctor';
-      final vitalsStr = _buildVitalsString();
-      final userNotes = _notesCtrl.text.trim();
       final combinedNotes = [
         if (vitalsStr != null) vitalsStr,
         if (userNotes.isNotEmpty) userNotes,
       ].join('\n');
-      final result = await repo.uploadPrescription(
+
+      await repo.uploadPrescription(
         hospital.tenantPublicId,
         doctorId,
         auth.token ?? '',
@@ -295,160 +429,39 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           appointmentPublicId: appointmentId,
           medicines: List.unmodifiable(_medicines),
           notes: combinedNotes.isNotEmpty ? combinedNotes : null,
+          followUpDays: _followUpDays,
         ),
       );
 
+      if (appointmentId != null && appointmentId.isNotEmpty) {
+        await repo.completeConsultation(
+          hospital.tenantPublicId,
+          doctorId,
+          appointmentId,
+          auth.token ?? '',
+        );
+      }
+
       if (mounted) {
         setState(() => _submitting = false);
-        final rxId = result['prescriptionPublicId'] as String? ??
-            result['id'] as String? ??
-            'RX-issued';
-        final apptId = appointmentId;
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: SevaCareColors.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: SevaCareColors.successSurface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check, color: SevaCareColors.success, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Flexible(child: Text('Prescription Issued', style: AppTextStyles.sectionTitle(SevaCareColors.text))),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'The prescription has been successfully issued.',
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: SevaCareColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.receipt_outlined, size: 16, color: SevaCareColors.primary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          rxId,
-                          style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Complete consultation prompt
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: SevaCareColors.mintSoft,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 16, color: SevaCareColors.mint),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Mark this consultation as complete?',
-                          style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Divider(height: 1, color: SevaCareColors.border),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.event_repeat, size: 16, color: SevaCareColors.peach),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Schedule Follow-up?',
-                      style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.peach),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [3, 7, 14, 30].map((days) {
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Follow-up in $days days noted in prescription.'),
-                          backgroundColor: SevaCareColors.peach,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          duration: const Duration(seconds: 3),
-                        ));
-                        context.go('/doctor');
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF4EE),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(color: SevaCareColors.peach.withValues(alpha: 0.5)),
-                        ),
-                        child: Text(
-                          '$days days',
-                          style: AppTextStyles.label(SevaCareColors.peach),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-            actions: [
-              SecondaryButton(
-                label: 'Close',
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  context.go('/doctor');
-                },
-              ),
-              PrimaryButton(
-                label: 'Complete & Close',
-                icon: Icons.check_circle_outline,
-                onPressed: () async {
-                  Navigator.of(ctx).pop();
-                  if (apptId != null && apptId.isNotEmpty) {
-                    await _completeConsultation(apptId);
-                  }
-                  if (mounted) context.go('/doctor');
-                },
-              ),
-            ],
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_medicines.isEmpty
+                ? 'Consultation completed.'
+                : 'Consultation completed — prescription issued.'),
+            backgroundColor: SevaCareColors.mint,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
           ),
         );
+        context.go('/doctor');
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _submitting = false;
-          _error = extractErrorMessage(e, fallback: 'Failed to issue prescription. Please try again.');
+          _error = extractErrorMessage(e, fallback: 'Failed to complete consultation. Please try again.');
         });
       }
     }
@@ -560,25 +573,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           const SizedBox(height: 12),
 
           // ── Quick Prescription Templates ──────────────────────────────────
-          _QuickTemplatesBar(
-            onApply: (medicines, notes) {
-              setState(() {
-                _medicines.addAll(medicines);
-                if (notes.isNotEmpty && _notesCtrl.text.isEmpty) {
-                  _notesCtrl.text = notes;
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Template applied — review and adjust medicines.'),
-                  backgroundColor: SevaCareColors.mint,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
+          _QuickTemplatesBar(onSelect: _previewTemplate),
           const SizedBox(height: 16),
 
           // ── Write Prescription section (single card, accordion to add) ─────
@@ -760,6 +755,43 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── Follow-up reminder ──────────────────────────────────────────────
+          Row(
+            children: [
+              const Icon(Icons.event_repeat, size: 16, color: SevaCareColors.textMuted),
+              const SizedBox(width: 6),
+              Text('Follow-up', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.text)),
+              Text(' (optional)', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [null, 3, 7, 14, 30].map((days) {
+              final selected = _followUpDays == days;
+              return GestureDetector(
+                onTap: () => setState(() => _followUpDays = days),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? SevaCareColors.peach : const Color(0xFFFFF4EE),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: SevaCareColors.peach.withValues(alpha: selected ? 1 : 0.5),
+                      width: selected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Text(
+                    days == null ? 'None' : '$days days',
+                    style: AppTextStyles.label(selected ? SevaCareColors.textOnPrimary : SevaCareColors.peach),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
           const SizedBox(height: 12),
 
           // ── Error banner ───────────────────────────────────────────────────
@@ -785,12 +817,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
             const SizedBox(height: 12),
           ],
 
-          // ── Issue Prescription button ──────────────────────────────────────
+          // ── Complete Consultation button ─────────────────────────────────────
           PrimaryButton(
-            label: 'Issue Prescription',
-            icon: Icons.send_outlined,
+            label: 'Complete Consultation',
+            icon: Icons.check_circle_outline,
             isLoading: _submitting,
-            onPressed: _submitting ? null : _issuePrescription,
+            onPressed: _submitting ? null : _completeConsultation,
             fullWidth: true,
           ),
           const SizedBox(height: 32),
@@ -1200,12 +1232,11 @@ class _MedicineRow extends StatelessWidget {
 // ── Quick Prescription Templates ──────────────────────────────────────────────
 // Feature #2: One-tap condition templates that pre-fill medicines + notes.
 
-typedef _TemplateApplyCallback = void Function(
-    List<MedicineView> medicines, String notes);
+typedef _TemplateSelectCallback = void Function(_RxTemplate template);
 
 class _QuickTemplatesBar extends StatefulWidget {
-  final _TemplateApplyCallback onApply;
-  const _QuickTemplatesBar({required this.onApply});
+  final _TemplateSelectCallback onSelect;
+  const _QuickTemplatesBar({required this.onSelect});
 
   @override
   State<_QuickTemplatesBar> createState() => _QuickTemplatesBarState();
@@ -1321,16 +1352,7 @@ class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
             runSpacing: 8,
             children: _templates.map((t) => _TemplateChip(
               template: t,
-              onTap: () {
-                final medicines = t.medicines.map((m) => MedicineView(
-                  name: m.name,
-                  strength: m.strength,
-                  frequency: m.freq,
-                  duration: m.dur,
-                  instructions: m.note,
-                )).toList();
-                widget.onApply(medicines, t.notes);
-              },
+              onTap: () => widget.onSelect(t),
             )).toList(),
           ),
           const SizedBox(height: 6),

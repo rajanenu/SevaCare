@@ -11,7 +11,7 @@ public final class DiscoveryDtos {
     private DiscoveryDtos() {
     }
 
-    public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty, String themeKey) {
+    public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty, String themeKey, String pinCode) {
     }
 
     /** Hero image for a hospital — base64 payload; fields are null when the tenant has no image. */
@@ -19,7 +19,7 @@ public final class DiscoveryDtos {
     }
 
     public record DoctorSummary(String doctorPublicId, String name, String specialty, String availability, String fee,
-            String bookingMode, Integer experienceYears, String qualification) {
+            String bookingMode, Integer experienceYears, String qualification, Double averageRating, int reviewCount) {
     }
 
     public record TenantDirectory(List<TenantSummary> tenants) {
@@ -45,7 +45,8 @@ public final class DiscoveryDtos {
             @NotBlank String contactMobile,
             @NotBlank @Email String contactEmail,
             String supportingDocs,
-            @NotBlank @Pattern(regexp = "hospital|clinic") String facilityType
+            @NotBlank @Pattern(regexp = "hospital|clinic") String facilityType,
+            String pinCode
     ) {
     }
 

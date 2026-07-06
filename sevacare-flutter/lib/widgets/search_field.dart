@@ -8,6 +8,7 @@ class SearchField extends StatelessWidget {
   final TextEditingController? controller;
   final String placeholder;
   final ValueChanged<String>? onChanged;
+  final Widget? suffixIcon;
 
   const SearchField({
     super.key,
@@ -15,6 +16,7 @@ class SearchField extends StatelessWidget {
     this.controller,
     this.placeholder = 'Search…',
     this.onChanged,
+    this.suffixIcon,
   });
 
   @override
@@ -38,6 +40,7 @@ class SearchField extends StatelessWidget {
         style: AppTextStyles.inputText(SevaCareColors.text),
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.search, size: 20, color: SevaCareColors.textMuted),
+          suffixIcon: suffixIcon,
           hintText: placeholder,
           hintStyle: AppTextStyles.inputHint(SevaCareColors.textMuted.withValues(alpha: 0.6)),
           border: InputBorder.none,

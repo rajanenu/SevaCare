@@ -22,6 +22,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   bool _loading = true;
   String? _error;
   String _filter = 'all';
+  final _scrollCtrl = ScrollController();
 
   static const _patientBottomNav = [
     BottomNavItem(
@@ -57,6 +58,12 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -88,7 +95,11 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
 
   List<AppointmentView> get _filtered {
     final all = _appointments ?? [];
-    if (_filter == 'all') return all;
+    if (_filter == 'all') {
+      final sorted = List<AppointmentView>.from(all);
+      sorted.sort(_appointmentPriorityComparator);
+      return sorted;
+    }
     // Filter on the effective status so past-dated appointments never
     // linger under "Upcoming".
     return all
@@ -103,16 +114,34 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
         .toList();
   }
 
+  // Upcoming/in-progress appointments always surface above completed or
+  // cancelled ones, so the patient sees what's next first.
+  static int _priorityRank(AppointmentView a) {
+    final s = AppDateUtils.effectiveApptStatus(a.status, a.slot).toLowerCase();
+    return (s == 'completed' || s == 'cancelled' || s == 'canceled') ? 1 : 0;
+  }
+
+  static int _appointmentPriorityComparator(AppointmentView a, AppointmentView b) {
+    final rankA = _priorityRank(a);
+    final rankB = _priorityRank(b);
+    if (rankA != rankB) return rankA.compareTo(rankB);
+    return a.slot.compareTo(b.slot);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hospitalName = ref.watch(hospitalProvider).hospitalName;
 
+    // Fixed-frame layout: the shell does not scroll. Header and filter tabs
+    // are pinned; only the appointment list below scrolls. Switching filters
+    // swaps the list in place, so the frame never shifts.
     return AppShell(
       hospitalName: hospitalName,
       role: UserRole.patient,
       bottomNavItems: _patientBottomNav,
       currentNavIndex: 2,
       onNavTap: (i) => context.go(_patientBottomNav[i].route),
+      scrollable: false,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,33 +160,54 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
               SegmentItem(label: tr(ref, 'Cancelled'), value: 'cancelled'),
             ],
             selected: _filter,
-            onChanged: (v) => setState(() => _filter = v),
+            onChanged: (v) {
+              setState(() => _filter = v);
+              // Only the inner list resets — the pinned frame above never moves.
+              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+            },
           ),
           const SizedBox(height: 16),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
-              child: ShimmerList(count: 4, cardHeight: 96),
-            )
-          else if (_error != null)
-            _ErrorState(error: _error!, onRetry: _load)
-          else if (_filtered.isEmpty)
-            _EmptyState(filter: _filter)
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, idx) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => StaggeredItem(
-                index: i,
-                child: _AppointmentCard(
-                  appointment: _filtered[i],
-                  onCancelled: _load,
-                ),
-              ),
-            ),
+          Expanded(child: _buildListArea()),
         ],
+      ),
+    );
+  }
+
+  // Scrollable content region below the pinned frame.
+  Widget _buildListArea() {
+    if (_loading) {
+      return const SingleChildScrollView(
+        physics: NeverScrollableScrollPhysics(),
+        child: Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: ShimmerList(count: 4, cardHeight: 96),
+        ),
+      );
+    }
+    if (_error != null) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: _ErrorState(error: _error!, onRetry: _load),
+      );
+    }
+    if (_filtered.isEmpty) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: _EmptyState(filter: _filter),
+      );
+    }
+    return ListView.separated(
+      controller: _scrollCtrl,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: _filtered.length,
+      separatorBuilder: (_, idx) => const SizedBox(height: 8),
+      itemBuilder: (_, i) => StaggeredItem(
+        index: i,
+        child: _AppointmentCard(
+          appointment: _filtered[i],
+          onCancelled: _load,
+        ),
       ),
     );
   }

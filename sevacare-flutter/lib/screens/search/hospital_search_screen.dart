@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_colors.dart';
@@ -22,9 +24,14 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
   String _query = '';
   late Future<List<TenantSummary>> _tenantsFuture;
   List<String> _recentIds = [];
+  List<String> _favoriteIds = [];
+  bool _locating = false;
+  String? _detectedPincode;
+  String? _locationLabel;
 
   static const _prefsKey = 'recent_hospital_ids';
   static const _maxRecent = 3;
+  static const _favoritesPrefsKey = 'favorite_hospital_ids';
 
   @override
   void initState() {
@@ -32,6 +39,7 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
     _tenantsFuture = ref.read(repositoryProvider).listTenants();
     _searchController.addListener(() => setState(() => _query = _searchController.text));
     _loadRecent();
+    _loadFavorites();
   }
 
   Future<void> _loadRecent() async {
@@ -49,11 +57,83 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
     if (mounted) setState(() => _recentIds = updated);
   }
 
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_favoritesPrefsKey);
+    if (raw != null && mounted) {
+      setState(() => _favoriteIds = (jsonDecode(raw) as List).cast<String>());
+    }
+  }
+
+  Future<void> _toggleFavorite(String id) async {
+    final updated = _favoriteIds.contains(id)
+        ? _favoriteIds.where((e) => e != id).toList()
+        : [..._favoriteIds, id];
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_favoritesPrefsKey, jsonEncode(updated));
+    if (mounted) setState(() => _favoriteIds = updated);
+  }
+
+  String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  Future<void> _detectLocationAndFillCity() async {
+    setState(() => _locating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+      );
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (placemarks.isEmpty || !mounted) return;
+      final placemark = placemarks.first;
+      final locality = placemark.locality ?? placemark.subAdministrativeArea;
+      final pincode = placemark.postalCode;
+      if (locality == null || locality.isEmpty) return;
+
+      final label = (pincode != null && pincode.isNotEmpty)
+          ? '${_capitalize(locality)}-$pincode'
+          : _capitalize(locality);
+
+      _searchController.text = locality;
+      setState(() {
+        _query = locality;
+        _detectedPincode = (pincode != null && pincode.isNotEmpty) ? pincode : null;
+        _locationLabel = label;
+      });
+    } catch (_) {
+      // Silently ignore — manual search remains available.
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _clearDetectedLocation() {
+    setState(() {
+      _detectedPincode = null;
+      _locationLabel = null;
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
+
+  bool _isPincodeMatch(TenantSummary t) =>
+      _detectedPincode != null && t.pinCode != null && t.pinCode == _detectedPincode;
 
   List<TenantSummary> _sortAndFilter(List<TenantSummary> tenants) {
     final q = _query.trim().toLowerCase();
@@ -62,20 +142,28 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
         : tenants.where((t) {
             return t.hospitalName.toLowerCase().contains(q) ||
                 t.city.toLowerCase().contains(q) ||
-                t.specialty.toLowerCase().contains(q);
+                t.specialty.toLowerCase().contains(q) ||
+                _isPincodeMatch(t);
           }).toList();
 
-    // Move recently visited to the top (preserving recency order)
-    if (_recentIds.isNotEmpty) {
-      filtered.sort((a, b) {
-        final ai = _recentIds.indexOf(a.tenantPublicId);
-        final bi = _recentIds.indexOf(b.tenantPublicId);
-        if (ai != -1 && bi != -1) return ai.compareTo(bi);
-        if (ai != -1) return -1;
-        if (bi != -1) return 1;
-        return 0;
-      });
+    // Priority order: favorites > exact pincode match (from detected location)
+    // > recently visited (preserving recency order) > everything else.
+    int priority(TenantSummary t) {
+      if (_isFavorite(t.tenantPublicId)) return 0;
+      if (_isPincodeMatch(t)) return 1;
+      if (_isRecent(t.tenantPublicId)) return 2;
+      return 3;
     }
+
+    filtered.sort((a, b) {
+      final pa = priority(a);
+      final pb = priority(b);
+      if (pa != pb) return pa.compareTo(pb);
+      if (pa == 2) {
+        return _recentIds.indexOf(a.tenantPublicId).compareTo(_recentIds.indexOf(b.tenantPublicId));
+      }
+      return 0;
+    });
     return filtered;
   }
 
@@ -90,6 +178,7 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
   }
 
   bool _isRecent(String id) => _recentIds.contains(id);
+  bool _isFavorite(String id) => _favoriteIds.contains(id);
 
   @override
   Widget build(BuildContext context) {
@@ -111,8 +200,45 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
             controller: _searchController,
             placeholder: 'Search by name, city, or specialty…',
             onChanged: (v) => setState(() => _query = v),
+            suffixIcon: IconButton(
+              onPressed: _locating ? null : _detectLocationAndFillCity,
+              tooltip: 'Use my location',
+              icon: _locating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location, size: 20, color: SevaCareColors.primary),
+            ),
           ),
-          const SizedBox(height: 20),
+          if (_locationLabel != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: SevaCareColors.primarySoft,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.near_me, size: 12, color: SevaCareColors.primary),
+                    const SizedBox(width: 4),
+                    Text(_locationLabel!, style: AppTextStyles.label(SevaCareColors.primary)),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: _clearDetectedLocation,
+                      child: const Icon(Icons.close, size: 14, color: SevaCareColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           // ── Results ────────────────────────────────────────────────────────
           FutureBuilder<List<TenantSummary>>(
             future: _tenantsFuture,
@@ -136,12 +262,16 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                 return _EmptyState(query: null);
               }
 
+              final hasFavorites = _favoriteIds.isNotEmpty && filtered.any((t) => _isFavorite(t.tenantPublicId));
               final hasRecent = _recentIds.isNotEmpty && filtered.any((t) => _isRecent(t.tenantPublicId));
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (hasRecent && _query.isEmpty) ...[
+                  if (hasFavorites && _query.isEmpty) ...[
+                    Text('Favorites', style: AppTextStyles.label(SevaCareColors.primary)),
+                    const SizedBox(height: 6),
+                  ] else if (hasRecent && _query.isEmpty) ...[
                     Text('Recently Visited', style: AppTextStyles.label(SevaCareColors.primary)),
                     const SizedBox(height: 6),
                   ] else ...[
@@ -154,14 +284,22 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                   // Hospital cards
                   ...filtered.indexed.map(
                     ((int, TenantSummary) entry) {
+                      final isFavorite = _isFavorite(entry.$2.tenantPublicId);
                       final isRecent = _isRecent(entry.$2.tenantPublicId);
-                      final showDivider = hasRecent && _query.isEmpty &&
-                          !isRecent &&
-                          (entry.$1 == 0 || _isRecent(filtered[entry.$1 - 1].tenantPublicId));
+                      final showFavDivider = hasFavorites && _query.isEmpty &&
+                          !isFavorite &&
+                          (entry.$1 == 0 || _isFavorite(filtered[entry.$1 - 1].tenantPublicId));
+                      final showRecentDivider = !showFavDivider && hasRecent && _query.isEmpty &&
+                          !isRecent && !isFavorite &&
+                          (entry.$1 == 0 || _isRecent(filtered[entry.$1 - 1].tenantPublicId) || _isFavorite(filtered[entry.$1 - 1].tenantPublicId));
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (showDivider) ...[
+                          if (showFavDivider) ...[
+                            const SizedBox(height: 6),
+                            Text(hasRecent ? 'Recently Visited' : 'All Hospitals', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                            const SizedBox(height: 6),
+                          ] else if (showRecentDivider) ...[
                             const SizedBox(height: 6),
                             Text('All Hospitals', style: AppTextStyles.label(SevaCareColors.textMuted)),
                             const SizedBox(height: 6),
@@ -171,7 +309,9 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                             child: _HospitalCard(
                               tenant: entry.$2,
                               isRecent: isRecent,
+                              isFavorite: isFavorite,
                               onTap: () => _selectHospital(entry.$2),
+                              onToggleFavorite: () => _toggleFavorite(entry.$2.tenantPublicId),
                             ),
                           ),
                         ],
@@ -194,8 +334,16 @@ class _HospitalCard extends ConsumerWidget {
   final TenantSummary tenant;
   final VoidCallback onTap;
   final bool isRecent;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
 
-  const _HospitalCard({required this.tenant, required this.onTap, this.isRecent = false});
+  const _HospitalCard({
+    required this.tenant,
+    required this.onTap,
+    required this.onToggleFavorite,
+    this.isRecent = false,
+    this.isFavorite = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -310,7 +458,21 @@ class _HospitalCard extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 4),
+          // Favorite toggle
+          InkWell(
+            onTap: onToggleFavorite,
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+                color: isFavorite ? SevaCareColors.danger : SevaCareColors.textMuted,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           // Right: distance badge
           if (tenant.distance != null)
             Container(

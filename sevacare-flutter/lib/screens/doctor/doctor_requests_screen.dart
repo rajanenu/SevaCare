@@ -67,6 +67,12 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
     }
   }
 
+  // The header and tab bar live in a fixed (non-scrolling) frame, so
+  // switching tabs only swaps the content region below — nothing else moves.
+  void _switchTab(int i) {
+    setState(() { _tab = i; _successMsg = null; });
+  }
+
   Future<void> _pickDate(TextEditingController ctrl) async {
     final picked = await showDatePicker(
       context: context,
@@ -145,14 +151,19 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
         _fromDateCtrl.clear();
         _toDateCtrl.clear();
         _reasonCtrl.clear();
-        setState(() {
-          _startTime = null;
-          _endTime = null;
-          _hourlyLeave = false;
-          _successMsg = 'Leave request submitted! The hospital admin will be notified.';
-          _tab = 2;
-        });
+        // Load the refreshed history while still on this tab (offstage) so
+        // switching to History shows the final list directly, instead of a
+        // spinner-then-list flash on top of the tab switch itself.
         await _loadHistory();
+        if (mounted) {
+          setState(() {
+            _startTime = null;
+            _endTime = null;
+            _hourlyLeave = false;
+            _successMsg = 'Leave request submitted! The hospital admin will be notified.';
+            _tab = 2;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -188,11 +199,16 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
       );
       if (mounted) {
         _messageCtrl.clear();
-        setState(() {
-          _successMsg = 'Message sent to hospital admin.';
-          _tab = 2;
-        });
+        // Load the refreshed history while still on this tab (offstage) so
+        // switching to History shows the final list directly, instead of a
+        // spinner-then-list flash on top of the tab switch itself.
         await _loadHistory();
+        if (mounted) {
+          setState(() {
+            _successMsg = 'Message sent to hospital admin.';
+            _tab = 2;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -212,11 +228,16 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
     final hospital = ref.watch(hospitalProvider);
     final tabs = [tr(ref, 'Leave'), tr(ref, 'Message'), tr(ref, 'History')];
 
+    // Fixed-frame layout: the shell does not scroll. The page header and tab
+    // bar are pinned; only the content region below them scrolls. Switching
+    // tabs swaps the content in place, so the frame never shifts — even while
+    // a backend call is in flight. Each tab keeps its own scroll position.
     return AppShell(
       hospitalName: hospital.hospitalName,
       role: auth.role,
       showBackButton: true,
       onBack: () => context.go('/doctor'),
+      scrollable: false,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -234,7 +255,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
                 final active = _tab == i;
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() { _tab = i; _successMsg = null; }),
+                    onTap: () => _switchTab(i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -259,37 +280,49 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
           ),
           const SizedBox(height: 16),
 
-          if (_successMsg != null) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: SevaCareColors.mintSoft,
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
-              ),
-              child: Row(children: [
-                const Icon(Icons.check_circle_outline, color: SevaCareColors.mint, size: 20),
-                const SizedBox(width: 10),
-                Expanded(child: Text(_successMsg!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground))),
-              ]),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(
-              key: ValueKey(_tab),
-              child: _tab == 0
-                  ? _leaveForm()
-                  : _tab == 1
-                      ? _messageForm()
-                      : _historyList(),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              sizing: StackFit.expand,
+              children: [
+                _tabPage(_leaveForm()),
+                _tabPage(_messageForm()),
+                _tabPage(Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_successMsg != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: SevaCareColors.mintSoft,
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                          border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.check_circle_outline, color: SevaCareColors.mint, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(_successMsg!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground))),
+                        ]),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _historyList(),
+                  ],
+                )),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // Scrollable content region for one tab — lives below the pinned frame.
+  Widget _tabPage(Widget child) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: child,
     );
   }
 

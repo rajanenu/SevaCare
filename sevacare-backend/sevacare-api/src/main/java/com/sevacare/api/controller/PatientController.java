@@ -247,6 +247,44 @@ public class PatientController {
         return ContractResponse.of(patientDomainService.deleteAppointmentForPatient(tenantPublicId, patientPublicId, appointmentPublicId));
     }
 
+    // Self-service account deletion — disables login only; appointments,
+    // prescriptions and history tied to this patientPublicId are untouched.
+    @DeleteMapping("/{tenantPublicId}/{patientPublicId}/account")
+    @PreAuthorize("hasAnyRole('PATIENT','ADMIN')")
+    public ContractResponse<String> deleteMyAccount(
+            @PathVariable String tenantPublicId,
+            @PathVariable String patientPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        patientDomainService.requestAccountDeletion(tenantPublicId, patientPublicId);
+        return ContractResponse.of("deleted");
+    }
+
+    @GetMapping("/{tenantPublicId}/{patientPublicId}/photo")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.PhotoView> getPhoto(@PathVariable String tenantPublicId, @PathVariable String patientPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.getPatientPhoto(tenantPublicId, patientPublicId));
+    }
+
+    @PutMapping("/{tenantPublicId}/{patientPublicId}/photo")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<String> updatePhoto(
+            @PathVariable String tenantPublicId,
+            @PathVariable String patientPublicId,
+            @RequestBody PatientDtos.PhotoUpdateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        patientDomainService.updatePatientPhoto(tenantPublicId, patientPublicId, request.photoBase64());
+        return ContractResponse.of("saved");
+    }
+
     // Prescription Endpoints (patient-scoped)
     @GetMapping("/{tenantPublicId}/{patientPublicId}/prescriptions")
     @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
@@ -258,6 +296,35 @@ public class PatientController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(patientDomainService.getPatientPrescriptions(tenantPublicId, patientPublicId));
+    }
+
+    // Patient submits a 5-star rating (+ optional comment) for a completed appointment
+    @PostMapping("/{tenantPublicId}/{patientPublicId}/appointments/{appointmentPublicId}/review")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.ReviewSubmitResult> submitReview(
+            @PathVariable String tenantPublicId,
+            @PathVariable String patientPublicId,
+            @PathVariable String appointmentPublicId,
+            @Valid @RequestBody PatientDtos.ReviewSubmitRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.submitReview(tenantPublicId, patientPublicId, appointmentPublicId, request));
+    }
+
+    // Live queue position for a patient's own TOKEN appointment — powers the "your turn is near" banner
+    @GetMapping("/{tenantPublicId}/{patientPublicId}/appointments/{appointmentPublicId}/queue-status")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.QueueStatusView> getQueueStatus(
+            @PathVariable String tenantPublicId,
+            @PathVariable String patientPublicId,
+            @PathVariable String appointmentPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.getQueueStatus(tenantPublicId, patientPublicId, appointmentPublicId));
     }
 
     @GetMapping("/{tenantPublicId}/{patientPublicId}/medical-history")

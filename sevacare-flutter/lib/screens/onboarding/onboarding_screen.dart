@@ -144,6 +144,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           contactName: contactName,
           contactMobile: contactMobile,
           contactEmail: contactEmail,
+          pinCode: pinCode,
         ),
       );
 

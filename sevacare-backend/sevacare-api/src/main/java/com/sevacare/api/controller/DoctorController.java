@@ -84,7 +84,7 @@ public class DoctorController {
     }
 
     @GetMapping("/{tenantPublicId}/records/{doctorPublicId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
     public ContractResponse<DoctorDtos.DoctorView> getDoctor(@PathVariable String tenantPublicId, @PathVariable String doctorPublicId) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
@@ -93,7 +93,7 @@ public class DoctorController {
     }
 
     @PutMapping("/{tenantPublicId}/records/{doctorPublicId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
     public ContractResponse<DoctorDtos.DoctorView> upsertDoctor(
             @PathVariable String tenantPublicId,
             @PathVariable String doctorPublicId,
@@ -134,6 +134,41 @@ public class DoctorController {
         }
         doctorDomainService.deleteDoctorRecord(tenantPublicId, doctorPublicId);
         return ContractResponse.of("deleted");
+    }
+
+    // Self-service account deletion — disables login only; appointments,
+    // prescriptions and history tied to this doctorPublicId are untouched.
+    @DeleteMapping("/{tenantPublicId}/{doctorPublicId}/account")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<String> deleteMyAccount(@PathVariable String tenantPublicId, @PathVariable String doctorPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        doctorDomainService.requestAccountDeletion(tenantPublicId, doctorPublicId);
+        return ContractResponse.of("deleted");
+    }
+
+    @GetMapping("/{tenantPublicId}/{doctorPublicId}/photo")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.PhotoView> getPhoto(@PathVariable String tenantPublicId, @PathVariable String doctorPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(doctorDomainService.getDoctorPhoto(tenantPublicId, doctorPublicId));
+    }
+
+    @PutMapping("/{tenantPublicId}/{doctorPublicId}/photo")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<String> updatePhoto(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId,
+            @RequestBody PatientDtos.PhotoUpdateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        doctorDomainService.updateDoctorPhoto(tenantPublicId, doctorPublicId, request.photoBase64());
+        return ContractResponse.of("saved");
     }
 
     // Prescription Upload - Doctors issue prescriptions to patients

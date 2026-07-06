@@ -28,3 +28,4 @@ export 'cinematic_intro.dart';
 export 'confirm_dialog.dart';
 export 'doctor_photo.dart';
 export 'staff_photo.dart';
+export 'rating_stars.dart';

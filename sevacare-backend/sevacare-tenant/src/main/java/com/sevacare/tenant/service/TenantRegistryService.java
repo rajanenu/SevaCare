@@ -38,7 +38,8 @@ public class TenantRegistryService {
                         tenant.getTenantName(),
                         tenant.getCity().isBlank() ? "Unknown city" : tenant.getCity(),
                         "General medicine",
-                        tenant.getTenantThemeKey()
+                        tenant.getTenantThemeKey(),
+                        tenant.getPinCode().isBlank() ? null : tenant.getPinCode()
                 ))
                 .toList();
     }
@@ -120,6 +121,20 @@ public class TenantRegistryService {
             String contactMobile,
             String contactEmail
     ) {
+        return provisionTenant(tenantPublicId, hospitalName, themeKey, contactName, contactMobile, contactEmail, null, null);
+    }
+
+    @Transactional
+    public TenantRegistry provisionTenant(
+            String tenantPublicId,
+            String hospitalName,
+            String themeKey,
+            String contactName,
+            String contactMobile,
+            String contactEmail,
+            String city,
+            String pinCode
+    ) {
         String schemaName = buildTenantSchemaName(tenantPublicId);
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
         createTenantSchema(schemaName);
@@ -130,6 +145,15 @@ public class TenantRegistryService {
         tenant.setTenantThemeKey(themeKey);
         tenant.setTenantSchemaName(schemaName);
         tenant.setTenantStatus("active");
+        if (city != null && !city.isBlank()) {
+            tenant.setCity(city.trim());
+        }
+        if (pinCode != null && !pinCode.isBlank()) {
+            tenant.setPinCode(pinCode.trim());
+        }
+        if (contactEmail != null && !contactEmail.isBlank()) {
+            tenant.setEmail(contactEmail.trim());
+        }
         tenantRegistryRepository.save(tenant);
 
         // Repair schema shape immediately — a hospital onboarded while the server
@@ -144,6 +168,21 @@ public class TenantRegistryService {
         return tenant;
     }
 
+    @Transactional(readOnly = true)
+    public String getTenantEmail(String tenantPublicId) {
+        return tenantRegistryRepository.findById(tenantPublicId)
+                .map(TenantRegistry::getEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantPublicId));
+    }
+
+    @Transactional
+    public void updateTenantEmail(String tenantPublicId, String email) {
+        TenantRegistry tenant = tenantRegistryRepository.findById(tenantPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantPublicId));
+        tenant.setEmail(email == null ? null : email.trim());
+        tenantRegistryRepository.save(tenant);
+    }
+
     @Transactional
     public String submitOnboardingRequest(
             String hospitalName,
@@ -156,7 +195,8 @@ public class TenantRegistryService {
             String contactMobile,
             String contactEmail,
             String supportingDocs,
-            String facilityType
+            String facilityType,
+            String pinCode
     ) {
         String requestPublicId = nextPrefixedId("ONB", "onboarding_request_public_id_seq");
         jdbcTemplate.update(
@@ -182,7 +222,7 @@ public class TenantRegistryService {
         // Auto-activate: Create tenant and schema for immediate access
         try {
             String tenantPublicId = nextTenantPublicId();
-            provisionTenant(tenantPublicId, hospitalName, "default", contactName, contactMobile, contactEmail);
+            provisionTenant(tenantPublicId, hospitalName, "default", contactName, contactMobile, contactEmail, city, pinCode);
             
             // Update onboarding request to approved
             jdbcTemplate.update(
@@ -210,9 +250,11 @@ public class TenantRegistryService {
                 gender VARCHAR(24),
                 address TEXT,
                 status VARCHAR(24) DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                deletion_requested_at TIMESTAMP,
+                photo_base64 TEXT
             );
-            
+
             CREATE TABLE IF NOT EXISTS %s.doctor (
                 doctor_public_id VARCHAR(24) PRIMARY KEY,
                 tenant_public_id VARCHAR(24) NOT NULL,
@@ -229,7 +271,9 @@ public class TenantRegistryService {
                 ready_to_look_patients BOOLEAN DEFAULT true,
                 booking_mode VARCHAR(16) NOT NULL DEFAULT 'BOTH',
                 experience_years INT,
-                qualification VARCHAR(200)
+                qualification VARCHAR(200),
+                deletion_requested_at TIMESTAMP,
+                photo_base64 TEXT
             );
             
             CREATE TABLE IF NOT EXISTS %s.doctor_details (
@@ -341,7 +385,9 @@ public class TenantRegistryService {
                 full_name VARCHAR(160),
                 active BOOLEAN DEFAULT true,
                 user_type VARCHAR(16) DEFAULT 'ADMIN',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                deletion_requested_at TIMESTAMP,
+                photo_base64 TEXT
             );
 
             CREATE TABLE IF NOT EXISTS %s.token_counter (
@@ -351,6 +397,16 @@ public class TenantRegistryService {
                 session           VARCHAR(16) NOT NULL,
                 last_token        INTEGER     NOT NULL DEFAULT 0,
                 PRIMARY KEY (tenant_public_id, doctor_public_id, token_date, session)
+            );
+
+            CREATE TABLE IF NOT EXISTS %s.doctor_review (
+                id BIGSERIAL PRIMARY KEY,
+                appointment_public_id VARCHAR(16) NOT NULL UNIQUE,
+                doctor_public_id VARCHAR(16) NOT NULL,
+                patient_public_id VARCHAR(16) NOT NULL,
+                rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment VARCHAR(1000),
+                created_at TIMESTAMP NOT NULL DEFAULT now()
             );
             """;
 

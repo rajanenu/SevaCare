@@ -99,7 +99,8 @@ public class DiscoveryController {
                 request.contactMobile(),
                 request.contactEmail(),
                 request.supportingDocs(),
-                request.facilityType()
+                request.facilityType(),
+                request.pinCode()
         );
             return ContractResponse.of(new DiscoveryDtos.TenantOnboardingAccepted(requestPublicId, "submitted", "Onboarding request submitted", Collections.emptyList()));
             }
@@ -121,7 +122,8 @@ public class DiscoveryController {
                 request.contactMobile(),
                 request.contactEmail(),
                 request.supportingDocs(),
-                request.facilityType()
+                request.facilityType(),
+                request.pinCode()
             );
 
             List<DiscoveryDtos.OnboardingDocumentView> documents = onboardingDocumentService.storeDocuments(

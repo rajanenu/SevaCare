@@ -61,6 +61,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       role: role,
       showBackButton: true,
       onBack: () => context.pop(),
+      // Fixed-frame layout: header, search field and filter chips stay put;
+      // only the results list scrolls/updates on filter or query changes.
+      scrollable: false,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -126,11 +129,20 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           const SizedBox(height: 12),
 
           // ── Results ────────────────────────────────────────────────────────
-          doctorsAsync.when(
-            loading: () => const ShimmerList(count: 4, cardHeight: 80),
-            error: (e, _) => AppCard(
-              child: Text(extractErrorMessage(e),
-                  style: AppTextStyles.bodyText(SevaCareColors.danger)),
+          Expanded(
+            child: doctorsAsync.when(
+            loading: () => const SingleChildScrollView(
+              primary: false,
+              physics: NeverScrollableScrollPhysics(),
+              child: ShimmerList(count: 4, cardHeight: 80),
+            ),
+            error: (e, _) => SingleChildScrollView(
+              primary: false,
+              physics: const BouncingScrollPhysics(),
+              child: AppCard(
+                child: Text(extractErrorMessage(e),
+                    style: AppTextStyles.bodyText(SevaCareColors.danger)),
+              ),
             ),
             data: (docs) {
               // Specialty filter chips
@@ -201,42 +213,50 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  if (results.isEmpty)
-                    AppCard(
-                      child: Column(
-                        children: [
-                          const Icon(Icons.search_off_rounded,
-                              size: 40, color: SevaCareColors.textMuted),
-                          const SizedBox(height: 10),
-                          Text(
-                            _query.isEmpty
-                                ? 'No doctors found in this hospital.'
-                                : 'No results for "$_query"',
-                            style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted),
-                            textAlign: TextAlign.center,
+                  Expanded(
+                    child: results.isEmpty
+                        ? SingleChildScrollView(
+                            primary: false,
+                            physics: const BouncingScrollPhysics(),
+                            child: AppCard(
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.search_off_rounded,
+                                      size: 40, color: SevaCareColors.textMuted),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    _query.isEmpty
+                                        ? 'No doctors found in this hospital.'
+                                        : 'No results for "$_query"',
+                                    style: AppTextStyles.bodyText(
+                                        SevaCareColors.textMuted),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView(
+                            primary: false,
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 24),
+                            children: [
+                              Text(
+                                '${results.length} doctor${results.length == 1 ? '' : 's'} found',
+                                style: AppTextStyles.label(SevaCareColors.textMuted),
+                              ),
+                              const SizedBox(height: 10),
+                              ...results.map((d) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _DoctorSearchCard(doctor: d, role: role),
+                                  )),
+                            ],
                           ),
-                        ],
-                      ),
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${results.length} doctor${results.length == 1 ? '' : 's'} found',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
-                        ),
-                        const SizedBox(height: 10),
-                        ...results.map((d) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _DoctorSearchCard(doctor: d, role: role),
-                            )),
-                      ],
-                    ),
+                  ),
                 ],
               );
             },
+            ),
           ),
         ],
       ),

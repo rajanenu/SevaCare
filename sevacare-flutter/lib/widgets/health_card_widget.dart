@@ -159,23 +159,6 @@ class _HealthCardWidgetState extends State<HealthCardWidget>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                                  ),
-                                  child: Text(
-                                    'HEALTH CARD',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: 0.85),
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const Spacer(),
@@ -221,14 +204,21 @@ class _HealthCardWidgetState extends State<HealthCardWidget>
                         ),
                       ),
                       const SizedBox(width: 14),
-                      // Right: photo (if uploaded) or QR code + camera/share buttons
-                      _CardMedia(
-                        qrPayload: _qrPayload,
-                        photoBytes: widget.photoBytes,
-                        onCameraPressed: widget.onCameraPressed,
-                        onSharePressed: _copyToClipboard,
-                        qrEyeColor: const Color(0xFF3F39A8),
-                        qrDataColor: const Color(0xFF1C1A34),
+                      // Right: card-type badge sits above the photo/QR so it
+                      // never competes with the hospital-name row for space.
+                      Column(
+                        children: [
+                          const _CardBadge(label: 'HEALTH CARD'),
+                          const SizedBox(height: 6),
+                          _CardMedia(
+                            qrPayload: _qrPayload,
+                            photoBytes: widget.photoBytes,
+                            onCameraPressed: widget.onCameraPressed,
+                            onSharePressed: _copyToClipboard,
+                            qrEyeColor: const Color(0xFF3F39A8),
+                            qrDataColor: const Color(0xFF1C1A34),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -393,23 +383,6 @@ class _DoctorCardWidgetState extends State<DoctorCardWidget>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                                  ),
-                                  child: Text(
-                                    'DOCTOR CARD',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: 0.85),
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const Spacer(),
@@ -449,18 +422,24 @@ class _DoctorCardWidgetState extends State<DoctorCardWidget>
                       const SizedBox(width: 14),
                       // Media slot shows the doctor's assigned photo instead
                       // of a QR code — a picked photo still takes precedence.
-                      _CardMedia(
-                        qrPayload: _qrPayload,
-                        photoBytes: widget.photoBytes,
-                        fallback: DoctorPhoto(
-                          doctorId: widget.doctorId,
-                          width: 96,
-                          height: 96,
-                        ),
-                        onCameraPressed: widget.onCameraPressed,
-                        onSharePressed: _copyToClipboard,
-                        qrEyeColor: const Color(0xFF065F46),
-                        qrDataColor: const Color(0xFF064E3B),
+                      Column(
+                        children: [
+                          const _CardBadge(label: 'DOCTOR CARD'),
+                          const SizedBox(height: 6),
+                          _CardMedia(
+                            qrPayload: _qrPayload,
+                            photoBytes: widget.photoBytes,
+                            fallback: DoctorPhoto(
+                              doctorId: widget.doctorId,
+                              width: 96,
+                              height: 96,
+                            ),
+                            onCameraPressed: widget.onCameraPressed,
+                            onSharePressed: _copyToClipboard,
+                            qrEyeColor: const Color(0xFF065F46),
+                            qrDataColor: const Color(0xFF064E3B),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -482,6 +461,7 @@ class StaffCardWidget extends StatefulWidget {
   final String mobile;
   final String hospitalName;
   final bool isStaff; // false → hospital admin styling/photo pool
+  final String bloodGroup;
   final Uint8List? photoBytes;
   final VoidCallback? onCameraPressed;
 
@@ -492,6 +472,7 @@ class StaffCardWidget extends StatefulWidget {
     this.mobile = '',
     this.hospitalName = 'SevaCare',
     this.isStaff = false,
+    this.bloodGroup = '',
     this.photoBytes,
     this.onCameraPressed,
   });
@@ -618,23 +599,6 @@ class _StaffCardWidgetState extends State<StaffCardWidget>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                                  ),
-                                  child: Text(
-                                    widget.isStaff ? 'STAFF CARD' : 'ADMIN CARD',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: 0.85),
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const Spacer(),
@@ -670,6 +634,12 @@ class _StaffCardWidgetState extends State<StaffCardWidget>
                                       : Icons.admin_panel_settings_outlined,
                                   value: widget.isStaff ? 'Patient Support' : 'Administration',
                                 ),
+                                if (widget.bloodGroup.isNotEmpty)
+                                  _InfoChip(
+                                    icon: Icons.bloodtype_outlined,
+                                    value: widget.bloodGroup,
+                                    iconColor: SevaCareColors.error,
+                                  ),
                                 if (widget.mobile.isNotEmpty)
                                   _InfoChip(icon: Icons.phone_outlined, value: widget.mobile),
                               ],
@@ -679,18 +649,24 @@ class _StaffCardWidgetState extends State<StaffCardWidget>
                       ),
                       const SizedBox(width: 14),
                       // Media slot: picked photo, else assigned stock photo
-                      _CardMedia(
-                        qrPayload: '',
-                        photoBytes: widget.photoBytes,
-                        fallback: StaffPhoto(
-                          userId: widget.userId,
-                          isStaff: widget.isStaff,
-                          width: 96,
-                          height: 96,
-                        ),
-                        onCameraPressed: widget.onCameraPressed,
-                        qrEyeColor: const Color(0xFF312E81),
-                        qrDataColor: const Color(0xFF1E1B4B),
+                      Column(
+                        children: [
+                          _CardBadge(label: widget.isStaff ? 'STAFF CARD' : 'ADMIN CARD'),
+                          const SizedBox(height: 6),
+                          _CardMedia(
+                            qrPayload: '',
+                            photoBytes: widget.photoBytes,
+                            fallback: StaffPhoto(
+                              userId: widget.userId,
+                              isStaff: widget.isStaff,
+                              width: 96,
+                              height: 96,
+                            ),
+                            onCameraPressed: widget.onCameraPressed,
+                            qrEyeColor: const Color(0xFF312E81),
+                            qrDataColor: const Color(0xFF1E1B4B),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -700,6 +676,36 @@ class _StaffCardWidgetState extends State<StaffCardWidget>
           ),
         );
       },
+    );
+  }
+}
+
+// ── Card-type badge (HEALTH CARD / DOCTOR CARD / STAFF CARD / ADMIN CARD) ─────
+// Sits above the photo/QR slot rather than beside the hospital name, so it
+// never crowds that text on narrow cards or long hospital names.
+
+class _CardBadge extends StatelessWidget {
+  final String label;
+  const _CardBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withValues(alpha: 0.85),
+          letterSpacing: 1.2,
+        ),
+      ),
     );
   }
 }

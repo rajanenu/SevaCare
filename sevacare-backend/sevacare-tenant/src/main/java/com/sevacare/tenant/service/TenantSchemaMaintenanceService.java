@@ -304,6 +304,12 @@ public class TenantSchemaMaintenanceService {
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_doctor ON " + schemaName + ".prescription (doctor_public_id)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_tenant_created ON " + schemaName + ".prescription (tenant_public_id, created_at)");
 
+        // prescription_medicine and medical_history are looked up on every prescription
+        // list/detail view and every patient history view respectively, but never had an
+        // index beyond the primary key.
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_rx_medicine_rx ON " + schemaName + ".prescription_medicine (prescription_public_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_medhistory_patient ON " + schemaName + ".medical_history (tenant_public_id, patient_public_id)");
+
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_notif_recipient ON " + schemaName + ".app_notification (tenant_public_id, recipient_id, recipient_type, created_at)");
 
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_leave_tenant_doctor ON " + schemaName + ".leave_request (tenant_public_id, doctor_public_id)");

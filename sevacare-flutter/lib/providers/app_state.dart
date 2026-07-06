@@ -185,6 +185,28 @@ final tenantHeroImageProvider =
   }
 });
 
+/// Backend-synced doctor photo, so an uploaded photo is visible to patients
+/// booking on a different device — not just on the doctor's own phone.
+/// Resolves to null (falls back to the bundled stock photo) on any failure,
+/// including when the viewer isn't authenticated yet.
+final doctorPhotoProvider =
+    FutureProvider.family<Uint8List?, String>((ref, doctorId) async {
+  if (doctorId.isEmpty) return null;
+  final auth = ref.watch(authProvider);
+  final tenantId = auth.tenantPublicId;
+  final token = auth.token;
+  if (tenantId == null || tenantId.isEmpty || token == null || token.isEmpty) {
+    return null;
+  }
+  try {
+    final photo = await ref.watch(repositoryProvider).getDoctorPhoto(tenantId, doctorId, token);
+    if (photo.photoBase64 == null || photo.photoBase64!.isEmpty) return null;
+    return base64Decode(photo.photoBase64!);
+  } catch (_) {
+    return null;
+  }
+});
+
 // ── Auth Provider ─────────────────────────────────────────────────────────────
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -232,6 +254,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
     // When wipeStorage is false, credentials stay encrypted in secure storage.
     // Only biometric auth can re-activate the session (via restore()).
+  }
+
+  /// Keeps the in-memory (and persisted) session name in sync right after a
+  /// profile save, so screens reading `auth.subjectName` directly (e.g. the
+  /// dashboard greeting) don't show a stale name until the next full login.
+  Future<void> updateSubjectName(String name) async {
+    state = AuthState(
+      token: state.token,
+      tenantPublicId: state.tenantPublicId,
+      subjectPublicId: state.subjectPublicId,
+      role: state.role,
+      isGenericAdmin: state.isGenericAdmin,
+      subjectName: name,
+      userType: state.userType,
+    );
+    await _storage.write(key: _kSubjectName, value: name);
   }
 
   Future<bool> restore() async {

@@ -29,6 +29,7 @@ class SevaCareRepository {
         specialty: t.specialty,
         themeKey: t.themeKey,
         distance: '${entry.key + 1}.0 km',
+        pinCode: t.pinCode,
       );
     }).toList();
   }
@@ -179,9 +180,10 @@ class SevaCareRepository {
   }
 
   Future<Map<String, dynamic>> getAdminPatients(
-      String tenantId, int page, int size, String? search, String token) async {
+      String tenantId, int page, int size, String? search, String token,
+      {String? sortBy, String? sortDir}) async {
     return _client.get<Map<String, dynamic>>(
-      ApiConstants.adminPatients(tenantId, page: page, size: size, search: search),
+      ApiConstants.adminPatients(tenantId, page: page, size: size, search: search, sortBy: sortBy, sortDir: sortDir),
       fromJson: (d) => d as Map<String, dynamic>,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
@@ -190,6 +192,32 @@ class SevaCareRepository {
   Future<void> deletePatient(String tenantId, String patientId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.adminDeletePatient(tenantId, patientId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Self-service "delete my account" — disables login only, no data is removed.
+  Future<void> deleteMyPatientAccount(String tenantId, String patientId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.deletePatientAccount(tenantId, patientId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<PhotoView> getPatientPhoto(String tenantId, String patientId, String token) async {
+    return _client.get<PhotoView>(
+      ApiConstants.patientPhoto(tenantId, patientId),
+      fromJson: (d) => PhotoView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> updatePatientPhoto(String tenantId, String patientId, String token, String? photoBase64) async {
+    await _client.put<dynamic>(
+      ApiConstants.patientPhoto(tenantId, patientId),
+      body: {'photoBase64': photoBase64},
       fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
@@ -238,6 +266,25 @@ class SevaCareRepository {
       ApiConstants.rescheduleAppointment(tenantId, patientId, apptId),
       body: AppointmentRescheduleRequest(newSlot: newSlot).toJson(),
       fromJson: (d) => AppointmentActionResult.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<ReviewSubmitResult> submitReview(String tenantId, String patientId, String apptId,
+      String token, int rating, String? comment) async {
+    return _client.post<ReviewSubmitResult>(
+      ApiConstants.submitReview(tenantId, patientId, apptId),
+      body: {'rating': rating, 'comment': comment},
+      fromJson: (d) => ReviewSubmitResult.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<QueueStatusView> getQueueStatus(
+      String tenantId, String patientId, String apptId, String token) async {
+    return _client.get<QueueStatusView>(
+      ApiConstants.queueStatus(tenantId, patientId, apptId),
+      fromJson: (d) => QueueStatusView.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -311,6 +358,32 @@ class SevaCareRepository {
   Future<void> deleteDoctorRecord(String tenantId, String doctorId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.doctorRecord(tenantId, doctorId),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Self-service "delete my account" — disables login only, no data is removed.
+  Future<void> deleteMyDoctorAccount(String tenantId, String doctorId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.deleteDoctorAccount(tenantId, doctorId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<PhotoView> getDoctorPhoto(String tenantId, String doctorId, String token) async {
+    return _client.get<PhotoView>(
+      ApiConstants.doctorPhoto(tenantId, doctorId),
+      fromJson: (d) => PhotoView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> updateDoctorPhoto(String tenantId, String doctorId, String token, String? photoBase64) async {
+    await _client.put<dynamic>(
+      ApiConstants.doctorPhoto(tenantId, doctorId),
+      body: {'photoBase64': photoBase64},
+      fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -401,9 +474,12 @@ class SevaCareRepository {
 
   Future<void> completeConsultation(
       String tenantId, String doctorId, String appointmentId, String token) async {
-    await _client.patch<Map<String, dynamic>>(
+    // Backend returns a String payload ("completed") here, not a Map — casting
+    // to Map<String, dynamic> throws client-side even though the PATCH already
+    // succeeded server-side, which looked like "complete failed" to the doctor
+    // while the appointment was in fact already marked completed.
+    await _client.patch<dynamic>(
       ApiConstants.completeAppointment(tenantId, doctorId, appointmentId),
-      fromJson: (d) => d as Map<String, dynamic>,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -447,6 +523,15 @@ class SevaCareRepository {
     );
   }
 
+  Future<AdminUserRecord> getAdminUser(
+      String tenantId, String adminId, String token) async {
+    return _client.get<AdminUserRecord>(
+      ApiConstants.adminUser(tenantId, adminId),
+      fromJson: (d) => AdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<AdminUserRecord> updateAdminUser(
       String tenantId, String adminId, String token, AdminUserUpsertRequest body) async {
     return _client.put<AdminUserRecord>(
@@ -469,6 +554,32 @@ class SevaCareRepository {
   Future<void> deleteAdminUser(String tenantId, String adminId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.adminUser(tenantId, adminId),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Self-service "delete my account" (Admin or Staff) — disables login only.
+  Future<void> deleteMyAdminOrStaffAccount(String tenantId, String adminId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.deleteAdminOrStaffAccount(tenantId, adminId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<PhotoView> getAdminOrStaffPhoto(String tenantId, String adminId, String token) async {
+    return _client.get<PhotoView>(
+      ApiConstants.adminOrStaffPhoto(tenantId, adminId),
+      fromJson: (d) => PhotoView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> updateAdminOrStaffPhoto(String tenantId, String adminId, String token, String? photoBase64) async {
+    await _client.put<dynamic>(
+      ApiConstants.adminOrStaffPhoto(tenantId, adminId),
+      body: {'photoBase64': photoBase64},
+      fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -518,6 +629,23 @@ class SevaCareRepository {
     return _client.get<BookingChannelStats>(
       ApiConstants.bookingChannelStats(tenantId),
       fromJson: (d) => BookingChannelStats.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<HospitalProfileView> getHospitalProfile(String tenantId, String token) async {
+    return _client.get<HospitalProfileView>(
+      ApiConstants.hospitalProfile(tenantId),
+      fromJson: (d) => HospitalProfileView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<HospitalProfileView> updateHospitalProfile(String tenantId, String token, String email) async {
+    return _client.put<HospitalProfileView>(
+      ApiConstants.hospitalProfile(tenantId),
+      body: {'email': email},
+      fromJson: (d) => HospitalProfileView.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }
@@ -604,6 +732,15 @@ class SevaCareRepository {
     return list.map((e) => PlatformAdminUserRecord.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<PlatformAdminUserRecord> getPlatformAdminUser(
+      String adminId, String token) async {
+    return _client.get<PlatformAdminUserRecord>(
+      ApiConstants.platformAdminUser(adminId),
+      fromJson: (d) => PlatformAdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
   Future<PlatformAdminUserRecord> createPlatformAdminUser(
       PlatformAdminUserUpsertRequest body, String token) async {
     return _client.post<PlatformAdminUserRecord>(
@@ -635,6 +772,15 @@ class SevaCareRepository {
     return _client.put<PlatformAdminUserRecord>(
       ApiConstants.deactivatePlatformAdmin(adminId),
       fromJson: (d) => PlatformAdminUserRecord.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  /// Self-service "delete my account" — disables login only.
+  Future<void> deleteMyPlatformAdminAccount(String adminId, String token) async {
+    await _client.delete<dynamic>(
+      ApiConstants.deletePlatformAdminAccount(adminId),
+      fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token'},
     );
   }

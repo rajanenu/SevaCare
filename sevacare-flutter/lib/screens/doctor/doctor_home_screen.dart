@@ -39,12 +39,24 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   String? _error;
   int _queueFilter = 0; // 0=All, 1=Upcoming, 2=Completed
   int _pendingBookingRequests = 0;
+  final _scrollCtrl = ScrollController();
+
+  // Caches each day's queue by offset so hopping between Yesterday/Today/
+  // Tomorrow doesn't re-fetch (and re-flash a loading spinner) every time —
+  // only a day that's never been successfully loaded triggers a fetch.
+  final Map<int, DoctorQueueDayView> _queueCache = {};
 
   @override
   void initState() {
     super.initState();
     _loadQueue();
     _loadBookingRequestCount();
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
   /// Fetches the count of pending QR booking requests for the badge. Best-effort:
@@ -66,6 +78,17 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   String get _selectedDate => AppDateUtils.offsetDay(_dayOffset);
 
   Future<void> _loadQueue() async {
+    final requestedOffset = _dayOffset;
+    final cached = _queueCache[requestedOffset];
+    if (cached != null) {
+      // Already fetched this day this session — swap instantly, no spinner.
+      setState(() {
+        _queueView = cached;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -81,14 +104,17 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         _selectedDate,
         auth.token ?? '',
       );
-      if (mounted) {
+      _queueCache[requestedOffset] = view;
+      // Ignore if the user already switched to a different day while this
+      // fetch was in flight — don't clobber the day they're now looking at.
+      if (mounted && _dayOffset == requestedOffset) {
         setState(() {
           _queueView = view;
           _loading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _dayOffset == requestedOffset) {
         setState(() {
           _error = extractErrorMessage(e, fallback: 'Failed to load patient queue.');
           _loading = false;
@@ -99,19 +125,41 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
 
   void _changeDay(int newOffset) {
     setState(() => _dayOffset = newOffset);
+    if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
     _loadQueue();
+  }
+
+  // Upcoming (and next-up) surfaces above completed, ordered by token/slot —
+  // so whoever's next is always the first card, regardless of tab.
+  static int _statusRank(DoctorQueueFacetView f) {
+    final s = f.status.toLowerCase();
+    if (s == 'upcoming') return 0;
+    if (s == 'completed') return 1;
+    return 2;
   }
 
   List<DoctorQueueFacetView> get _filteredFacets {
     final facets = _queueView?.facets ?? [];
+    List<DoctorQueueFacetView> base;
     switch (_queueFilter) {
       case 1:
-        return facets.where((f) => f.status.toLowerCase() == 'upcoming').toList();
+        base = facets.where((f) => f.status.toLowerCase() == 'upcoming').toList();
+        break;
       case 2:
-        return facets.where((f) => f.status.toLowerCase() == 'completed').toList();
+        base = facets.where((f) => f.status.toLowerCase() == 'completed').toList();
+        break;
       default:
-        return facets;
+        base = List<DoctorQueueFacetView>.from(facets);
     }
+    base.sort((a, b) {
+      final rankDiff = _statusRank(a).compareTo(_statusRank(b));
+      if (rankDiff != 0) return rankDiff;
+      if (a.bookingType == 'TOKEN' && b.bookingType == 'TOKEN') {
+        return (a.tokenNumber ?? 0).compareTo(b.tokenNumber ?? 0);
+      }
+      return a.slot.compareTo(b.slot);
+    });
+    return base;
   }
 
   void _handleNavTap(int index) {
@@ -162,6 +210,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       bottomNavItems: _doctorNavItems(),
       currentNavIndex: 0,
       onNavTap: _handleNavTap,
+      // Fixed-frame layout: hero, day selector and Previous/Next stay pinned;
+      // only the metrics + queue region below scrolls. Switching days or
+      // queue filters swaps that region in place — the frame never moves.
+      scrollable: false,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -340,7 +392,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 ),
               ),
               Text(
-                'Timeline: ${_timelineLabel(_selectedDate)}',
+                _timelineLabel(_selectedDate),
                 style: AppTextStyles.label(SevaCareColors.textMuted),
               ),
               GestureDetector(
@@ -369,6 +421,14 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
           ),
           const SizedBox(height: 12),
 
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollCtrl,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // ── Metrics ──────────────────────────────────────────────────────────
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
@@ -427,7 +487,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             SegmentedControl<int>(
               items: queueFilterSegments,
               selected: _queueFilter,
-              onChanged: (v) => setState(() => _queueFilter = v),
+              onChanged: (v) {
+                setState(() => _queueFilter = v);
+                if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+              },
             ),
             const SizedBox(height: 12),
 
@@ -452,12 +515,33 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             else
               Column(
                 children: [
-                  for (final facet in filteredFacets) ...[
-                    AccentCard(
+                  for (final (index, facet) in filteredFacets.indexed) ...[
+                    Builder(builder: (context) {
+                      final isUpNext = facet.status.toLowerCase() == 'upcoming' &&
+                          (index == 0 || filteredFacets[index - 1].status.toLowerCase() != 'upcoming');
+                      return AccentCard(
                       variant: MetricVariant.primary,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (isUpNext) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: SevaCareColors.mint,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.bolt, size: 12, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text('UP NEXT', style: AppTextStyles.label(Colors.white).copyWith(fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                            ),
+                          ],
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -527,26 +611,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                             ),
                           ],
 
-                          const SizedBox(height: 12),
-                          if (facet.status.toLowerCase() == 'completed')
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: SevaCareColors.successSurface,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: SevaCareColors.success.withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.check_circle_outline, size: 16, color: SevaCareColors.success),
-                                  const SizedBox(width: 6),
-                                  Text(tr(ref, 'Consultation Completed'), style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.success)),
-                                ],
-                              ),
-                            )
-                          else
+                          if (facet.status.toLowerCase() != 'completed') ...[
+                            const SizedBox(height: 12),
                             SecondaryButton(
                               label: tr(ref, 'Start Consult'),
                               icon: Icons.healing,
@@ -559,15 +625,20 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                 context.go('/doctor/consult');
                               },
                             ),
+                          ],
                         ],
                       ),
-                    ),
+                    );
+                    }),
                     const SizedBox(height: 8),
                   ],
                 ],
               ),
           ],
-          const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

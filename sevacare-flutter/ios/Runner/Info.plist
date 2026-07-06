@@ -4,6 +4,8 @@
 <dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID or fingerprint to unlock your SevaCare session securely.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SevaCare uses your location to find hospitals near you.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

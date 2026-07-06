@@ -111,6 +111,7 @@ class TenantSummary {
   final String specialty;
   final String themeKey;
   final String? distance;
+  final String? pinCode;
 
   const TenantSummary({
     required this.tenantPublicId,
@@ -119,6 +120,7 @@ class TenantSummary {
     required this.specialty,
     required this.themeKey,
     this.distance,
+    this.pinCode,
   });
 
   factory TenantSummary.fromJson(Map<String, dynamic> json) => TenantSummary(
@@ -128,6 +130,7 @@ class TenantSummary {
     specialty: json['specialty'] as String? ?? 'General medicine',
     themeKey: json['themeKey'] as String? ?? 'premium',
     distance: json['distance'] as String?,
+    pinCode: json['pinCode'] as String?,
   );
 }
 
@@ -153,7 +156,8 @@ class DoctorSummary {
   final String fee;
   final String? experience;
   final String? imageUrl;
-  final String? rating;
+  final double? averageRating;
+  final int reviewCount;
   final String bookingMode;
   final int? experienceYears;
   final String? qualification;
@@ -166,7 +170,8 @@ class DoctorSummary {
     required this.fee,
     this.experience,
     this.imageUrl,
-    this.rating,
+    this.averageRating,
+    this.reviewCount = 0,
     this.bookingMode = 'BOTH',
     this.experienceYears,
     this.qualification,
@@ -180,7 +185,8 @@ class DoctorSummary {
     fee: json['fee'] as String? ?? '',
     experience: json['experience'] as String?,
     imageUrl: json['imageUrl'] as String?,
-    rating: json['rating'] as String?,
+    averageRating: (json['averageRating'] as num?)?.toDouble(),
+    reviewCount: json['reviewCount'] as int? ?? 0,
     bookingMode: json['bookingMode'] as String? ?? 'BOTH',
     experienceYears: json['experienceYears'] as int?,
     qualification: json['qualification'] as String?,
@@ -857,6 +863,28 @@ class BookingChannelStats {
   );
 }
 
+/// Hospital-level support/contact email — separate from any admin's personal email.
+class HospitalProfileView {
+  final String? email;
+
+  const HospitalProfileView({this.email});
+
+  factory HospitalProfileView.fromJson(Map<String, dynamic> json) => HospitalProfileView(
+    email: json['email'] as String?,
+  );
+}
+
+/// Backend-synced profile photo (base64), shared shape for patient/doctor/admin.
+class PhotoView {
+  final String? photoBase64;
+
+  const PhotoView({this.photoBase64});
+
+  factory PhotoView.fromJson(Map<String, dynamic> json) => PhotoView(
+    photoBase64: json['photoBase64'] as String?,
+  );
+}
+
 class BookingSetupView {
   final String tenantPublicId;
   final int slotIntervalMinutes;
@@ -999,6 +1027,61 @@ class AppointmentActionResult {
   );
 }
 
+class ReviewSubmitResult {
+  final String appointmentPublicId;
+  final String doctorPublicId;
+  final int rating;
+  final String? comment;
+
+  const ReviewSubmitResult({
+    required this.appointmentPublicId,
+    required this.doctorPublicId,
+    required this.rating,
+    this.comment,
+  });
+
+  factory ReviewSubmitResult.fromJson(Map<String, dynamic> json) => ReviewSubmitResult(
+    appointmentPublicId: json['appointmentPublicId'] as String? ?? '',
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    rating: json['rating'] as int? ?? 0,
+    comment: json['comment'] as String?,
+  );
+}
+
+/// Live queue position for the patient's own TOKEN appointment.
+class QueueStatusView {
+  final String doctorPublicId;
+  final String date;
+  final String tokenSession;
+  final int? yourToken;
+  final int? nowServingToken;
+  final int tokensAhead;
+  final int estimatedWaitMinutes;
+  final bool alreadyServed;
+
+  const QueueStatusView({
+    required this.doctorPublicId,
+    required this.date,
+    required this.tokenSession,
+    this.yourToken,
+    this.nowServingToken,
+    required this.tokensAhead,
+    required this.estimatedWaitMinutes,
+    required this.alreadyServed,
+  });
+
+  factory QueueStatusView.fromJson(Map<String, dynamic> json) => QueueStatusView(
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    tokenSession: json['tokenSession'] as String? ?? '',
+    yourToken: json['yourToken'] as int?,
+    nowServingToken: json['nowServingToken'] as int?,
+    tokensAhead: json['tokensAhead'] as int? ?? 0,
+    estimatedWaitMinutes: json['estimatedWaitMinutes'] as int? ?? 0,
+    alreadyServed: json['alreadyServed'] as bool? ?? false,
+  );
+}
+
 // ── Prescription ──────────────────────────────────────────────────────────────
 
 class PrescriptionDetailView {
@@ -1075,6 +1158,7 @@ class PrescriptionUploadRequest {
   final String? appointmentPublicId;
   final List<MedicineView> medicines;
   final String? notes;
+  final int? followUpDays;
 
   const PrescriptionUploadRequest({
     required this.patientPublicId,
@@ -1083,6 +1167,7 @@ class PrescriptionUploadRequest {
     this.appointmentPublicId,
     required this.medicines,
     this.notes,
+    this.followUpDays,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1092,6 +1177,7 @@ class PrescriptionUploadRequest {
     if (appointmentPublicId != null) 'appointmentPublicId': appointmentPublicId,
     'medicines': medicines.map((m) => m.toJson()).toList(),
     if (notes != null && notes!.isNotEmpty) 'notes': notes,
+    if (followUpDays != null) 'followUpDays': followUpDays,
   };
 }
 
@@ -1429,6 +1515,7 @@ class TenantOnboardingRequest {
   final String? hospitalLogoFileName;
   final String? supportingDocs;
   final String facilityType;
+  final String? pinCode;
 
   const TenantOnboardingRequest({
     required this.hospitalName,
@@ -1443,6 +1530,7 @@ class TenantOnboardingRequest {
     this.hospitalLogoFileName,
     this.supportingDocs,
     required this.facilityType,
+    this.pinCode,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1458,6 +1546,7 @@ class TenantOnboardingRequest {
     if (hospitalLogoFileName != null) 'hospitalLogoFileName': hospitalLogoFileName,
     if (supportingDocs != null) 'supportingDocs': supportingDocs,
     'facilityType': facilityType,
+    if (pinCode != null) 'pinCode': pinCode,
   };
 }
 

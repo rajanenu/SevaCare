@@ -43,6 +43,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _saved = false;
   String? _error;
 
+  late final TextEditingController _hospitalEmailCtrl;
+  bool _hospitalEmailExpanded = false;
+  bool _savingHospitalEmail = false;
+  bool _hospitalEmailSaved = false;
+  String? _hospitalEmailError;
+
   Uint8List? _profileImageBytes;  // current picked image
   String? _savedPhotoB64;         // stored photo (loaded from prefs)
 
@@ -56,7 +62,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _ageCtrl    = TextEditingController();
     _experienceCtrl = TextEditingController();
     _qualificationCtrl = TextEditingController();
+    _hospitalEmailCtrl = TextEditingController();
     _loadProfile();
+    if (widget.role == UserRole.admin) _loadHospitalEmail();
   }
 
   @override
@@ -68,7 +76,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _ageCtrl.dispose();
     _experienceCtrl.dispose();
     _qualificationCtrl.dispose();
+    _hospitalEmailCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadHospitalEmail() async {
+    final auth = ref.read(authProvider);
+    try {
+      final repo = ref.read(repositoryProvider);
+      final profile = await repo.getHospitalProfile(auth.tenantPublicId ?? '', auth.token ?? '');
+      if (mounted) _hospitalEmailCtrl.text = profile.email ?? '';
+    } catch (_) {
+      // Non-fatal — field just starts blank if this fails.
+    }
+  }
+
+  Future<void> _saveHospitalEmail() async {
+    setState(() { _savingHospitalEmail = true; _hospitalEmailError = null; _hospitalEmailSaved = false; });
+    final auth = ref.read(authProvider);
+    try {
+      final repo = ref.read(repositoryProvider);
+      await repo.updateHospitalProfile(
+        auth.tenantPublicId ?? '',
+        auth.token ?? '',
+        _hospitalEmailCtrl.text.trim(),
+      );
+      if (mounted) setState(() => _hospitalEmailSaved = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _hospitalEmailError = extractErrorMessage(e, fallback: 'Could not save hospital email.'));
+      }
+    } finally {
+      if (mounted) setState(() => _savingHospitalEmail = false);
+    }
   }
 
   // ── Load ──────────────────────────────────────────────────────────────────────
@@ -79,7 +119,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userId = auth.subjectPublicId ?? '';
 
     // Always load local prefs first (fast path — photo + bloodGroup only from here)
-    final local = await ProfileStorage.load(userId);
+    var local = await ProfileStorage.load(userId);
+
+    // Photo fallback: if this device has no local copy (reinstall, new
+    // device, or first login elsewhere), pull the backend-synced photo and
+    // cache it locally so this device doesn't need the network again.
+    if ((local.photoB64 == null || local.photoB64!.isEmpty) &&
+        widget.role != UserRole.platformAdmin &&
+        userId.isNotEmpty) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        final tenantId = auth.tenantPublicId ?? '';
+        final token = auth.token ?? '';
+        final remotePhoto = switch (widget.role) {
+          UserRole.patient => await repo.getPatientPhoto(tenantId, userId, token),
+          UserRole.doctor => await repo.getDoctorPhoto(tenantId, userId, token),
+          UserRole.admin || UserRole.staff => await repo.getAdminOrStaffPhoto(tenantId, userId, token),
+          UserRole.platformAdmin => const PhotoView(),
+        };
+        if (remotePhoto.photoBase64 != null && remotePhoto.photoBase64!.isNotEmpty) {
+          await ProfileStorage.savePhoto(userId, remotePhoto.photoBase64!);
+          local = await ProfileStorage.load(userId);
+        }
+      } catch (_) {
+        // Non-fatal — profile still loads without a photo.
+      }
+    }
 
     // For patient: also try the backend to get authoritative name/age/gender
     if (widget.role == UserRole.patient) {
@@ -140,7 +205,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     }
 
-    // Admin / fallback: use local prefs
+    // For admin/staff: also fetch the authoritative record (name/email) —
+    // both roles share the same backend admin_user table.
+    if (widget.role == UserRole.admin || widget.role == UserRole.staff) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        final record = await repo.getAdminUser(
+          auth.tenantPublicId ?? '',
+          userId,
+          auth.token ?? '',
+        );
+        if (mounted) {
+          setState(() {
+            _nameCtrl.text = record.fullName.isNotEmpty ? record.fullName : local.name;
+            _emailCtrl.text = record.email ?? local.email;
+            _bloodGroup = local.bloodGroup;
+            _savedPhotoB64 = local.photoB64;
+            _loading = false;
+          });
+        }
+        return;
+      } catch (_) {
+        // Fall through to local-only load
+      }
+    }
+
+    // For platform admin: also fetch the authoritative record (name/email)
+    if (widget.role == UserRole.platformAdmin) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        final record = await repo.getPlatformAdminUser(userId, auth.token ?? '');
+        if (mounted) {
+          setState(() {
+            _nameCtrl.text = record.fullName.isNotEmpty ? record.fullName : local.name;
+            _emailCtrl.text = record.email ?? local.email;
+            _mobileCtrl.text = record.mobileNumber.isNotEmpty ? record.mobileNumber : _mobileCtrl.text;
+            _loading = false;
+          });
+        }
+        return;
+      } catch (_) {
+        // Fall through to local-only load
+      }
+    }
+
+    // Fallback: use local prefs
     if (mounted) {
       setState(() {
         _nameCtrl.text    = local.name;
@@ -187,6 +296,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Persist locally for all roles
     await ProfileStorage.save(userId, data);
 
+    // Push photo to the backend too — so a doctor's photo is visible to
+    // patients booking on a different device, not just on this one.
+    try {
+      final repo = ref.read(repositoryProvider);
+      final tenantId = auth.tenantPublicId ?? '';
+      final token = auth.token ?? '';
+      switch (widget.role) {
+        case UserRole.patient:
+          await repo.updatePatientPhoto(tenantId, userId, token, photoB64);
+          break;
+        case UserRole.doctor:
+          await repo.updateDoctorPhoto(tenantId, userId, token, photoB64);
+          if (mounted) ref.invalidate(doctorPhotoProvider(userId));
+          break;
+        case UserRole.admin:
+        case UserRole.staff:
+          await repo.updateAdminOrStaffPhoto(tenantId, userId, token, photoB64);
+          break;
+        case UserRole.platformAdmin:
+          break;
+      }
+    } catch (_) {
+      // Non-fatal — photo still persisted locally on this device.
+    }
+
     // For patient: also push to backend
     if (widget.role == UserRole.patient) {
       try {
@@ -217,28 +351,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     // For doctor: also push experience/qualification/booking mode to backend
-    if (widget.role == UserRole.doctor && _doctorRecord != null) {
+    if (widget.role == UserRole.doctor) {
+      if (_doctorRecord == null) {
+        // The authoritative record never loaded (e.g. a transient backend
+        // error) — saving now would silently skip the backend sync, leaving
+        // the name change stuck on this device only. Surface that instead.
+        if (mounted) {
+          setState(() {
+            _saving = false;
+            _error = 'Could not sync to the hospital server — your profile failed to load. Please retry.';
+          });
+          return;
+        }
+      } else {
+        try {
+          final repo = ref.read(repositoryProvider);
+          final existing = _doctorRecord!;
+          await repo.upsertDoctorRecord(
+            auth.tenantPublicId ?? '',
+            userId,
+            auth.token ?? '',
+            DoctorUpsertRequest(
+              fullName: data.name,
+              specialty: existing.specialty,
+              availability: existing.availability,
+              fee: existing.fee,
+              active: existing.active,
+              age: data.age.isNotEmpty ? int.tryParse(data.age) : null,
+              address: data.address.isNotEmpty ? data.address : null,
+              aboutMe: existing.aboutMe,
+              mobileNumber: existing.mobileNumber,
+              email: existing.email,
+              bookingMode: _bookingMode,
+              experienceYears: int.tryParse(_experienceCtrl.text.trim()),
+              qualification: _qualificationCtrl.text.trim().isEmpty ? null : _qualificationCtrl.text.trim(),
+            ),
+          );
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _saving = false;
+              _error  = 'Saved locally. Backend sync failed: ${extractErrorMessage(e)}';
+            });
+            return;
+          }
+        }
+      }
+    }
+
+    // For admin/staff: also push name/email to the shared admin_user backend
+    // record (mobile intentionally excluded — it's the login identity).
+    if (widget.role == UserRole.admin || widget.role == UserRole.staff) {
       try {
         final repo = ref.read(repositoryProvider);
-        final existing = _doctorRecord!;
-        await repo.upsertDoctorRecord(
+        await repo.updateAdminUser(
           auth.tenantPublicId ?? '',
           userId,
           auth.token ?? '',
-          DoctorUpsertRequest(
+          AdminUserUpsertRequest(
             fullName: data.name,
-            specialty: existing.specialty,
-            availability: existing.availability,
-            fee: existing.fee,
-            active: existing.active,
-            age: data.age.isNotEmpty ? int.tryParse(data.age) : null,
-            address: data.address.isNotEmpty ? data.address : null,
-            aboutMe: existing.aboutMe,
-            mobileNumber: existing.mobileNumber,
-            email: existing.email,
-            bookingMode: _bookingMode,
-            experienceYears: int.tryParse(_experienceCtrl.text.trim()),
-            qualification: _qualificationCtrl.text.trim().isEmpty ? null : _qualificationCtrl.text.trim(),
+            email: data.email.isNotEmpty ? data.email : null,
           ),
         );
       } catch (e) {
@@ -251,6 +423,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
       }
     }
+
+    // For platform admin: also push name/email to the backend
+    if (widget.role == UserRole.platformAdmin) {
+      try {
+        final repo = ref.read(repositoryProvider);
+        await repo.updatePlatformAdminUser(
+          userId,
+          PlatformAdminUserUpsertRequest(
+            fullName: data.name,
+            mobileNumber: _mobileCtrl.text.trim(),
+            email: data.email.isNotEmpty ? data.email : null,
+          ),
+          auth.token ?? '',
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _saving = false;
+            _error  = 'Saved locally. Backend sync failed: ${extractErrorMessage(e)}';
+          });
+          return;
+        }
+      }
+    }
+
+    // Keep the session's cached name in sync so other screens (e.g. the
+    // dashboard greeting) reflect the change immediately, not just after
+    // the next full login.
+    await ref.read(authProvider.notifier).updateSubjectName(data.name);
 
     if (mounted) {
       setState(() {
@@ -381,6 +582,71 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) context.go('/');
   }
 
+  Future<void> _deleteAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        title: Text('Delete Account', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+        content: Text(
+          'This permanently disables your account — you will not be able to log '
+          'in again. This cannot be undone. Your existing appointments, '
+          'prescriptions and records are not deleted, only your login access. '
+          'Are you sure you want to continue?',
+          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            child: const Text('Delete My Account'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final auth = ref.read(authProvider);
+    final repo = ref.read(repositoryProvider);
+    final tenantId = auth.tenantPublicId ?? '';
+    final userId = auth.subjectPublicId ?? '';
+    final token = auth.token ?? '';
+
+    try {
+      switch (widget.role) {
+        case UserRole.patient:
+          await repo.deleteMyPatientAccount(tenantId, userId, token);
+          break;
+        case UserRole.doctor:
+          await repo.deleteMyDoctorAccount(tenantId, userId, token);
+          break;
+        case UserRole.admin:
+        case UserRole.staff:
+          await repo.deleteMyAdminOrStaffAccount(tenantId, userId, token);
+          break;
+        case UserRole.platformAdmin:
+          await repo.deleteMyPlatformAdminAccount(userId, token);
+          break;
+      }
+      if (!mounted) return;
+      await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
+      if (mounted) context.go('/');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(extractErrorMessage(e, fallback: 'Could not delete account.')),
+            backgroundColor: SevaCareColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
   // ── Bottom nav ────────────────────────────────────────────────────────────────
 
   List<BottomNavItem> get _bottomNav => switch (widget.role) {
@@ -437,6 +703,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       bottomNavItems: hasNav ? _bottomNav : null,
       currentNavIndex: hasNav ? _navIndex : null,
       onNavTap: hasNav ? (i) => context.go(_bottomNav[i].route) : null,
+      // Roles with bottom-nav reach Profile as a nav destination (no back
+      // button needed). Platform admin has no bottom nav — Profile is a
+      // pushed sub-page, so it needs an explicit way back (web has no
+      // hardware back button the way mobile does).
+      showBackButton: !hasNav,
+      onBack: hasNav
+          ? null
+          : () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/platform-admin');
+              }
+            },
       body: _loading
           ? const SizedBox(height: 400, child: Center(child: CircularProgressIndicator()))
           : Column(
@@ -482,8 +762,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     mobile:           _mobileCtrl.text,
                     hospitalName:     hospitalName,
                     isStaff:          widget.role == UserRole.staff,
+                    bloodGroup:       _bloodGroup,
                     photoBytes:       displayPhotoBytes,
                     onCameraPressed:  _pickImage,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // ── Hospital Support Email (admin only) ───────────────────────
+                if (widget.role == UserRole.admin) ...[
+                  _AccordionCard(
+                    title: 'Hospital Support Email',
+                    expanded: _hospitalEmailExpanded,
+                    onToggle: () => setState(() => _hospitalEmailExpanded = !_hospitalEmailExpanded),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_hospitalEmailError != null) _Banner(text: _hospitalEmailError!, isSuccess: false),
+                        if (_hospitalEmailSaved) const _Banner(text: 'Saved!', isSuccess: true),
+                        Text(
+                          'Shown to platform support for this hospital. Separate from your own personal login email.',
+                          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        ),
+                        const SizedBox(height: 10),
+                        AppFormField(
+                          label: 'Hospital Support Email',
+                          controller: _hospitalEmailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          placeholder: 'support@yourhospital.com',
+                          onChanged: (_) => setState(() => _hospitalEmailSaved = false),
+                        ),
+                        const SizedBox(height: 12),
+                        PrimaryButton(
+                          label: _savingHospitalEmail ? 'Saving…' : 'Save Hospital Email',
+                          onPressed: _savingHospitalEmail ? null : _saveHospitalEmail,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -600,7 +915,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           maxLines: 2,
                           onChanged: (_) => setState(() => _saved = false),
                         ),
-                        if (widget.role == UserRole.patient)
+                        if (widget.role == UserRole.patient || widget.role == UserRole.staff)
                           AppDropdown<String>(
                             label: 'Blood Group',
                             value: _bloodGroup,
@@ -655,6 +970,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onPressed: _signOut,
                   fullWidth: true,
                   icon: Icons.logout,
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _deleteAccount,
+                    icon: const Icon(Icons.delete_forever_outlined, size: 18, color: SevaCareColors.danger),
+                    label: Text('Delete Account', style: AppTextStyles.label(SevaCareColors.danger)),
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],

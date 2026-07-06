@@ -30,7 +30,9 @@ class SessionQueueState {
 /// for today, grouped by token session (Morning / Evening). Facets are
 /// already sorted by token number by the backend, but we sort defensively.
 List<SessionQueueState> computeQueueStates(List<DoctorQueueFacetView> facets) {
-  final tokenFacets = facets.where((f) => f.bookingType == 'TOKEN' && f.tokenNumber != null).toList();
+  final tokenFacets = facets
+      .where((f) => f.bookingType == 'TOKEN' && f.tokenNumber != null)
+      .toList();
   final bySession = <String, List<DoctorQueueFacetView>>{};
   for (final f in tokenFacets) {
     bySession.putIfAbsent(f.tokenSession ?? 'MORNING', () => []).add(f);
@@ -38,25 +40,32 @@ List<SessionQueueState> computeQueueStates(List<DoctorQueueFacetView> facets) {
 
   final result = <SessionQueueState>[];
   for (final entry in bySession.entries) {
-    final list = entry.value..sort((a, b) => (a.tokenNumber ?? 0).compareTo(b.tokenNumber ?? 0));
+    final list = entry.value
+      ..sort((a, b) => (a.tokenNumber ?? 0).compareTo(b.tokenNumber ?? 0));
     final pending = list.where((f) {
       final s = f.status.toLowerCase();
       return s != 'completed' && s != 'cancelled';
     }).toList();
-    final completedCount = list.where((f) => f.status.toLowerCase() == 'completed').length;
+    final completedCount = list
+        .where((f) => f.status.toLowerCase() == 'completed')
+        .length;
 
-    result.add(SessionQueueState(
-      session: entry.key,
-      nowServing: pending.isNotEmpty ? pending.first.tokenNumber : null,
-      upNext: pending.length > 1 ? pending[1].tokenNumber : null,
-      waiting: pending.length,
-      completed: completedCount,
-      total: list.length,
-    ));
+    result.add(
+      SessionQueueState(
+        session: entry.key,
+        nowServing: pending.isNotEmpty ? pending.first.tokenNumber : null,
+        upNext: pending.length > 1 ? pending[1].tokenNumber : null,
+        waiting: pending.length,
+        completed: completedCount,
+        total: list.length,
+      ),
+    );
   }
 
   // Morning before Evening, stable order otherwise.
-  result.sort((a, b) => a.session == b.session ? 0 : (a.session == 'MORNING' ? -1 : 1));
+  result.sort(
+    (a, b) => a.session == b.session ? 0 : (a.session == 'MORNING' ? -1 : 1),
+  );
   return result;
 }
 
@@ -80,7 +89,10 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 15), (_) => _load(silent: true));
+    _timer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _load(silent: true),
+    );
   }
 
   @override
@@ -141,17 +153,21 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
             Positioned(
               top: 8,
               left: 8,
-              child: _CloseButton(onTap: () => Navigator.of(context).maybePop()),
+              child: _CloseButton(
+                onTap: () => Navigator.of(context).maybePop(),
+              ),
             ),
             Center(
               child: _loading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : _error != null
-                      ? _BoardError(message: _error!, onRetry: _load)
-                      : _BoardContent(
-                          hospitalName: hospital.hospitalName.isNotEmpty ? hospital.hospitalName : 'SevaCare',
-                          states: computeQueueStates(_queueView?.facets ?? []),
-                        ),
+                  ? _BoardError(message: _error!, onRetry: _load)
+                  : _BoardContent(
+                      hospitalName: hospital.hospitalName.isNotEmpty
+                          ? hospital.hospitalName
+                          : 'SevaCare',
+                      states: computeQueueStates(_queueView?.facets ?? []),
+                    ),
             ),
           ],
         ),
@@ -183,7 +199,11 @@ class _CloseButton extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+              child: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
             ),
           ),
         ),
@@ -226,27 +246,56 @@ class _BoardContent extends StatelessWidget {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.event_available_rounded, size: 56, color: Colors.white70),
+          const Icon(
+            Icons.event_available_rounded,
+            size: 56,
+            color: Colors.white70,
+          ),
           const SizedBox(height: 16),
-          Text('No token bookings today', style: AppTextStyles.pageTitle(Colors.white)),
+          Text(
+            'No token bookings today',
+            style: AppTextStyles.pageTitle(Colors.white),
+          ),
         ],
       );
     }
 
+    // Capped so the board stays readable instead of stretching edge-to-edge
+    // on a wide desktop/TV display — session cards use `width: double.infinity`.
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(hospitalName, style: AppTextStyles.label(Colors.white.withValues(alpha: 0.75))),
-          const SizedBox(height: 4),
-          Text('LIVE TOKEN BOARD', style: AppTextStyles.labelCaps(Colors.white).copyWith(letterSpacing: 2)),
-          const SizedBox(height: 24),
-          for (final s in states) ...[
-            _SessionBoard(state: s),
-            const SizedBox(height: 20),
-          ],
-        ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                hospitalName,
+                style: AppTextStyles.label(
+                  Colors.white.withValues(alpha: 0.75),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'LIVE TOKEN BOARD',
+                style: AppTextStyles.labelCaps(
+                  Colors.white,
+                ).copyWith(letterSpacing: 2),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AppDateUtils.weekdayDateLabel(AppDateUtils.todayApi()),
+                style: AppTextStyles.label(Colors.white.withValues(alpha: 0.75)),
+              ),
+              const SizedBox(height: 24),
+              for (final s in states) ...[
+                _SessionBoard(state: s),
+                const SizedBox(height: 20),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -270,27 +319,41 @@ class _SessionBoard extends StatelessWidget {
         children: [
           Text(
             state.session == 'EVENING' ? 'EVENING SESSION' : 'MORNING SESSION',
-            style: AppTextStyles.labelCaps(Colors.white70).copyWith(letterSpacing: 1.5),
+            style: AppTextStyles.labelCaps(
+              Colors.white70,
+            ).copyWith(letterSpacing: 1.5),
           ),
           const SizedBox(height: 12),
-          Text('NOW SERVING', style: AppTextStyles.label(Colors.white.withValues(alpha: 0.7))),
+          Text(
+            'NOW SERVING',
+            style: AppTextStyles.label(Colors.white.withValues(alpha: 0.7)),
+          ),
           const SizedBox(height: 6),
           TweenAnimationBuilder<double>(
             key: ValueKey(state.nowServing),
             tween: Tween(begin: 0.85, end: 1.0),
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeOutBack,
-            builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+            builder: (context, scale, child) =>
+                Transform.scale(scale: scale, child: child),
             child: Text(
               state.nowServing != null ? '#${state.nowServing}' : '—',
-              style: AppTextStyles.display(size: 96, weight: FontWeight.w800, color: Colors.white, height: 1),
+              style: AppTextStyles.display(
+                size: 96,
+                weight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+              ),
             ),
           ),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _MiniStat(label: 'Up Next', value: state.upNext != null ? '#${state.upNext}' : '—'),
+              _MiniStat(
+                label: 'Up Next',
+                value: state.upNext != null ? '#${state.upNext}' : '—',
+              ),
               const SizedBox(width: 16),
               _MiniStat(label: 'Waiting', value: '${state.waiting}'),
               const SizedBox(width: 16),
@@ -318,9 +381,19 @@ class _MiniStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: AppTextStyles.display(size: 22, weight: FontWeight.w700, color: Colors.white)),
+          Text(
+            value,
+            style: AppTextStyles.display(
+              size: 22,
+              weight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label, style: AppTextStyles.label(Colors.white.withValues(alpha: 0.65))),
+          Text(
+            label,
+            style: AppTextStyles.label(Colors.white.withValues(alpha: 0.65)),
+          ),
         ],
       ),
     );

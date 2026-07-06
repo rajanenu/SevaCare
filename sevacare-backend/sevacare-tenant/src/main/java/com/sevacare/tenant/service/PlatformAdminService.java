@@ -359,6 +359,22 @@ public class PlatformAdminService {
         return getPlatformAdmin(platformAdminPublicId);
     }
 
+    /**
+     * Self-service "delete my account". Only disables login — nothing this
+     * platform admin created or approved is touched.
+     */
+    @Transactional
+    public void requestAccountDeletion(String platformAdminPublicId) {
+        int updated = jdbcTemplate.update(
+                "UPDATE public.platform_admin_user SET active = false, deletion_requested_at = ? WHERE platform_admin_public_id = ?",
+                LocalDateTime.now(),
+                platformAdminPublicId
+        );
+        if (updated == 0) {
+            throw new IllegalArgumentException("Platform admin not found: " + platformAdminPublicId);
+        }
+    }
+
     @Transactional
     public String deletePlatformAdmin(String platformAdminPublicId) {
         int deleted = jdbcTemplate.update(

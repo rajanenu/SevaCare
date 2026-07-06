@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/utils/doctor_photo.dart';
+import '../providers/app_state.dart';
 
-/// Displays the stock photo assigned to a doctor (see [doctorPhotoAsset]).
-class DoctorPhoto extends StatelessWidget {
+/// Displays the doctor's uploaded photo when one has synced to the backend,
+/// falling back to the bundled stock photo assigned via [doctorPhotoAsset].
+class DoctorPhoto extends ConsumerWidget {
   final String doctorId;
   final double? width;
   final double? height;
@@ -35,7 +38,7 @@ class DoctorPhoto extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // When identity is unknown (e.g. the split-second after sign-out while the
     // profile screen is still mounted), render a neutral avatar instead of the
     // first pooled stock photo — that pool photo is a real person's face and
@@ -43,15 +46,25 @@ class DoctorPhoto extends StatelessWidget {
     if (doctorId.isEmpty) {
       return _NeutralAvatar(width: width, height: height, borderRadius: borderRadius);
     }
+    final uploaded = ref.watch(doctorPhotoProvider(doctorId)).valueOrNull;
     return ClipRRect(
       borderRadius: borderRadius,
-      child: Image.asset(
-        doctorPhotoAsset(doctorId),
-        width: width,
-        height: height,
-        fit: fit,
-        alignment: alignment,
-      ),
+      child: uploaded != null
+          ? Image.memory(
+              uploaded,
+              width: width,
+              height: height,
+              fit: fit,
+              alignment: alignment,
+              gaplessPlayback: true,
+            )
+          : Image.asset(
+              doctorPhotoAsset(doctorId),
+              width: width,
+              height: height,
+              fit: fit,
+              alignment: alignment,
+            ),
     );
   }
 }

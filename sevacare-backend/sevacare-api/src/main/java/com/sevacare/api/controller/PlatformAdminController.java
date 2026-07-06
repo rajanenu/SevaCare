@@ -142,4 +142,15 @@ public class PlatformAdminController {
     ) {
         return ContractResponse.of(platformAdminService.deletePlatformAdmin(platformAdminPublicId));
     }
+
+    // Self-service account deletion — disables login only; tenants/onboarding
+    // records this platform admin created or approved are untouched.
+    @DeleteMapping("/users/{platformAdminPublicId}/account")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ContractResponse<String> deleteMyAccount(
+            @PathVariable String platformAdminPublicId
+    ) {
+        platformAdminService.requestAccountDeletion(platformAdminPublicId);
+        return ContractResponse.of("deleted");
+    }
 }

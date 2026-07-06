@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 
-/// Cinematic app-launch intro (~3.4s), played once per launch as an overlay
+/// Cinematic app-launch intro (~6s), played once per launch as an overlay
 /// above the router. Choreography on a single master controller:
 ///
 ///   1. Night backdrop, drifting depth particles (parallax)
@@ -40,7 +40,7 @@ class _CinematicIntroState extends State<CinematicIntro>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3400),
+      duration: const Duration(milliseconds: 6000),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) _finish();
       });
@@ -266,17 +266,37 @@ class _CinematicIntroState extends State<CinematicIntro>
       bgT,
     )!;
 
+    // A bright glint sweeps left-to-right across the line once it's settled,
+    // giving the tagline a "shine" moment before the scene exits. Widened from
+    // 0.82-1.0 so the sweep takes longer and is readable, not a quick flash.
+    final shineT = _iv(t, 0.68, 1.0, Curves.easeInOut);
+    final sweep = -0.5 + shineT * 2.0;
+    final stops = <double>[
+      (sweep - 0.28).clamp(0.0, 1.0),
+      (sweep - 0.12).clamp(0.0, 1.0),
+      sweep.clamp(0.0, 1.0),
+      (sweep + 0.12).clamp(0.0, 1.0),
+      (sweep + 0.28).clamp(0.0, 1.0),
+    ];
+
     return Opacity(
       opacity: p,
       child: Transform.translate(
         offset: Offset(0, (1.0 - p) * 10),
-        child: Text(
-          'Here to heal. Here to help.',
-          style: AppTextStyles.body(
-            size: 15,
-            weight: FontWeight.w500,
-            color: color,
-            letterSpacing: 0.4,
+        child: ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [color, color, Colors.white, color, color],
+            stops: stops,
+          ).createShader(bounds),
+          child: Text(
+            'service — is right there in the name.',
+            style: AppTextStyles.body(
+              size: 15,
+              weight: FontWeight.w600,
+              color: color,
+              letterSpacing: 0.4,
+            ),
           ),
         ),
       ),

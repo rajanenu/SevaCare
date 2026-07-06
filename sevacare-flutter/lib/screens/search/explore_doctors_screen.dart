@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -9,6 +10,31 @@ import '../../core/utils/doctor_name.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
+
+/// Doctor profile cards are portrait (photo + name + specialty) — as columns
+/// increase on wider screens each card gets narrower, so the aspect ratio is
+/// widened alongside the column count to avoid overly elongated cards.
+SliverGridDelegateWithFixedCrossAxisCount _doctorGridDelegate(
+  BuildContext context,
+) {
+  final columns = columnsForWidth(
+    MediaQuery.sizeOf(context).width,
+    mobileCols: 2,
+    tabletCols: 3,
+    desktopCols: 4,
+  );
+  final aspectRatio = switch (columns) {
+    2 => 0.58,
+    3 => 0.72,
+    _ => 0.85,
+  };
+  return SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: columns,
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 12,
+    childAspectRatio: aspectRatio,
+  );
+}
 
 /// Public, no-login doctor directory for a single hospital — reachable from
 /// the "Explore Doctors" link on each hospital card in [HospitalSearchScreen].
@@ -23,7 +49,8 @@ class ExploreDoctorsScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ExploreDoctorsScreen> createState() => _ExploreDoctorsScreenState();
+  ConsumerState<ExploreDoctorsScreen> createState() =>
+      _ExploreDoctorsScreenState();
 }
 
 class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
@@ -32,30 +59,42 @@ class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
   @override
   void initState() {
     super.initState();
-    _doctorsFuture = ref.read(repositoryProvider).listPublicDoctors(widget.tenantId);
+    _doctorsFuture = ref
+        .read(repositoryProvider)
+        .listPublicDoctors(widget.tenantId);
   }
 
   void _retry() {
-    setState(() => _doctorsFuture = ref.read(repositoryProvider).listPublicDoctors(widget.tenantId));
+    setState(
+      () => _doctorsFuture = ref
+          .read(repositoryProvider)
+          .listPublicDoctors(widget.tenantId),
+    );
   }
 
   void _loginToBook() {
     // Select this hospital so the login screen is scoped to it, then go to
     // login (previously this incorrectly bounced back to Search Hospitals).
-    ref.read(hospitalProvider.notifier).selectHospital(TenantSummary(
-          tenantPublicId: widget.tenantId,
-          hospitalName: widget.hospitalName,
-          city: '',
-          specialty: '',
-          themeKey: 'premium',
-        ));
+    ref
+        .read(hospitalProvider.notifier)
+        .selectHospital(
+          TenantSummary(
+            tenantPublicId: widget.tenantId,
+            hospitalName: widget.hospitalName,
+            city: '',
+            specialty: '',
+            themeKey: 'premium',
+          ),
+        );
     context.go('/login');
   }
 
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      hospitalName: widget.hospitalName.isNotEmpty ? widget.hospitalName : 'SevaCare',
+      hospitalName: widget.hospitalName.isNotEmpty
+          ? widget.hospitalName
+          : 'SevaCare',
       showBackButton: true,
       onBack: () => context.go('/search'),
       body: Column(
@@ -85,12 +124,7 @@ class _ExploreDoctorsScreenState extends ConsumerState<ExploreDoctorsScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: doctors.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.58,
-                ),
+                gridDelegate: _doctorGridDelegate(context),
                 itemBuilder: (context, index) => StaggeredItem(
                   index: index,
                   child: _DoctorProfileCard(doctor: doctors[index]),
@@ -125,58 +159,66 @@ class _DoctorProfileCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Photo — 60% of the card
-          Expanded(
-            flex: 6,
-            child: DoctorPhoto(
-              doctorId: doctor.doctorPublicId,
-              width: double.infinity,
-              height: double.infinity,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Photo — 60% of the card
+            Expanded(
+              flex: 6,
+              child: DoctorPhoto(
+                doctorId: doctor.doctorPublicId,
+                width: double.infinity,
+                height: double.infinity,
+              ),
             ),
-          ),
-          // ── Details — 40% of the card
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Dr. ${stripDoctorPrefix(doctor.name)}',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.cardTitle(SevaCareColors.text),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    doctor.experienceYears != null
-                        ? '${doctor.specialty} · ${doctor.experienceYears}y Exp'
-                        : doctor.specialty,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
-                  ),
-                  if (doctor.qualification != null && doctor.qualification!.isNotEmpty) ...[
+            // ── Details — 40% of the card
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Dr. ${stripDoctorPrefix(doctor.name)}',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                    ),
                     const SizedBox(height: 2),
                     Text(
-                      doctor.qualification!,
+                      doctor.experienceYears != null
+                          ? '${doctor.specialty} · ${doctor.experienceYears}y Exp'
+                          : doctor.specialty,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
+                    if (doctor.qualification != null &&
+                        doctor.qualification!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        doctor.qualification!,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                      ),
+                    ],
+                    if (doctor.averageRating != null) ...[
+                      const SizedBox(height: 3),
+                      RatingStars(
+                        averageRating: doctor.averageRating,
+                        reviewCount: doctor.reviewCount,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -197,12 +239,7 @@ class _LoadingState extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 4,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.58,
-        ),
+        gridDelegate: _doctorGridDelegate(context),
         itemBuilder: (context, index) => Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -225,11 +262,22 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 32, color: SevaCareColors.danger),
+          const Icon(
+            Icons.error_outline,
+            size: 32,
+            color: SevaCareColors.danger,
+          ),
           const SizedBox(height: 12),
-          Text('Could not load doctors', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+          Text(
+            'Could not load doctors',
+            style: AppTextStyles.cardTitle(SevaCareColors.danger),
+          ),
           const SizedBox(height: 12),
-          PrimaryButton(label: 'Retry', icon: Icons.refresh, onPressed: onRetry),
+          PrimaryButton(
+            label: 'Retry',
+            icon: Icons.refresh,
+            onPressed: onRetry,
+          ),
         ],
       ),
     );
@@ -246,9 +294,16 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.medical_services_outlined, size: 32, color: SevaCareColors.textMuted),
+          const Icon(
+            Icons.medical_services_outlined,
+            size: 32,
+            color: SevaCareColors.textMuted,
+          ),
           const SizedBox(height: 12),
-          Text('No doctors registered yet', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          Text(
+            'No doctors registered yet',
+            style: AppTextStyles.cardTitle(SevaCareColors.text),
+          ),
           const SizedBox(height: 6),
           Text(
             'This hospital hasn\'t added any doctors yet. Please check back soon.',

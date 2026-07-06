@@ -23,13 +23,6 @@ class PlatformAdminScreen extends ConsumerStatefulWidget {
 
 class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
   int _tabIndex = 0;
-  final _scrollCtrl = ScrollController();
-
-  @override
-  void dispose() {
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +34,12 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
       SegmentItem<int>(value: 2, label: 'Admins'),
     ];
 
+    // Fixed-frame layout: the page header and tab bar are pinned; each tab
+    // owns its scroll area below, so switching tabs never moves the frame.
     return AppShell(
       hospitalName: 'SevaCare Platform',
       role: UserRole.platformAdmin,
-      scrollController: _scrollCtrl,
+      scrollable: false,
       headerActions: [
         TextButton(
           onPressed: () => setState(() => _tabIndex = 0),
@@ -59,7 +54,7 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
           ),
         ),
         TextButton(
-          onPressed: () => context.go('/platform-admin/profile'),
+          onPressed: () => context.push('/platform-admin/profile'),
           style: TextButton.styleFrom(foregroundColor: SevaCareColors.textMuted),
           child: Text('Profile', style: AppTextStyles.label(SevaCareColors.textMuted)),
         ),
@@ -72,29 +67,35 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
           SegmentedControl<int>(
             items: tabs,
             selected: _tabIndex,
-            onChanged: (v) {
-              setState(() => _tabIndex = v);
-              // Keep the frame steady — snap back to top on tab switch
-              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
-            },
+            onChanged: (v) => setState(() => _tabIndex = v),
           ),
           const SizedBox(height: 16),
-          // All tabs stay mounted (Offstage) so switching is instant —
-          // no refetch, no shimmer flash, no layout jump.
-          Offstage(
-            offstage: _tabIndex != 0,
-            child: _OverviewTab(token: auth.token ?? ''),
-          ),
-          Offstage(
-            offstage: _tabIndex != 1,
-            child: _HospitalsTab(token: auth.token ?? ''),
-          ),
-          Offstage(
-            offstage: _tabIndex != 2,
-            child: _PlatformAdminsTab(token: auth.token ?? ''),
+          // All tabs stay mounted (IndexedStack) so switching is instant —
+          // no refetch, no shimmer flash — and each tab keeps its own scroll
+          // position inside the fixed frame.
+          Expanded(
+            child: IndexedStack(
+              index: _tabIndex,
+              sizing: StackFit.expand,
+              children: [
+                _tabPage(_OverviewTab(token: auth.token ?? '')),
+                _tabPage(_HospitalsTab(token: auth.token ?? '')),
+                _tabPage(_PlatformAdminsTab(token: auth.token ?? '')),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // Scrollable content region for one tab — lives below the pinned frame.
+  Widget _tabPage(Widget child) {
+    return SingleChildScrollView(
+      primary: false,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: child,
     );
   }
 }

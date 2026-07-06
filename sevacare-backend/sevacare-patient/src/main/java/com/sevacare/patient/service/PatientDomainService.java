@@ -9,9 +9,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.patient.entity.Appointment;
 import com.sevacare.patient.entity.AppointmentAttachment;
+import com.sevacare.patient.entity.DoctorReview;
 import com.sevacare.patient.entity.MedicalHistory;
 import com.sevacare.patient.entity.Patient;
 import com.sevacare.patient.entity.Prescription;
 import com.sevacare.patient.entity.PrescriptionMedicine;
 import com.sevacare.patient.repository.AppointmentAttachmentRepository;
 import com.sevacare.patient.repository.AppointmentRepository;
+import com.sevacare.patient.repository.DoctorReviewRepository;
 import com.sevacare.patient.repository.MedicalHistoryRepository;
 import com.sevacare.patient.repository.PatientRepository;
 import com.sevacare.patient.repository.PrescriptionMedicineRepository;
@@ -46,6 +50,7 @@ public class PatientDomainService {
     private final PrescriptionMedicineRepository prescriptionMedicineRepository;
     private final MedicalHistoryRepository medicalHistoryRepository;
     private final AppointmentAttachmentRepository appointmentAttachmentRepository;
+    private final DoctorReviewRepository doctorReviewRepository;
         private final JdbcTemplate jdbcTemplate;
 
     public PatientDomainService(
@@ -55,6 +60,7 @@ public class PatientDomainService {
             PrescriptionMedicineRepository prescriptionMedicineRepository,
                         MedicalHistoryRepository medicalHistoryRepository,
                         AppointmentAttachmentRepository appointmentAttachmentRepository,
+                        DoctorReviewRepository doctorReviewRepository,
                         JdbcTemplate jdbcTemplate
     ) {
         this.patientRepository = patientRepository;
@@ -63,6 +69,7 @@ public class PatientDomainService {
         this.prescriptionMedicineRepository = prescriptionMedicineRepository;
         this.medicalHistoryRepository = medicalHistoryRepository;
         this.appointmentAttachmentRepository = appointmentAttachmentRepository;
+        this.doctorReviewRepository = doctorReviewRepository;
                 this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -441,7 +448,11 @@ public class PatientDomainService {
 
                 Optional<Patient> existingPatient = patientRepository.findByTenantPublicIdAndMobileNumber(tenantPublicId, normalizedMobileNumber);
                 if (existingPatient.isPresent()) {
-                        return existingPatient.get();
+                        Patient patient = existingPatient.get();
+                        if ("disabled".equalsIgnoreCase(patient.getStatus())) {
+                                throw new IllegalStateException("This account has been deleted and is no longer active.");
+                        }
+                        return patient;
                 }
 
                 Patient patient = new Patient();
@@ -604,6 +615,37 @@ public class PatientDomainService {
         log.info("patient_delete tenantPublicId={} patientPublicId={}", tenantPublicId, patientPublicId);
     }
 
+    /**
+     * Self-service "delete my account". Only disables login — appointments,
+     * prescriptions and every other record tied to this patientPublicId are
+     * left untouched, and the mobile number stays attached so history is
+     * still recognizable if the same person registers again later.
+     */
+    @Transactional
+    public void requestAccountDeletion(String tenantPublicId, String patientPublicId) {
+        Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
+        patient.setStatus("disabled");
+        patient.setDeletionRequestedAt(LocalDateTime.now());
+        patientRepository.save(patient);
+        log.info("patient_account_deletion_requested tenantPublicId={} patientPublicId={}", tenantPublicId, patientPublicId);
+    }
+
+    @Transactional(readOnly = true)
+    public PatientDtos.PhotoView getPatientPhoto(String tenantPublicId, String patientPublicId) {
+        Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
+        return new PatientDtos.PhotoView(patient.getPhotoBase64());
+    }
+
+    @Transactional
+    public void updatePatientPhoto(String tenantPublicId, String patientPublicId, String photoBase64) {
+        Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
+        patient.setPhotoBase64(photoBase64);
+        patientRepository.save(patient);
+    }
+
     @Transactional(readOnly = true)
     public PatientDtos.AppointmentCollection listAppointmentRecords(String tenantPublicId) {
         List<PatientDtos.AppointmentEntityView> records = appointmentRepository.findByTenantPublicIdOrderByAppointmentSlotDesc(tenantPublicId)
@@ -694,13 +736,94 @@ public class PatientDomainService {
         log.info("appointment_complete tenantPublicId={} doctorPublicId={} appointmentPublicId={}", tenantPublicId, doctorPublicId, appointmentPublicId);
     }
 
+    /** One review per completed appointment — enforced by the doctor_review.appointment_public_id unique constraint. */
+    @Transactional
+    public PatientDtos.ReviewSubmitResult submitReview(String tenantPublicId, String patientPublicId, String appointmentPublicId, PatientDtos.ReviewSubmitRequest request) {
+        Appointment appointment = appointmentRepository.findByTenantPublicIdAndAppointmentPublicId(tenantPublicId, appointmentPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found for tenant"));
+        if (!appointment.getPatientPublicId().equals(patientPublicId)) {
+            throw new IllegalArgumentException("Patient mismatch for appointment");
+        }
+        if (!"completed".equalsIgnoreCase(appointment.getAppointmentStatus())) {
+            throw new IllegalStateException("Only completed appointments can be reviewed");
+        }
+        if (doctorReviewRepository.findByAppointmentPublicId(appointmentPublicId).isPresent()) {
+            throw new IllegalStateException("This appointment has already been reviewed");
+        }
+
+        DoctorReview review = new DoctorReview();
+        review.setAppointmentPublicId(appointmentPublicId);
+        review.setDoctorPublicId(appointment.getDoctorPublicId());
+        review.setPatientPublicId(patientPublicId);
+        review.setRating(request.rating());
+        review.setComment(request.comment());
+        DoctorReview saved = doctorReviewRepository.save(review);
+
+        log.info("doctor_review_submit tenantPublicId={} appointmentPublicId={} doctorPublicId={} rating={}",
+                tenantPublicId, appointmentPublicId, saved.getDoctorPublicId(), saved.getRating());
+
+        return new PatientDtos.ReviewSubmitResult(appointmentPublicId, saved.getDoctorPublicId(), saved.getRating(), saved.getComment());
+    }
+
+    /** Live queue position for a patient's own TOKEN appointment, driving the "your turn is near" banner. */
+    @Transactional(readOnly = true)
+    public PatientDtos.QueueStatusView getQueueStatus(String tenantPublicId, String patientPublicId, String appointmentPublicId) {
+        Appointment appointment = appointmentRepository.findByTenantPublicIdAndAppointmentPublicId(tenantPublicId, appointmentPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found for tenant"));
+        if (!appointment.getPatientPublicId().equals(patientPublicId)) {
+            throw new IllegalArgumentException("Patient mismatch for appointment");
+        }
+        if (!"TOKEN".equals(appointment.getBookingType()) || appointment.getTokenNumber() == null) {
+            throw new IllegalArgumentException("Appointment is not a token booking");
+        }
+
+        LocalDate date = parseSlotDate(appointment.getAppointmentSlot())
+                .orElseThrow(() -> new IllegalArgumentException("Could not determine appointment date"));
+
+        PatientDtos.DoctorQueueDayView dayView = getDoctorQueueForDate(tenantPublicId, appointment.getDoctorPublicId(), date);
+
+        List<PatientDtos.DoctorQueueFacetView> waiting = dayView.facets().stream()
+                .filter(f -> "TOKEN".equals(f.bookingType()) && appointment.getTokenSession().equals(f.tokenSession()))
+                .filter(f -> !"cancelled".equalsIgnoreCase(f.status()) && !"completed".equalsIgnoreCase(f.status()))
+                .sorted(Comparator.comparing(f -> f.tokenNumber() == null ? 0 : f.tokenNumber()))
+                .toList();
+
+        int patientIndex = -1;
+        for (int i = 0; i < waiting.size(); i++) {
+            if (waiting.get(i).appointmentPublicId().equals(appointmentPublicId)) {
+                patientIndex = i;
+                break;
+            }
+        }
+
+        boolean alreadyServed = "completed".equalsIgnoreCase(appointment.getAppointmentStatus());
+        Integer nowServingToken = waiting.isEmpty() ? null : waiting.get(0).tokenNumber();
+        int tokensAhead = patientIndex < 0 ? 0 : patientIndex;
+        int estimatedWaitMinutes = tokensAhead * 10;
+
+        return new PatientDtos.QueueStatusView(
+                appointment.getDoctorPublicId(),
+                date.toString(),
+                appointment.getTokenSession(),
+                appointment.getTokenNumber(),
+                nowServingToken,
+                tokensAhead,
+                estimatedWaitMinutes,
+                alreadyServed
+        );
+    }
+
     // Prescription Methods
     @Transactional(readOnly = true)
     public PatientDtos.PatientPrescriptionsWrapper getPatientPrescriptions(String tenantPublicId, String patientPublicId) {
-        List<PatientDtos.PrescriptionDetailView> prescriptions = prescriptionRepository.findByTenantPublicIdAndPatientPublicIdOrderByPrescriptionPublicIdAsc(tenantPublicId, patientPublicId)
+        List<Prescription> prescriptionRows = prescriptionRepository.findByTenantPublicIdAndPatientPublicIdOrderByPrescriptionPublicIdAsc(tenantPublicId, patientPublicId);
+        Map<String, List<PrescriptionMedicine>> medicinesByPrescription = medicinesGroupedByPrescriptionId(prescriptionRows);
+
+        List<PatientDtos.PrescriptionDetailView> prescriptions = prescriptionRows
                 .stream()
                 .map(prescription -> {
-                    List<PatientDtos.MedicineView> medicines = prescriptionMedicineRepository.findByPrescriptionPublicId(prescription.getPrescriptionPublicId())
+                    List<PatientDtos.MedicineView> medicines = medicinesByPrescription
+                            .getOrDefault(prescription.getPrescriptionPublicId(), List.of())
                             .stream()
                             .map(medicine -> new PatientDtos.MedicineView(
                                     medicine.getMedicineName(),
@@ -724,6 +847,17 @@ public class PatientDomainService {
                 })
                 .toList();
         return new PatientDtos.PatientPrescriptionsWrapper(tenantPublicId, patientPublicId, prescriptions);
+    }
+
+    /** Batch-fetches medicines for a list of prescriptions in one query instead of one query per prescription. */
+    private Map<String, List<PrescriptionMedicine>> medicinesGroupedByPrescriptionId(List<Prescription> prescriptionRows) {
+        List<String> prescriptionIds = prescriptionRows.stream().map(Prescription::getPrescriptionPublicId).toList();
+        if (prescriptionIds.isEmpty()) {
+            return Map.of();
+        }
+        return prescriptionMedicineRepository.findByPrescriptionPublicIdIn(prescriptionIds)
+                .stream()
+                .collect(Collectors.groupingBy(PrescriptionMedicine::getPrescriptionPublicId));
     }
 
     @Transactional(readOnly = true)
@@ -771,8 +905,10 @@ public class PatientDomainService {
 
     @Transactional
     public PatientDtos.PrescriptionUploadResult uploadPrescription(String tenantPublicId, String patientPublicId, PatientDtos.PrescriptionUploadRequest request) {
-        if (request.medicines() == null || request.medicines().isEmpty()) {
-            throw new IllegalArgumentException("At least one medicine is required");
+        boolean hasMedicines = request.medicines() != null && !request.medicines().isEmpty();
+        boolean hasNotes = request.notes() != null && !request.notes().isBlank();
+        if (!hasMedicines && !hasNotes) {
+            throw new IllegalArgumentException("Add at least one medicine or a clinical note before completing.");
         }
 
         patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
@@ -808,12 +944,25 @@ public class PatientDomainService {
             }
         }
 
-        log.info("prescription_upload tenantPublicId={} patientPublicId={} prescriptionPublicId={} doctorPublicId={} medicineCount={}",
+        if (request.followUpDays() != null && request.followUpDays() > 0) {
+            LocalDate followUpDate = LocalDate.now().plusDays(request.followUpDays());
+            MedicalHistory followUp = new MedicalHistory();
+            followUp.setTenantPublicId(tenantPublicId);
+            followUp.setPatientPublicId(patientPublicId);
+            followUp.setRecordType("follow_up");
+            followUp.setRecordValue(request.followUpDays() + " days");
+            followUp.setNotes("Follow-up suggested by Dr. " + request.doctorName() + " after prescription " + saved.getPrescriptionPublicId());
+            followUp.setRecordDate(followUpDate);
+            medicalHistoryRepository.save(followUp);
+        }
+
+        log.info("prescription_upload tenantPublicId={} patientPublicId={} prescriptionPublicId={} doctorPublicId={} medicineCount={} followUpDays={}",
                 tenantPublicId,
                 patientPublicId,
                 saved.getPrescriptionPublicId(),
                 saved.getDoctorPublicId(),
-                request.medicines() != null ? request.medicines().size() : 0);
+                request.medicines() != null ? request.medicines().size() : 0,
+                request.followUpDays());
 
         return new PatientDtos.PrescriptionUploadResult(
                 saved.getPrescriptionPublicId(),
@@ -978,10 +1127,14 @@ public class PatientDomainService {
     // Doctor-scoped prescription list
     @Transactional(readOnly = true)
     public PatientDtos.DoctorPrescriptionCollection getDoctorPrescriptions(String tenantPublicId, String doctorPublicId) {
-        List<PatientDtos.PrescriptionDetailView> prescriptions = prescriptionRepository.findByTenantPublicIdAndDoctorPublicId(tenantPublicId, doctorPublicId)
+        List<Prescription> prescriptionRows = prescriptionRepository.findByTenantPublicIdAndDoctorPublicId(tenantPublicId, doctorPublicId);
+        Map<String, List<PrescriptionMedicine>> medicinesByPrescription = medicinesGroupedByPrescriptionId(prescriptionRows);
+
+        List<PatientDtos.PrescriptionDetailView> prescriptions = prescriptionRows
                 .stream()
                 .map(prescription -> {
-                    List<PatientDtos.MedicineView> medicines = prescriptionMedicineRepository.findByPrescriptionPublicId(prescription.getPrescriptionPublicId())
+                    List<PatientDtos.MedicineView> medicines = medicinesByPrescription
+                            .getOrDefault(prescription.getPrescriptionPublicId(), List.of())
                             .stream()
                             .map(medicine -> new PatientDtos.MedicineView(
                                     medicine.getMedicineName(),
@@ -1114,8 +1267,25 @@ public class PatientDomainService {
                         .thenComparing(a -> a.getTokenNumber() == null ? 0 : a.getTokenNumber()))
                 .toList();
 
+        // Batch-fetch patients and attachments for the whole day instead of one query per
+        // appointment (this screen is the doctor's main dashboard, loaded constantly).
+        List<String> patientIds = dayAppointments.stream().map(Appointment::getPatientPublicId).distinct().toList();
+        Map<String, Patient> patientsById = patientIds.isEmpty() ? Map.of() : patientRepository
+                .findByPatientPublicIdInAndTenantPublicId(patientIds, tenantPublicId)
+                .stream()
+                .collect(Collectors.toMap(Patient::getPatientPublicId, p -> p, (a, b) -> a));
+
+        List<String> dayAppointmentIds = dayAppointments.stream().map(Appointment::getAppointmentPublicId).toList();
+        Map<String, List<AppointmentAttachment>> attachmentsByAppointment = dayAppointmentIds.isEmpty() ? Map.of() : appointmentAttachmentRepository
+                .findByTenantPublicIdAndAppointmentPublicIdIn(tenantPublicId, dayAppointmentIds)
+                .stream()
+                .collect(Collectors.groupingBy(AppointmentAttachment::getAppointmentPublicId));
+
         List<PatientDtos.DoctorQueueFacetView> facets = dayAppointments.stream()
-                .map(appointment -> toDoctorQueueFacet(tenantPublicId, doctorPublicId, appointment, doctorAppointments, date))
+                .map(appointment -> toDoctorQueueFacet(
+                        doctorPublicId, appointment, doctorAppointments, date,
+                        patientsById.get(appointment.getPatientPublicId()),
+                        attachmentsByAppointment.getOrDefault(appointment.getAppointmentPublicId(), List.of())))
                 .toList();
 
         int totalAppointments = (int) facets.stream()
@@ -1144,16 +1314,13 @@ public class PatientDomainService {
     }
 
     private PatientDtos.DoctorQueueFacetView toDoctorQueueFacet(
-            String tenantPublicId,
             String doctorPublicId,
             Appointment appointment,
             List<Appointment> allDoctorAppointments,
-            LocalDate selectedDate
+            LocalDate selectedDate,
+            Patient patient,
+            List<AppointmentAttachment> appointmentAttachments
     ) {
-        Patient patient = patientRepository
-                .findByPatientPublicIdAndTenantPublicId(appointment.getPatientPublicId(), tenantPublicId)
-                .orElse(null);
-
         Optional<Prescription> linkedPrescription = resolvePrescriptionForAppointment(doctorPublicId, appointment);
 
         List<PatientDtos.MedicineView> medicines = linkedPrescription
@@ -1186,8 +1353,7 @@ public class PatientDomainService {
                 .map(Prescription::getNotes)
                 .orElse("");
 
-        List<PatientDtos.AttachmentView> attachments = appointmentAttachmentRepository
-                .findByTenantPublicIdAndAppointmentPublicId(tenantPublicId, appointment.getAppointmentPublicId())
+        List<PatientDtos.AttachmentView> attachments = appointmentAttachments
                 .stream()
                 .map(a -> new PatientDtos.AttachmentView(
                         a.getAttachmentPublicId(),
