@@ -559,8 +559,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      facet.bookingType == 'TOKEN'
-                                          ? 'Token #${facet.tokenNumber ?? '-'} · ${facet.tokenSession == 'EVENING' ? 'Evening' : 'Morning'}'
+                                      facet.tokenNumber != null
+                                          ? (facet.bookingType == 'TOKEN'
+                                              ? 'Token #${facet.tokenNumber} · ${facet.tokenSession == 'EVENING' ? 'Evening' : 'Morning'}'
+                                              : 'Token #${facet.tokenNumber} · ${AppDateUtils.formatSlot(facet.slot)}')
                                           : AppDateUtils.formatSlot(facet.slot),
                                       style: AppTextStyles.body(
                                         size: 13,

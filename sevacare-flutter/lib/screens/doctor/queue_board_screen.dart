@@ -30,9 +30,9 @@ class SessionQueueState {
 /// for today, grouped by token session (Morning / Evening). Facets are
 /// already sorted by token number by the backend, but we sort defensively.
 List<SessionQueueState> computeQueueStates(List<DoctorQueueFacetView> facets) {
-  final tokenFacets = facets
-      .where((f) => f.bookingType == 'TOKEN' && f.tokenNumber != null)
-      .toList();
+  // Unified queue: slot and token bookings share one sequence, so the board
+  // shows every appointment that carries a token, regardless of how it was booked.
+  final tokenFacets = facets.where((f) => f.tokenNumber != null).toList();
   final bySession = <String, List<DoctorQueueFacetView>>{};
   for (final f in tokenFacets) {
     bySession.putIfAbsent(f.tokenSession ?? 'MORNING', () => []).add(f);
@@ -253,7 +253,7 @@ class _BoardContent extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'No token bookings today',
+            'No appointments in the queue yet',
             style: AppTextStyles.pageTitle(Colors.white),
           ),
         ],

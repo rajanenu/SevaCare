@@ -17,8 +17,20 @@ RUN mvn -pl sevacare-api -am -DskipTests clean package -q
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/sevacare-api/target/sevacare-api-*.jar app.jar
-EXPOSE 8081
+
+# Run as a non-root user (defense in depth).
+RUN groupadd --system sevacare && useradd --system --gid sevacare --home /app sevacare
+COPY --from=build --chown=sevacare:sevacare /app/sevacare-api/target/sevacare-api-*.jar app.jar
+USER sevacare
+
+# App listens on $PORT (default 8080 — see application.yml; Cloud Run injects PORT=8080).
+EXPOSE 8080
+
+# TCP liveness probe on the app port (image has bash but no curl/wget).
+# Cloud Run runs its own HTTP health probes; this helps compose/k8s orchestration.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1
+
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \

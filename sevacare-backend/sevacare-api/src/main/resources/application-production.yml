@@ -1,9 +1,17 @@
-# Production overrides – activated when SPRING_PROFILES_ACTIVE=production
+# Production overrides – activated when SPRING_PROFILES_ACTIVE=production.
+# Every value here is injected from the environment (Secret Manager / Cloud Run);
+# there are intentionally NO fallback defaults so a missing secret fails fast at boot.
 spring:
   datasource:
+    # On Cloud Run this is the Cloud SQL socket-factory URL (jdbc:postgresql:///db?cloudSqlInstance=...&socketFactory=...)
     url: ${SEVACARE_DB_URL}
     username: ${SEVACARE_DB_USERNAME}
     password: ${SEVACARE_DB_PASSWORD}
+    hikari:
+      # db-g1-small has a small connection ceiling; keep each instance's pool tight.
+      maximum-pool-size: ${SEVACARE_DB_POOL_MAX:5}
+      minimum-idle: 1
+      connection-timeout: 10000
   jpa:
     properties:
       hibernate:
@@ -15,6 +23,9 @@ sevacare:
     secret: ${SEVACARE_AUTH_SECRET}
   storage:
     onboarding-dir: ${SEVACARE_ONBOARDING_STORAGE_DIR:/tmp/sevacare-storage/onboarding}
+  cors:
+    # Required in production — comma-separated exact web origins (the frontend URL).
+    allowed-origins: ${SEVACARE_CORS_ORIGINS}
 
 logging:
   level:

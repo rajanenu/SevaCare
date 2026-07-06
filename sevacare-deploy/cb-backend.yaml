@@ -1,0 +1,11 @@
+# Build + push the backend image (native amd64 on Cloud Build).
+# Submit from the repo root:  gcloud builds submit --config=sevacare-deploy/cb-backend.yaml .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    dir: sevacare-backend
+    args: ['build', '-f', '../sevacare-deploy/Dockerfile.backend',
+           '-t', 'asia-south1-docker.pkg.dev/sevacareapp/sevacare/backend:latest', '.']
+images: ['asia-south1-docker.pkg.dev/sevacareapp/sevacare/backend:latest']
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s

@@ -258,6 +258,16 @@ public class PatientDomainService {
                                                 throw new IllegalStateException("Selected slot is already booked");
                                         });
                         resolvedSlot = request.slot();
+
+                        // Unified queue: a slot booking also draws a token from the SAME
+                        // per-(doctor, date, session) counter that token bookings use, so slot
+                        // and token appointments share ONE sequence. The appointment keeps its
+                        // chosen time; the token number is what the doctor serves by. Every valid
+                        // slot falls in the morning (09:00-14:00) or evening (17:00-21:00) window.
+                        LocalDate slotDate = LocalDate.parse(resolvedSlot.substring(0, 10));
+                        LocalTime slotTime = LocalTime.parse(resolvedSlot.substring(11, 16));
+                        tokenSession = sessionForTime(slotTime);
+                        tokenNumber = nextTokenNumber(tenantPublicId, request.doctorPublicId(), slotDate, tokenSession);
                 }
 
                 Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
@@ -393,6 +403,15 @@ public class PatientDomainService {
 
         private String sessionStartTime(String session) {
                 return "MORNING".equals(session) ? "09:00" : "17:00";
+        }
+
+        /**
+         * Maps a wall-clock slot time to its token session. Slot bookings are validated to
+         * fall in the morning (09:00-14:00) or evening (17:00-21:00) window, so anything
+         * before 14:00 is a morning token and everything else is an evening token.
+         */
+        private String sessionForTime(LocalTime time) {
+                return time.isBefore(LocalTime.of(14, 0)) ? "MORNING" : "EVENING";
         }
 
         private LocalDate parseTokenDate(String rawDate) {
@@ -773,8 +792,10 @@ public class PatientDomainService {
         if (!appointment.getPatientPublicId().equals(patientPublicId)) {
             throw new IllegalArgumentException("Patient mismatch for appointment");
         }
-        if (!"TOKEN".equals(appointment.getBookingType()) || appointment.getTokenNumber() == null) {
-            throw new IllegalArgumentException("Appointment is not a token booking");
+        // Unified queue: both slot and token appointments carry a token, so either can
+        // report a live queue position. Only appointments without a token (legacy rows) are rejected.
+        if (appointment.getTokenNumber() == null || appointment.getTokenSession() == null) {
+            throw new IllegalArgumentException("Appointment has no token in the queue");
         }
 
         LocalDate date = parseSlotDate(appointment.getAppointmentSlot())
@@ -783,7 +804,7 @@ public class PatientDomainService {
         PatientDtos.DoctorQueueDayView dayView = getDoctorQueueForDate(tenantPublicId, appointment.getDoctorPublicId(), date);
 
         List<PatientDtos.DoctorQueueFacetView> waiting = dayView.facets().stream()
-                .filter(f -> "TOKEN".equals(f.bookingType()) && appointment.getTokenSession().equals(f.tokenSession()))
+                .filter(f -> f.tokenNumber() != null && appointment.getTokenSession().equals(f.tokenSession()))
                 .filter(f -> !"cancelled".equalsIgnoreCase(f.status()) && !"completed".equalsIgnoreCase(f.status()))
                 .sorted(Comparator.comparing(f -> f.tokenNumber() == null ? 0 : f.tokenNumber()))
                 .toList();

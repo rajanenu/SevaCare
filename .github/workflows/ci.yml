@@ -1,0 +1,48 @@
+name: CI
+
+# Build + quality gates on every push and PR. Deploys are handled separately
+# by sevacare-deploy/cloudbuild.yaml (GCP Cloud Build) and are not run here.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sevacare-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build and test
+        run: mvn -B -ntp verify
+
+  frontend:
+    name: Frontend (analyze + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sevacare-flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          cache: true
+      - run: flutter pub get
+      - name: Static analysis
+        # Fatal on warnings/errors; the repo still carries some style-level infos.
+        run: flutter analyze --no-fatal-infos
+      - name: Unit/widget tests
+        run: flutter test

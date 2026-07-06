@@ -255,11 +255,14 @@ class _AppointmentCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 6),
-          if (appointment.bookingType == 'TOKEN' && appointment.tokenNumber != null)
+          if (appointment.tokenNumber != null)
             _TokenTicket(
               tokenNumber: appointment.tokenNumber!,
               session: appointment.tokenSession,
               variant: _variant,
+              // Slot bookings keep their chosen time on the ticket; pure token
+              // bookings just show the session.
+              slotLabel: appointment.bookingType == 'TOKEN' ? null : appointment.slot,
             )
           else
             Row(
@@ -352,7 +355,13 @@ class _TokenTicket extends StatelessWidget {
   final int tokenNumber;
   final String? session;
   final MetricVariant variant;
-  const _TokenTicket({required this.tokenNumber, this.session, required this.variant});
+  final String? slotLabel;
+  const _TokenTicket({
+    required this.tokenNumber,
+    this.session,
+    required this.variant,
+    this.slotLabel,
+  });
 
   Color get _accent => switch (variant) {
     MetricVariant.mint => SevaCareColors.mint,
@@ -376,9 +385,13 @@ class _TokenTicket extends StatelessWidget {
           const SizedBox(width: 8),
           Text('Token #$tokenNumber', style: AppTextStyles.cardTitle(_accent)),
           const SizedBox(width: 8),
-          Text(
-            session == 'EVENING' ? 'Evening session' : 'Morning session',
-            style: AppTextStyles.label(SevaCareColors.textMuted),
+          Expanded(
+            child: Text(
+              slotLabel ??
+                  (session == 'EVENING' ? 'Evening session' : 'Morning session'),
+              style: AppTextStyles.label(SevaCareColors.textMuted),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

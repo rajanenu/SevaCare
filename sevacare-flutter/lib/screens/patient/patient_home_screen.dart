@@ -1294,11 +1294,13 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
   }
 
   AppointmentView? get _trackedAppointment {
+    // Unified queue: slot and token bookings both carry a token, so either can be
+    // tracked live against the queue.
     final tokenAppts =
         widget.todayAppointments
             .where(
               (a) =>
-                  a.bookingType == 'TOKEN' &&
+                  a.tokenNumber != null &&
                   ![
                     'completed',
                     'cancelled',

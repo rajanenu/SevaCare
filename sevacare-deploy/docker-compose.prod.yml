@@ -1,21 +1,27 @@
-version: '3.9'
-
+# Production override — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# All secrets are injected from the environment (never commit real values).
+# Variable names match exactly what the Spring app reads (see application.yml).
 services:
   backend:
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      SEVACARE_JWT_SECRET: ${SEVACARE_JWT_SECRET}
-      SERVER_PORT: ${SERVER_PORT:-8081}
-      JAVA_OPTS: ${JAVA_OPTS:-"-Xms512m -Xmx1024m"}
+      SEVACARE_DB_URL: ${SEVACARE_DB_URL}
+      SEVACARE_DB_USERNAME: ${SEVACARE_DB_USERNAME}
+      SEVACARE_DB_PASSWORD: ${SEVACARE_DB_PASSWORD}
+      SEVACARE_AUTH_SECRET: ${SEVACARE_AUTH_SECRET}
+      SEVACARE_CORS_ORIGINS: ${SEVACARE_CORS_ORIGINS}
+      SPRING_PROFILES_ACTIVE: production
+      PORT: ${PORT:-8080}
     restart: unless-stopped
 
   frontend:
-    environment:
-      EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL}
+    build:
+      args:
+        ENV: production
+        API_BASE_URL: ${API_BASE_URL}
     restart: unless-stopped
 
   postgres:
-    # In production, prefer managed PostgreSQL and disable local DB service if not needed.
+    # In production prefer a managed PostgreSQL; drop this service when using one.
     restart: unless-stopped

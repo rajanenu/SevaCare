@@ -1,0 +1,13 @@
+# Build + push the Flutter-web frontend image (native amd64 on Cloud Build).
+# Bakes the backend API URL in at build time. Submit from the repo root:
+#   gcloud builds submit --config=sevacare-deploy/cb-frontend.yaml .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'sevacare-deploy/Dockerfile.frontend',
+           '--build-arg', 'ENV=production',
+           '--build-arg', 'API_BASE_URL=https://sevacare-backend-209136271820.asia-south1.run.app/api/v1',
+           '-t', 'asia-south1-docker.pkg.dev/sevacareapp/sevacare/frontend:latest', '.']
+images: ['asia-south1-docker.pkg.dev/sevacareapp/sevacare/frontend:latest']
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 2400s

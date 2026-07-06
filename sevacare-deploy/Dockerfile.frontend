@@ -1,5 +1,5 @@
 # ── Flutter Web Build ─────────────────────────────────────────────────────────
-FROM ghcr.io/cirruslabs/flutter:3.24.0 AS build
+FROM ghcr.io/cirruslabs/flutter:3.41.7 AS build
 
 WORKDIR /app
 COPY sevacare-flutter/pubspec.yaml sevacare-flutter/pubspec.lock ./
@@ -7,11 +7,16 @@ RUN flutter pub get
 
 COPY sevacare-flutter/ .
 
-# ENV and API_PORT are baked in at build time via --dart-define
+# Baked in at build time via --dart-define (see lib/core/config/app_config.dart).
+#   ENV           local | production
+#   API_BASE_URL  full backend API base (production) — takes priority over API_PORT
+#   API_PORT      backend port for host-derived local/dev web builds
 ARG ENV=production
+ARG API_BASE_URL=
 ARG API_PORT=8081
 RUN flutter build web --release \
       --dart-define=ENV=${ENV} \
+      --dart-define=API_BASE_URL=${API_BASE_URL} \
       --dart-define=API_PORT=${API_PORT} \
       --output=build/web
 

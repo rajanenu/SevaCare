@@ -1,0 +1,29 @@
+# Controls what `gcloud builds submit` uploads. Keep it lean and SECRET-FREE.
+.git/
+.github/
+.logs/
+.serena/
+.playwright-mcp/
+**/.DS_Store
+*.log
+**/*.log
+
+# Secrets — never upload
+.env
+.env.*
+sevacare-flutter/.env.*
+
+# Build outputs / deps (rebuilt inside the image)
+**/node_modules/
+**/target/
+**/dist/
+sevacare-flutter/build/
+sevacare-flutter/.dart_tool/
+sevacare-flutter/.flutter-plugins
+sevacare-flutter/.flutter-plugins-dependencies
+
+# Not needed for image builds
+sevacare-e2e-test/
+docs/
+sevacare-flutter/Photos/
+# NOTE: sevacare-flutter/pubspec.lock is intentionally NOT ignored (Dockerfile.frontend needs it)

@@ -1,3 +1,6 @@
+# Base config with LOCAL-friendly defaults (localhost DB, dev secret, LAN CORS).
+# Production overrides live in application-production.yml and are activated with
+# SPRING_PROFILES_ACTIVE=production — where every secret MUST come from the env.
 spring:
   application:
     name: sevacare-api

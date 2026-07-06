@@ -1,0 +1,33 @@
+# Keep Docker build contexts lean and free of secrets/build junk.
+.git
+.github
+.gitignore
+**/.DS_Store
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Java build output
+**/target/
+
+# Flutter / Dart build output
+sevacare-flutter/build/
+sevacare-flutter/.dart_tool/
+sevacare-flutter/.flutter-plugins
+sevacare-flutter/.flutter-plugins-dependencies
+
+# Node / e2e
+**/node_modules/
+sevacare-e2e-test/
+
+# Tooling / IDE / logs
+.idea/
+.vscode/
+.serena/
+.playwright-mcp/
+.logs/
+**/*.log
+docs/

@@ -27,19 +27,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seva_care
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
       SEVACARE_DB_URL: jdbc:postgresql://postgres:5432/seva_care
       SEVACARE_DB_USERNAME: postgres
       SEVACARE_DB_PASSWORD: postgres
       SEVACARE_AUTH_SECRET: dev-sevacare-secret
-      SEVACARE_JWT_SECRET: dev-sevacare-secret
-      SERVER_PORT: 8081
+      PORT: 8080
     ports:
-      - "8081:8081"
+      - "8081:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/api/v1/public/tenants || exit 1"]
+      # temurin JRE image has bash but no curl; a TCP probe is enough for ordering.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 15
