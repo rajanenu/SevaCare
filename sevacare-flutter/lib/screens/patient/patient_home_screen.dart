@@ -11,6 +11,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/time_theme.dart';
+import '../../core/utils/app_snack.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../core/utils/doctor_name.dart';
@@ -200,12 +201,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to cancel: $e'),
-            backgroundColor: SevaCareColors.danger,
-          ),
-        );
+        AppSnack.error(context, 'Failed to cancel: $e');
       }
     }
   }
@@ -307,20 +303,14 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
             : commentController.text.trim(),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr(ref, 'Thanks for your feedback!'))),
-        );
+        AppSnack.success(context, tr(ref, 'Thanks for your feedback!'));
         await _hideRatePrompt(appt.appointmentPublicId);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              extractErrorMessage(e, fallback: 'Could not submit review.'),
-            ),
-            backgroundColor: SevaCareColors.danger,
-          ),
+        AppSnack.error(
+          context,
+          extractErrorMessage(e, fallback: 'Could not submit review.'),
         );
         await _hideRatePrompt(appt.appointmentPublicId);
       }

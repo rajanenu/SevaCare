@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/app_snack.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
@@ -338,12 +339,7 @@ class _AppointmentCard extends ConsumerWidget {
       onCancelled();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to cancel: $e'),
-            backgroundColor: SevaCareColors.danger,
-          ),
-        );
+        AppSnack.error(context, 'Failed to cancel: $e');
       }
     }
   }

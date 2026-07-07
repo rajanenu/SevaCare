@@ -13,6 +13,7 @@ import '../providers/app_state.dart';
 import 'app_nav_rail.dart';
 import 'bottom_nav.dart';
 import 'connectivity_banner.dart';
+import 'faq_bot_sheet.dart';
 import 'orb_background.dart';
 
 class AppShell extends StatelessWidget {
@@ -217,7 +218,61 @@ class AppShell extends StatelessWidget {
                   );
                 },
               ),
+              // Floating assistant bubble — bottom-right, like a website chat
+              // widget. Only shown pre-login (role == null): on Welcome/login/
+              // onboarding it helps new users, but once signed in it would be
+              // noisy on every page, so it's removed after login (web + mobile).
+              if (role == null)
+                Positioned(
+                  right: 16,
+                  bottom: 24,
+                  child: SafeArea(
+                    child: _ChatFab(role: role),
+                  ),
+                ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Floating assistant bubble ──────────────────────────────────────────────────
+
+class _ChatFab extends StatelessWidget {
+  final UserRole? role;
+  const _ChatFab({this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Chat with the SevaCare Assistant',
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => showFaqBot(context, role),
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: SevaCareColors.heroGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: SevaCareColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 26),
           ),
         ),
       ),

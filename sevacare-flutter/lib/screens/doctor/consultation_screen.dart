@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/ai/clinical_assist.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/app_snack.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -232,12 +233,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   void _addMedicine() {
     final name = _medNameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Medicine name is required.'),
-          backgroundColor: SevaCareColors.danger,
-        ),
-      );
+      AppSnack.error(context, 'Medicine name is required.');
       return;
     }
     setState(() {
@@ -357,15 +353,8 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
         }
         _addMedicineExpanded = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${template.medicines.length} medicine(s) added — review them below.'),
-          backgroundColor: SevaCareColors.mint,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      AppSnack.success(context,
+          '${template.medicines.length} medicine(s) added — review them below.');
     });
   }
 
@@ -444,16 +433,11 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
 
       if (mounted) {
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_medicines.isEmpty
-                ? 'Consultation completed.'
-                : 'Consultation completed — prescription issued.'),
-            backgroundColor: SevaCareColors.mint,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            duration: const Duration(seconds: 2),
-          ),
+        AppSnack.success(
+          context,
+          _medicines.isEmpty
+              ? 'Consultation completed.'
+              : 'Consultation completed — prescription issued.',
         );
         context.go('/doctor');
       }

@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/reverse_geocode.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
@@ -92,15 +92,13 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
       );
-      final placemarks = await placemarkFromCoordinates(
+      final place = await reverseGeocode(
         position.latitude,
         position.longitude,
       );
-      if (placemarks.isEmpty || !mounted) return;
-      final placemark = placemarks.first;
-      final locality = placemark.locality ?? placemark.subAdministrativeArea;
-      final pincode = placemark.postalCode;
-      if (locality == null || locality.isEmpty) return;
+      if (place == null || place.isEmpty || !mounted) return;
+      final locality = place.locality!;
+      final pincode = place.pincode;
 
       final label = (pincode != null && pincode.isNotEmpty)
           ? '${_capitalize(locality)}-$pincode'

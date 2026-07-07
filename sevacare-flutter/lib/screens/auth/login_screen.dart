@@ -13,16 +13,6 @@ import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
 
-// Default mobile numbers per role (local dev convenience).
-// Admin/staff have no shared default — the hospital admin logs in with the
-// contact mobile provided at onboarding, and staff with their own number.
-String _defaultMobile(UserRole role) => switch (role) {
-  UserRole.patient => '9000000001',
-  UserRole.doctor => '9000000002',
-  UserRole.admin || UserRole.staff => '',
-  UserRole.platformAdmin => '9000000999',
-};
-
 // Role description blurbs — short by design; the icon + card color carry the rest
 String _roleDescription(UserRole role) => switch (role) {
   UserRole.patient => 'Book visits & view prescriptions.',
@@ -71,9 +61,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final startRole = widget.platformAdminMode
         ? UserRole.platformAdmin
         : UserRole.patient;
-    _mobileCtrl = TextEditingController(text: _defaultMobile(startRole));
+    _mobileCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
-    _otpCtrl = TextEditingController(text: '0000');
+    _otpCtrl = TextEditingController();
     _roleSelected = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -175,10 +165,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _onRoleChanged(UserRole newRole) {
     ref.read(activeRoleProvider.notifier).state = newRole;
     ref.read(loginFormProvider.notifier).reset();
-    // Reset OTP field and pre-fill mobile default
-    _mobileCtrl.text = _defaultMobile(newRole);
+    // Clear the form when switching roles — no pre-filled mobile or OTP.
+    _mobileCtrl.clear();
     _emailCtrl.clear();
-    _otpCtrl.text = '0000';
+    _otpCtrl.clear();
     setState(() => _roleSelected = true);
   }
 
@@ -282,10 +272,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _resendOtp() async {
-    setState(() => _resendCountdown = 120);
-    _startResendTimer();
     ref.read(loginFormProvider.notifier).resetOtp();
-    _otpCtrl.text = '0000';
+    _otpCtrl.clear();
+    // _sendOtp() restarts the 120s countdown on success — don't start a second
+    // timer here or the countdown decrements twice as fast.
     await _sendOtp();
   }
 

@@ -755,8 +755,12 @@ class _NowServingStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
     return GestureDetector(
-      onTap: () => context.push('/doctor/queue-board'),
+      onTap: () => context.push('/queue/control', extra: {
+        'doctorPublicId': auth.subjectPublicId ?? '',
+        'doctorName': auth.subjectName.isNotEmpty ? auth.subjectName : 'My queue',
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(

@@ -6,6 +6,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/faq_bot_sheet.dart';
 import '../../widgets/widgets.dart';
 
 class HelpSupportScreen extends ConsumerStatefulWidget {
@@ -66,6 +67,10 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
                 ? 'SevaCare platform support'
                 : '$hospitalName support',
           ),
+          const SizedBox(height: 20),
+
+          // Assistant chatbot — answers common predefined questions per role
+          _AssistantCard(role: auth.role),
           const SizedBox(height: 20),
 
           // Context badge
@@ -162,6 +167,59 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
           ],
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+// ── Assistant Card ─────────────────────────────────────────────────────────────
+
+class _AssistantCard extends StatelessWidget {
+  final UserRole? role;
+  const _AssistantCard({required this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showFaqBot(context, role),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: SevaCareColors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: SevaCareColors.heroGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ask the SevaCare Assistant',
+                      style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                  const SizedBox(height: 2),
+                  Text('Quick answers to common questions',
+                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: SevaCareColors.textMuted),
+          ],
+        ),
       ),
     );
   }

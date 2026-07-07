@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/time_theme.dart';
+import '../../core/utils/app_snack.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -519,6 +520,48 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
           ),
         ),
 
+        // ── Live queue control ────────────────────────────────────────────────
+        if (_doctorId.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => context.push('/queue/control', extra: {
+              'doctorPublicId': _doctorId,
+              'doctorName': _doctorName,
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: SevaCareColors.heroGradient,
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.queue_play_next_rounded,
+                      color: Colors.white, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Live Queue Control',
+                            style: AppTextStyles.buttonLabel(Colors.white)),
+                        Text('Call next · mark done · no-show for $_doctorName',
+                            style: AppTextStyles.label(
+                                Colors.white.withValues(alpha: 0.8))),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                ],
+              ),
+            ),
+          ),
+        ],
+
         // ── Date strip ────────────────────────────────────────────────────────
         if (_doctorId.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -792,24 +835,18 @@ class _StaffRequestsTabState extends ConsumerState<_StaffRequestsTab> {
 
   Future<void> _submit() async {
     if (_fromDateCtrl.text.isEmpty || _toDateCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select from and to dates.')),
-      );
+      AppSnack.info(context, 'Please select from and to dates.');
       return;
     }
     if (_hourlyLeave) {
       if (_startTime == null || _endTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select start and end time for hourly leave.')),
-        );
+        AppSnack.info(context, 'Please select start and end time for hourly leave.');
         return;
       }
       final startMins = _startTime!.hour * 60 + _startTime!.minute;
       final endMins = _endTime!.hour * 60 + _endTime!.minute;
       if (endMins <= startMins) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('End time must be after start time.')),
-        );
+        AppSnack.info(context, 'End time must be after start time.');
         return;
       }
     }
@@ -847,10 +884,8 @@ class _StaffRequestsTabState extends ConsumerState<_StaffRequestsTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(extractErrorMessage(e, fallback: 'Failed to submit request.')),
-          backgroundColor: SevaCareColors.danger,
-        ));
+        AppSnack.error(
+            context, extractErrorMessage(e, fallback: 'Failed to submit request.'));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -1402,16 +1437,12 @@ class _BookTabState extends ConsumerState<_BookTab> {
             auth.token ?? '',
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Token counter reset.')),
-        );
+        AppSnack.success(context, 'Token counter reset.');
         _loadTokenPreview();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(extractErrorMessage(e, fallback: 'Reset failed.'))),
-        );
+        AppSnack.error(context, extractErrorMessage(e, fallback: 'Reset failed.'));
       }
     } finally {
       if (mounted) setState(() => _resettingTokenCounter = false);
@@ -2541,14 +2572,8 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
                 _load(reset: true);
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        extractErrorMessage(e, fallback: 'Delete failed'),
-                      ),
-                      backgroundColor: SevaCareColors.danger,
-                    ),
-                  );
+                  AppSnack.error(
+                      context, extractErrorMessage(e, fallback: 'Delete failed'));
                 }
               }
             },

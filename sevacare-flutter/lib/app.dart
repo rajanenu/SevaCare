@@ -19,6 +19,7 @@ import 'screens/prescription/prescriptions_screen.dart';
 import 'screens/prescription/prescription_detail_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/queue_board_screen.dart';
+import 'screens/queue/queue_control_screen.dart';
 import 'screens/doctor/consultation_screen.dart';
 import 'screens/doctor/doctor_prescriptions_screen.dart';
 import 'screens/doctor/doctor_requests_screen.dart';
@@ -32,6 +33,7 @@ import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/search/global_search_screen.dart';
 import 'screens/staff/staff_dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/cinematic_intro.dart';
 
 /// Shared slide+fade page transition used by every GoRoute.
@@ -56,7 +58,12 @@ CustomTransitionPage<void> _slidePage(
 }
 
 class SevaCareApp extends ConsumerStatefulWidget {
-  const SevaCareApp({super.key});
+  /// Whether to play the cinematic intro this launch. False when the app was
+  /// cold-restarted shortly after being used (see main.dart intro cooldown), so
+  /// resuming from the background drops the user straight onto their page.
+  final bool showIntro;
+
+  const SevaCareApp({super.key, this.showIntro = true});
 
   @override
   ConsumerState<SevaCareApp> createState() => _SevaCareAppState();
@@ -70,10 +77,18 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   void initState() {
     super.initState();
     _router = _buildRouter();
-    // Cinematic intro plays once per launch — but never in front of a scanned
-    // QR deep link, where the user expects the form immediately.
+    // Cinematic intro plays on a fresh launch — but never in front of a scanned
+    // QR deep link (user expects the form immediately), and not when main.dart
+    // decided this is a quick resume within the cooldown window.
     final initialPath = _router.routeInformationProvider.value.uri.path;
-    _showIntro = !initialPath.startsWith('/qrcode');
+    _showIntro = widget.showIntro && !initialPath.startsWith('/qrcode');
+    // Stamp the time the intro is shown so quick cold-restarts skip it.
+    if (_showIntro) {
+      SharedPreferences.getInstance().then(
+        (p) => p.setInt(
+            'intro_last_shown_ms', DateTime.now().millisecondsSinceEpoch),
+      );
+    }
     // Wire 401 auto-logout: any unauthorised response clears the session and
     // sends the user back to the welcome screen.
     apiClient.onUnauthorized = () {
@@ -250,6 +265,20 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(
           path: '/doctor/queue-board',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const QueueBoardScreen()),
+        ),
+        GoRoute(
+          path: '/queue/control',
+          pageBuilder: (ctx, state) {
+            final extra = (state.extra as Map<String, String>?) ?? const {};
+            return _slidePage(
+              ctx,
+              state,
+              QueueControlScreen(
+                doctorPublicId: extra['doctorPublicId'] ?? '',
+                doctorName: extra['doctorName'] ?? 'Doctor',
+              ),
+            );
+          },
         ),
 
         // ── Admin ─────────────────────────────────────────────────────────────

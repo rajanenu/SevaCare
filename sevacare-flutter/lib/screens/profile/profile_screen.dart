@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/app_snack.dart';
 import '../../core/utils/error_utils.dart';
 import '../../core/utils/profile_storage.dart';
 import '../../data/models/models.dart';
@@ -497,11 +498,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) setState(() => _profileImageBytes = bytes);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Could not pick image: $e'),
-          backgroundColor: SevaCareColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppSnack.error(context, 'Could not pick image: $e');
       }
     }
   }
@@ -637,12 +634,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) context.go('/');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(extractErrorMessage(e, fallback: 'Could not delete account.')),
-            backgroundColor: SevaCareColors.danger,
-          ),
-        );
+        AppSnack.error(
+            context, extractErrorMessage(e, fallback: 'Could not delete account.'));
       }
     }
   }

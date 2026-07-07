@@ -24,8 +24,15 @@ RUN flutter build web --release \
 FROM nginx:alpine AS runtime
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# SPA fallback routing (GoRouter uses hash strategy but nginx needs this for direct links)
-RUN printf 'server {\n  listen 8080;\n  root /usr/share/nginx/html;\n  index index.html;\n  location / {\n    try_files $uri $uri/ /index.html;\n  }\n}\n' \
+# Marketing landing page, served at /site/ so the app root "/" (with its splash
+# video) is completely untouched. Swap to a dedicated domain later without
+# changing the app. Note: not built by Flutter, so copied straight from source.
+COPY sevacare-flutter/website /usr/share/nginx/html/site
+
+# SPA fallback routing (GoRouter uses hash strategy but nginx needs this for
+# direct links). The /site/ block is matched first so its static files fall
+# back to the marketing index.html, not the Flutter app shell.
+RUN printf 'server {\n  listen 8080;\n  root /usr/share/nginx/html;\n  index index.html;\n  location /site/ {\n    try_files $uri $uri/ /site/index.html;\n  }\n  location / {\n    try_files $uri $uri/ /index.html;\n  }\n}\n' \
     > /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
