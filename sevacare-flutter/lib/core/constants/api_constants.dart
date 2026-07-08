@@ -23,6 +23,10 @@ class ApiConstants {
       '/patients/$tenantId/booking/booked-slots?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
   static String slotStatus(String tenantId, String doctorId, String date) =>
       '/patients/$tenantId/booking/slot-status?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
+  static String doctorSlots(String tenantId, String doctorId, String date) =>
+      '/patients/$tenantId/booking/doctor-slots?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}';
+  static String doctorAvailableDates(String tenantId, String doctorId, String from, int days) =>
+      '/patients/$tenantId/booking/doctor-available-dates?doctorId=${Uri.encodeComponent(doctorId)}&from=${Uri.encodeComponent(from)}&days=$days';
   static String tokenPreview(String tenantId, String doctorId, String date, String session) =>
       '/patients/$tenantId/booking/token-preview?doctorId=${Uri.encodeComponent(doctorId)}&date=${Uri.encodeComponent(date)}&session=${Uri.encodeComponent(session)}';
   static String tokenReset(String tenantId) => '/patients/$tenantId/booking/token-reset';
@@ -60,6 +64,8 @@ class ApiConstants {
   static String slotBlock(String tenantId, String doctorId, String blockId) => '/doctors/$tenantId/$doctorId/slot-blocks/$blockId';
   static String doctorAvailability(String tenantId, String date) =>
       '/doctors/$tenantId/availability?date=${Uri.encodeComponent(date)}';
+  static String doctorWorkingHours(String tenantId, String doctorId) =>
+      '/doctors/$tenantId/$doctorId/working-hours';
   static String doctorAppointmentRequests(String tenantId, String doctorId) =>
       '/doctors/$tenantId/$doctorId/appointment-requests';
   static String confirmAppointmentRequest(String tenantId, String doctorId, String requestId) =>
@@ -89,11 +95,15 @@ class ApiConstants {
   static String staffBookingStats(String tenantId) => '/admin/$tenantId/staff-booking-stats';
   static String bookingChannelStats(String tenantId) => '/admin/$tenantId/booking-channel-stats';
   static String hospitalProfile(String tenantId) => '/admin/$tenantId/hospital-profile';
-  static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search, String? sortBy, String? sortDir}) {
+  static String adminPatients(String tenantId, {int page = 0, int size = 10, String? search, String? sortBy, String? sortDir, String? fromDate, String? toDate, String? specialty}) {
     final buf = StringBuffer('/admin/$tenantId/patients?page=$page&size=$size');
     if (search != null && search.isNotEmpty) buf.write('&search=${Uri.encodeComponent(search)}');
     if (sortBy != null && sortBy.isNotEmpty) buf.write('&sortBy=${Uri.encodeComponent(sortBy)}');
     if (sortDir != null && sortDir.isNotEmpty) buf.write('&sortDir=${Uri.encodeComponent(sortDir)}');
+    if (fromDate != null && fromDate.isNotEmpty) buf.write('&fromDate=${Uri.encodeComponent(fromDate)}');
+    if (toDate != null && toDate.isNotEmpty) buf.write('&toDate=${Uri.encodeComponent(toDate)}');
+    // Hospital-wide today; department-scoped staff can pass their specialty later.
+    if (specialty != null && specialty.isNotEmpty) buf.write('&specialty=${Uri.encodeComponent(specialty)}');
     return buf.toString();
   }
   static String adminDeletePatient(String tenantId, String patientId) => '/admin/$tenantId/patients/$patientId';
@@ -124,6 +134,7 @@ class ApiConstants {
   static String generateQrCode(String tenantId) => '/platform-admin/tenants/$tenantId/qrcode/generate';
   static String qrCodeFormData(String uuid) => '/public/qrcode/$uuid/form-data';
   static String qrCodeAppointmentRequest(String uuid) => '/public/qrcode/$uuid/appointment-request';
+  static String quickBookingRequest(String tenantId) => '/public/tenant/$tenantId/quick-booking';
   static const String platformOnboardingRequests = '/platform-admin/onboarding-requests';
   static const String platformAdminUsers = '/platform-admin/users';
   static String platformAdminUser(String adminId) => '/platform-admin/users/$adminId';

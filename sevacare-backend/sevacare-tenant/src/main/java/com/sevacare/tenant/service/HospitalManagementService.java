@@ -1,6 +1,8 @@
 package com.sevacare.tenant.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -157,6 +159,47 @@ public class HospitalManagementService {
         );
 
         return new HospitalManagementDtos.QRCodeFormDataResponse(tenantPublicId, tenantName, doctors);
+    }
+
+    /**
+     * Best-effort doctor match for the chatbot's "Book Appointment" form, where
+     * doctor name and specialty are both optional. Matches on doctor name first,
+     * then specialty, then falls back to the tenant's first active doctor — so
+     * every quick-booking request always lands in a real doctor's inbox, same
+     * as the QR flow, without requiring the patient to know exactly who to pick.
+     */
+    public HospitalManagementDtos.QRCodeFormDataResponse.DoctorOption resolveDoctorForQuickBooking(
+            String tenantPublicId, String doctorNameHint, String specialtyHint
+    ) {
+        String schema = tenantSchema(tenantPublicId);
+        List<HospitalManagementDtos.QRCodeFormDataResponse.DoctorOption> doctors = jdbc.query(
+            "SELECT doctor_public_id, full_name, specialty FROM " + schema + ".doctor " +
+            "WHERE active = true ORDER BY full_name",
+            (rs, rowNum) -> new HospitalManagementDtos.QRCodeFormDataResponse.DoctorOption(
+                rs.getString("doctor_public_id"),
+                rs.getString("full_name"),
+                rs.getString("specialty")
+            )
+        );
+        if (doctors.isEmpty()) {
+            throw new IllegalStateException("No doctors are available for online booking right now.");
+        }
+
+        String nameHint = doctorNameHint == null ? "" : doctorNameHint.trim().toLowerCase(Locale.ROOT);
+        String specHint = specialtyHint == null ? "" : specialtyHint.trim().toLowerCase(Locale.ROOT);
+
+        return doctors.stream()
+            // Exact public-id match first — the chatbot's doctor dropdown sends D-xxxx ids.
+            .filter(d -> !nameHint.isBlank() && d.doctorPublicId().toLowerCase(Locale.ROOT).equals(nameHint))
+            .findFirst()
+            .or(() -> doctors.stream()
+                .filter(d -> !nameHint.isBlank() && d.doctorName().toLowerCase(Locale.ROOT).contains(nameHint))
+                .findFirst())
+            .or(() -> doctors.stream()
+                .filter(d -> !specHint.isBlank() && d.specialty() != null
+                    && d.specialty().toLowerCase(Locale.ROOT).contains(specHint))
+                .findFirst())
+            .orElse(doctors.get(0));
     }
 
     /** Postgres schema name for a tenant, e.g. T-1013 → tenant_t_1013. */

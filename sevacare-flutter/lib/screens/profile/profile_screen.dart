@@ -36,6 +36,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _gender = 'male';
   String _bloodGroup = '';
   String _bookingMode = 'BOTH';
+  List<AvailabilityRule> _availabilityRules = AvailabilityRule.defaultRules();
   DoctorRecord? _doctorRecord; // kept to preserve fields this form doesn't edit
   bool _showOptionalFields = false;
   bool _personalInfoExpanded = false; // personal info accordion — closed by default
@@ -200,6 +201,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _loading = false;
           });
         }
+        try {
+          final rulesJson = await repo.getDoctorWorkingHours(
+            ref.read(authProvider).tenantPublicId ?? '',
+            userId,
+            ref.read(authProvider).token ?? '',
+          );
+          if (mounted && rulesJson.isNotEmpty) {
+            setState(() {
+              _availabilityRules = rulesJson.map(AvailabilityRule.fromJson).toList();
+            });
+          }
+        } catch (_) {
+          // Keep the sensible defaults if working hours fail to load.
+        }
         return;
       } catch (_) {
         // Fall through to local-only load
@@ -271,6 +286,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (_nameCtrl.text.trim().isEmpty) {
       setState(() => _error = 'Full name is required.');
       return;
+    }
+    if (widget.role == UserRole.doctor) {
+      final availabilityError = AvailabilityEditor.validate(_availabilityRules);
+      if (availabilityError != null) {
+        setState(() => _error = availabilityError);
+        return;
+      }
     }
     setState(() { _saving = true; _error = null; _saved = false; });
 
@@ -393,6 +415,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             setState(() {
               _saving = false;
               _error  = 'Saved locally. Backend sync failed: ${extractErrorMessage(e)}';
+            });
+            return;
+          }
+        }
+
+        try {
+          final repo = ref.read(repositoryProvider);
+          await repo.updateDoctorWorkingHours(
+            auth.tenantPublicId ?? '',
+            userId,
+            auth.token ?? '',
+            _availabilityRules.map((r) => r.toJson()).toList(),
+          );
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _saving = false;
+              _error  = 'Saved, but availability failed to sync: ${extractErrorMessage(e)}';
             });
             return;
           }
@@ -864,6 +904,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           placeholder: 'e.g. MS Cardiology, USA',
                           onChanged: (_) => setState(() => _saved = false),
                         ),
+                        const SizedBox(height: 8),
+                        Text('Availability', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Set when you take consultations, and how patients can book (slot, token, or both).',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                        const SizedBox(height: 10),
                         AppDropdown<String>(
                           label: 'Booking Mode',
                           value: _bookingMode,
@@ -875,6 +923,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           onChanged: (v) {
                             if (v != null) setState(() { _bookingMode = v; _saved = false; });
                           },
+                        ),
+                        const SizedBox(height: 8),
+                        AvailabilityEditor(
+                          initialRules: _availabilityRules,
+                          onChanged: (rules) => setState(() {
+                            _availabilityRules = rules;
+                            _saved = false;
+                          }),
                         ),
                       ],
                       GestureDetector(

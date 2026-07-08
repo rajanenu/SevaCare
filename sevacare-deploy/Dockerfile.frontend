@@ -1,5 +1,6 @@
 # ── Flutter Web Build ─────────────────────────────────────────────────────────
-FROM ghcr.io/cirruslabs/flutter:3.41.7 AS build
+# In-region mirror of ghcr.io/cirruslabs/flutter:3.41.7 — see cb-mirror-base-images.yaml.
+FROM asia-south1-docker.pkg.dev/sevacareapp/sevacare/flutter-sdk:3.41.7 AS build
 
 WORKDIR /app
 COPY sevacare-flutter/pubspec.yaml sevacare-flutter/pubspec.lock ./
@@ -21,7 +22,7 @@ RUN flutter build web --release \
       --output=build/web
 
 # ── Runtime: lightweight nginx ────────────────────────────────────────────────
-FROM nginx:alpine AS runtime
+FROM asia-south1-docker.pkg.dev/sevacareapp/sevacare/nginx:alpine AS runtime
 COPY --from=build /app/build/web /usr/share/nginx/html
 
 # Marketing landing page, served at /site/ so the app root "/" (with its splash

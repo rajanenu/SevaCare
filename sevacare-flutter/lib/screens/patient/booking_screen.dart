@@ -38,6 +38,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   List<String> _blockedSlots = [];
   bool _doctorOnLeave = false;
 
+  // This doctor's own working-hours slots for the selected date — null falls
+  // back to the tenant-wide _setup slots (e.g. while loading, or on error).
+  List<String>? _doctorMorningSlots;
+  List<String>? _doctorEveningSlots;
+  List<String> get _morningSlots => _doctorMorningSlots ?? _setup?.morningSlots ?? [];
+  List<String> get _eveningSlots => _doctorEveningSlots ?? _setup?.eveningSlots ?? [];
+
+  // Dates (yyyy-MM-dd) the selected doctor has no working hours on — used to
+  // gray out chips in the date strip and to explain empty slot lists.
+  Set<String> _unavailableDates = {};
+
   // Token booking preview
   int? _tokenPreviewNumber;
   bool _loadingTokenPreview = false;
@@ -155,11 +166,37 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         if (setup.availableDates.isNotEmpty && booking.selectedDate.isEmpty) {
           notifier.updateDate(setup.availableDates.first);
         }
+        if (booking.selectedDoctorId.isNotEmpty) {
+          _loadUnavailableDates(booking.selectedDoctorId);
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _setupError = extractErrorMessage(e, fallback: 'Failed to load booking setup. Please try again.'));
     } finally {
       if (mounted) setState(() => _loadingSetup = false);
+    }
+  }
+
+  /// Fetches which strip dates the doctor is off on — one batched call.
+  /// Best-effort: on failure the strip simply shows all dates as normal.
+  Future<void> _loadUnavailableDates(String doctorId) async {
+    final dates = _setup?.availableDates ?? const [];
+    if (doctorId.isEmpty || dates.isEmpty) {
+      setState(() => _unavailableDates = {});
+      return;
+    }
+    try {
+      final auth = ref.read(authProvider);
+      final unavailable = await ref.read(repositoryProvider).getDoctorUnavailableDates(
+            auth.tenantPublicId ?? '',
+            doctorId,
+            dates.first,
+            dates.length,
+            auth.token ?? '',
+          );
+      if (mounted) setState(() => _unavailableDates = unavailable);
+    } catch (_) {
+      if (mounted) setState(() => _unavailableDates = {});
     }
   }
 
@@ -169,12 +206,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         _bookedSlots = [];
         _blockedSlots = [];
         _doctorOnLeave = false;
+        _doctorMorningSlots = null;
+        _doctorEveningSlots = null;
       });
       return;
     }
+    final auth = ref.read(authProvider);
+    final repo = ref.read(repositoryProvider);
     try {
-      final auth = ref.read(authProvider);
-      final repo = ref.read(repositoryProvider);
       final status = await repo.getSlotStatus(
         auth.tenantPublicId ?? '',
         doctorId,
@@ -194,6 +233,27 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           _bookedSlots = [];
           _blockedSlots = [];
           _doctorOnLeave = false;
+        });
+      }
+    }
+    try {
+      final slots = await repo.getDoctorSlots(
+        auth.tenantPublicId ?? '',
+        doctorId,
+        date,
+        auth.token ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _doctorMorningSlots = List<String>.from(slots['morningSlots'] as List? ?? const []);
+          _doctorEveningSlots = List<String>.from(slots['eveningSlots'] as List? ?? const []);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _doctorMorningSlots = null;
+          _doctorEveningSlots = null;
         });
       }
     }
@@ -728,6 +788,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 setState(() => _tokenPreviewNumber = null);
                                 final currentDate = ref.read(bookingFormProvider).selectedDate;
                                 _loadBookedSlots(doc.doctorPublicId, currentDate);
+                                _loadUnavailableDates(doc.doctorPublicId);
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -926,6 +987,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               itemBuilder: (context, index) {
                                 final date = _setup!.availableDates[index];
                                 final isSelected = form.selectedDate == date;
+                                final isDoctorOff =
+                                    _unavailableDates.contains(date);
                                 String displayDate;
                                 try {
                                   displayDate = DateFormat('d MMM')
@@ -945,8 +1008,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                   child: AnimatedContainer(
                                     duration:
                                         const Duration(milliseconds: 180),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 12),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: isDoctorOff ? 5 : 12),
                                     decoration: BoxDecoration(
                                       gradient: isSelected
                                           ? const LinearGradient(
@@ -958,7 +1022,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                           : null,
                                       color: isSelected
                                           ? null
-                                          : SevaCareColors.surface,
+                                          : isDoctorOff
+                                              ? SevaCareColors.surfaceMuted
+                                              : SevaCareColors.surface,
                                       borderRadius: BorderRadius.circular(
                                           AppTheme.radiusPill),
                                       border: Border.all(
@@ -968,13 +1034,34 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                         width: isSelected ? 2 : 1,
                                       ),
                                     ),
-                                    child: Text(
-                                      displayDate,
-                                      style: AppTextStyles.chipLabel(
-                                        isSelected
-                                            ? SevaCareColors.textOnPrimary
-                                            : SevaCareColors.text,
-                                      ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          displayDate,
+                                          style: AppTextStyles.chipLabel(
+                                            isSelected
+                                                ? SevaCareColors.textOnPrimary
+                                                : isDoctorOff
+                                                    ? SevaCareColors.textMuted
+                                                    : SevaCareColors.text,
+                                          ).copyWith(
+                                            decoration: isDoctorOff && !isSelected
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                        ),
+                                        if (isDoctorOff)
+                                          Text(
+                                            tr(ref, 'Off'),
+                                            style: AppTextStyles.label(
+                                              isSelected
+                                                  ? SevaCareColors.textOnPrimary
+                                                  : SevaCareColors.textMuted,
+                                            ).copyWith(fontSize: 10, height: 1.1),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                 );
@@ -1011,7 +1098,38 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        if (!_doctorOnLeave && form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty) ...[
+                        // ── Doctor-not-available banner (no working hours on
+                        // this date under their schedule) — distinct from the
+                        // on-leave banner above.
+                        if (!_doctorOnLeave &&
+                            form.selectedDoctorId.isNotEmpty &&
+                            form.selectedDate.isNotEmpty &&
+                            _unavailableDates.contains(form.selectedDate)) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: SevaCareColors.warningSurface,
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radius),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_busy,
+                                    size: 16, color: SevaCareColors.warning),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    tr(ref, 'Doctor is not available on this date. Please pick another date or doctor.'),
+                                    style: AppTextStyles.label(
+                                        SevaCareColors.warning),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ] else if (!_doctorOnLeave && form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty) ...[
                           if (form.bookingType == 'TOKEN') ...[
                             Text(tr(ref, 'Token Booking'),
                                 style: AppTextStyles.sectionTitle(SevaCareColors.text)),
@@ -1027,11 +1145,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             ),
                             const SizedBox(height: 24),
                           ] else ...[
-                            // ── Morning / Evening slot accordion
-                            if ((_setup?.morningSlots ?? []).isNotEmpty)
+                            // ── Morning / Evening slot accordion — uses this doctor's own
+                            // working-hours slots (falls back to the tenant-wide defaults
+                            // while loading or on error, see _morningSlots/_eveningSlots).
+                            if (_morningSlots.isNotEmpty)
                               _SlotAccordionSection(
                                 title: tr(ref, 'Morning Slots'),
-                                slots: _setup!.morningSlots,
+                                slots: _morningSlots,
                                 selectedSlot: form.selectedSlot,
                                 bookedSlots: _bookedSlots,
                                 blockedSlots: _blockedSlots,
@@ -1041,13 +1161,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 onToggle: () => setState(() =>
                                     _expandedSlotSession = _expandedSlotSession == 'MORNING' ? '' : 'MORNING'),
                               ),
-                            if ((_setup?.morningSlots ?? []).isNotEmpty &&
-                                (_setup?.eveningSlots ?? []).isNotEmpty)
+                            if (_morningSlots.isNotEmpty && _eveningSlots.isNotEmpty)
                               const SizedBox(height: 12),
-                            if ((_setup?.eveningSlots ?? []).isNotEmpty)
+                            if (_eveningSlots.isNotEmpty)
                               _SlotAccordionSection(
                                 title: tr(ref, 'Evening Slots'),
-                                slots: _setup!.eveningSlots,
+                                slots: _eveningSlots,
                                 selectedSlot: form.selectedSlot,
                                 bookedSlots: _bookedSlots,
                                 blockedSlots: _blockedSlots,

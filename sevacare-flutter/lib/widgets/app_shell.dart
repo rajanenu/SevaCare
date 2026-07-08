@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/responsive/breakpoints.dart';
+import '../core/utils/auto_refresh.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/theme/app_theme.dart';
@@ -94,6 +95,13 @@ class AppShell extends StatelessWidget {
             return;
           }
         }
+        // Pre-login screens (role == null) already define onBack for their
+        // visible back-arrow icon (search → welcome, login → search, etc.) —
+        // reuse it for hardware/gesture back too instead of exiting the app.
+        if (onBack != null) {
+          onBack!();
+          return;
+        }
         SystemNavigator.pop();
       },
       child: Scaffold(
@@ -122,6 +130,11 @@ class AppShell extends StatelessWidget {
                   // mobile keeps the exact original bottom-nav Column layout.
                   final useRail =
                       hasBottomNav && screenSizeOf(width) != ScreenSize.mobile;
+                  // With the keyboard open the bottom nav would ride up above
+                  // it and cover the field being typed into — hide it until
+                  // the keyboard is dismissed.
+                  final keyboardOpen =
+                      MediaQuery.viewInsetsOf(context).bottom > 0;
 
                   final mainColumn = Column(
                     children: [
@@ -180,7 +193,7 @@ class AppShell extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (hasBottomNav && !useRail)
+                      if (hasBottomNav && !useRail && !keyboardOpen)
                         SafeArea(
                           top: false,
                           child: Center(
@@ -557,13 +570,15 @@ class _NotificationBell extends ConsumerStatefulWidget {
   ConsumerState<_NotificationBell> createState() => _NotificationBellState();
 }
 
-class _NotificationBellState extends ConsumerState<_NotificationBell> {
+class _NotificationBellState extends ConsumerState<_NotificationBell>
+    with AutoRefreshMixin {
   int _unreadCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadCount();
+    startAutoRefresh(_loadCount, interval: const Duration(seconds: 30));
   }
 
   String get _recipientType {

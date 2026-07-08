@@ -5,6 +5,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/time_theme.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
@@ -31,13 +32,14 @@ class DoctorHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<DoctorHomeScreen> createState() => _DoctorHomeScreenState();
 }
 
-class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
+class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
+    with AutoRefreshMixin {
   // Day offset: -1 = Yesterday, 0 = Today, 1 = Tomorrow
   int _dayOffset = 0;
   DoctorQueueDayView? _queueView;
   bool _loading = false;
   String? _error;
-  int _queueFilter = 0; // 0=All, 1=Upcoming, 2=Completed
+  int _queueFilter = 1; // 1=Upcoming (default), 2=Completed, 0=All
   int _pendingBookingRequests = 0;
   final _scrollCtrl = ScrollController();
 
@@ -51,6 +53,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     super.initState();
     _loadQueue();
     _loadBookingRequestCount();
+    // Near-real-time queue: silently refetch the visible day + request badge.
+    startAutoRefresh(() async {
+      _queueCache.remove(_dayOffset);
+      await _loadQueue(silent: true);
+      await _loadBookingRequestCount();
+    });
   }
 
   @override
@@ -77,9 +85,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
 
   String get _selectedDate => AppDateUtils.offsetDay(_dayOffset);
 
-  Future<void> _loadQueue() async {
+  Future<void> _loadQueue({bool silent = false}) async {
     final requestedOffset = _dayOffset;
-    final cached = _queueCache[requestedOffset];
+    final cached = silent ? null : _queueCache[requestedOffset];
     if (cached != null) {
       // Already fetched this day this session — swap instantly, no spinner.
       setState(() {
@@ -89,10 +97,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       });
       return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final auth = ref.read(authProvider);
       final hospital = ref.read(hospitalProvider);
@@ -114,7 +124,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         });
       }
     } catch (e) {
-      if (mounted && _dayOffset == requestedOffset) {
+      if (mounted && _dayOffset == requestedOffset && !silent) {
         setState(() {
           _error = extractErrorMessage(e, fallback: 'Failed to load patient queue.');
           _loading = false;
@@ -196,9 +206,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     ];
 
     final queueFilterSegments = [
-      SegmentItem<int>(value: 0, label: tr(ref, 'All')),
       SegmentItem<int>(value: 1, label: tr(ref, 'Upcoming')),
       SegmentItem<int>(value: 2, label: tr(ref, 'Completed')),
+      SegmentItem<int>(value: 0, label: tr(ref, 'All')),
     ];
 
     final queueView = _queueView;

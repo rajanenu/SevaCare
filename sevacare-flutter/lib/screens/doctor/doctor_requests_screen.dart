@@ -5,6 +5,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -17,7 +18,8 @@ class DoctorRequestsScreen extends ConsumerStatefulWidget {
   ConsumerState<DoctorRequestsScreen> createState() => _DoctorRequestsScreenState();
 }
 
-class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
+class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
+    with AutoRefreshMixin {
   int _tab = 0; // 0=Leave, 1=Message Admin, 2=History
 
   final _messageCtrl = TextEditingController();
@@ -39,6 +41,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
   void initState() {
     super.initState();
     _loadHistory();
+    startAutoRefresh(() => _loadHistory(silent: true));
   }
 
   @override
@@ -50,8 +53,8 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
-    setState(() { _loadingHistory = true; _historyError = null; });
+  Future<void> _loadHistory({bool silent = false}) async {
+    if (!silent) setState(() { _loadingHistory = true; _historyError = null; });
     try {
       final auth = ref.read(authProvider);
       final data = await ref.read(repositoryProvider).getDoctorLeaveRequests(
@@ -61,9 +64,9 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen> {
       );
       if (mounted) setState(() => _history = data);
     } catch (e) {
-      if (mounted) setState(() => _historyError = extractErrorMessage(e, fallback: 'Failed to load history.'));
+      if (mounted && !silent) setState(() => _historyError = extractErrorMessage(e, fallback: 'Failed to load history.'));
     } finally {
-      if (mounted) setState(() => _loadingHistory = false);
+      if (mounted && !silent) setState(() => _loadingHistory = false);
     }
   }
 

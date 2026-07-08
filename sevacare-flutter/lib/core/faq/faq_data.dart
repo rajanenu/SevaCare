@@ -66,9 +66,13 @@ const List<FaqEntry> kFaqEntries = [
   FaqEntry(
     question: 'How do I contact support?',
     answer:
-        'Scroll down on this screen — you\'ll find the support email, hours and a '
-        '"Send a Message" form that reaches your hospital\'s support team directly.',
-    keywords: ['contact', 'support', 'email', 'phone', 'reach', 'help desk'],
+        'You can reach the SevaCare team at:\n\n'
+        '📧 hello@sevacareapp.com\n'
+        '📞 +91 7975277345\n'
+        '📍 Bangalore, India 560100\n\n'
+        'You can also scroll down on the Help screen for a "Send a Message" form '
+        'that reaches your hospital\'s support team directly.',
+    keywords: ['contact', 'support', 'email', 'phone', 'reach', 'help desk', 'address', 'mobile', 'number', 'location'],
     audiences: {FaqAudience.everyone},
   ),
   FaqEntry(

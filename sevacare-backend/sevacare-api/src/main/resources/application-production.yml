@@ -27,6 +27,13 @@ sevacare:
     # Required in production — comma-separated exact web origins (the frontend URL).
     allowed-origins: ${SEVACARE_CORS_ORIGINS}
 
+server:
+  # Cloud Run terminates TLS at its proxy and forwards plain HTTP with
+  # X-Forwarded-Proto. Without this, Spring sees the request as http:// and
+  # misclassifies same-origin https form POSTs (QR booking page) as CORS
+  # violations, rejecting them with 403.
+  forward-headers-strategy: framework
+
 logging:
   level:
     root: WARN

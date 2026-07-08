@@ -385,7 +385,7 @@ public class PatientDomainService {
                 }
                 String normalized = bookingSource.trim().toUpperCase(Locale.ROOT);
                 return switch (normalized) {
-                        case "QR_CODE", "IP_STAFF" -> normalized;
+                        case "QR_CODE", "IP_STAFF", "CHATBOT" -> normalized;
                         default -> "PATIENT_APP";
                 };
         }
@@ -499,7 +499,8 @@ public class PatientDomainService {
                         int patientAge,
                         String specialty,
                         LocalDate preferredDate,
-                        HospitalManagementDtos.AppointmentRequestConfirmRequest confirmReq
+                        HospitalManagementDtos.AppointmentRequestConfirmRequest confirmReq,
+                        String bookingSource
         ) {
                 Patient patient = findOrCreatePatientForLogin(tenantPublicId, patientMobile);
                 if (patientName != null && !patientName.isBlank()) {
@@ -525,7 +526,10 @@ public class PatientDomainService {
                 }
 
                 String note = confirmReq.notes() != null && !confirmReq.notes().isBlank()
-                                ? confirmReq.notes() : "Booked via QR code";
+                                ? confirmReq.notes()
+                                : ("CHATBOT".equals(bookingSource)
+                                                ? "Booked via SevaCare Assistant"
+                                                : "Booked via QR code");
 
                 PatientDtos.AppointmentBookingRequest bookingRequest = new PatientDtos.AppointmentBookingRequest(
                                 tenantPublicId,
@@ -543,7 +547,7 @@ public class PatientDomainService {
                                 note,
                                 null,
                                 null,
-                                "QR_CODE"
+                                bookingSource == null || bookingSource.isBlank() ? "QR_CODE" : bookingSource
                 );
 
                 return bookAppointment(tenantPublicId, patient.getPatientPublicId(), bookingRequest);

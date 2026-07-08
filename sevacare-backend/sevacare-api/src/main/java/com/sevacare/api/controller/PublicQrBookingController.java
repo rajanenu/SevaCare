@@ -135,7 +135,8 @@ public class PublicQrBookingController {
                     patientName.trim(), normalizedMobile, age, symptoms.trim(), doctorPublicId, specialty, date);
             var view = appointmentRequestService.submitAppointmentRequest(
                     qrcode.tenantPublicId(), normalizedMobile, req);
-            return html(successPage(esc(data.tenantName()), esc(view.requestPublicId())));
+            return html(successPage(esc(data.tenantName()), esc(view.requestPublicId()),
+                    "confirmed".equals(view.requestStatus()) ? esc(view.assignedSlot()) : null));
         } catch (Exception e) {
             return html(errorPage("Something went wrong",
                     "We couldn't submit your request. Please scan the QR code and try again."));
@@ -176,13 +177,21 @@ public class PublicQrBookingController {
                   + "  <label>Symptoms / Reason for Visit <span class=\"req\">*</span></label>"
                   + "  <textarea name=\"symptoms\" required maxlength=\"400\" placeholder=\"Briefly describe your symptoms\"></textarea>"
                   + "  <button class=\"btn\" type=\"submit\">Request Appointment</button>"
-                  + "  <p class=\"foot\">Your request goes straight to the doctor, who will confirm your slot.</p>"
+                  + "  <p class=\"foot\">Your token is assigned instantly and your request goes straight to the doctor.</p>"
                   + "</form>");
     }
 
-    private String successPage(String hospital, String requestId) {
+    private String successPage(String hospital, String requestId, String assignedToken) {
+        boolean confirmed = assignedToken != null && !assignedToken.isBlank();
+        String heading = confirmed ? "Appointment Confirmed!" : "Request Submitted!";
+        String detail = confirmed
+                ? "Your token is booked. Show this token number at the hospital reception on your visit."
+                : "Your appointment request has been sent to the doctor. They will review it and confirm your slot. You'll be contacted on the mobile number you provided.";
+        String tokenBlock = confirmed
+                ? "  <div class=\"pill\" style=\"font-size:16px\">" + assignedToken + "</div><br>"
+                : "";
         return SHELL
-                .replace("{{TITLE}}", "Request Submitted — " + hospital)
+                .replace("{{TITLE}}", heading + " — " + hospital)
                 .replace("{{BODY}}",
                     "<div class=\"hero\">"
                   + "  <span class=\"badge\">SevaCare</span>"
@@ -190,8 +199,9 @@ public class PublicQrBookingController {
                   + "</div>"
                   + "<div class=\"card center\">"
                   + "  <div class=\"tick\">&#10003;</div>"
-                  + "  <h2>Request Submitted!</h2>"
-                  + "  <p>Your appointment request has been sent to the doctor. They will review it and confirm your slot. You'll be contacted on the mobile number you provided.</p>"
+                  + "  <h2>" + heading + "</h2>"
+                  + "  <p>" + detail + "</p>"
+                  + tokenBlock
                   + "  <div class=\"pill\">Request ID: " + requestId + "</div>"
                   + "  <a class=\"btn ghost\" href=\"\">Book another appointment</a>"
                   + "</div>");

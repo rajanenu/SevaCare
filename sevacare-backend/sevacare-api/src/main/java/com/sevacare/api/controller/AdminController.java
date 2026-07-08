@@ -275,11 +275,15 @@ public class AdminController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String sortBy,
-            @RequestParam(required = false) String sortDir) {
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String specialty) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        return ContractResponse.of(adminDomainService.listPatientsWithLastAppointment(tenantPublicId, page, size, search, sortBy, sortDir));
+        return ContractResponse.of(adminDomainService.listPatientsWithLastAppointment(
+                tenantPublicId, page, size, search, sortBy, sortDir, fromDate, toDate, specialty));
     }
 
     @PostMapping("/patients")

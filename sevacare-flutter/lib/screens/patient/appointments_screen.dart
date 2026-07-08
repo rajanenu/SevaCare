@@ -22,7 +22,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   List<AppointmentView>? _appointments;
   bool _loading = true;
   String? _error;
-  String _filter = 'all';
+  String _filter = 'upcoming';
   final _scrollCtrl = ScrollController();
 
   static const _patientBottomNav = [
@@ -155,10 +155,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           const SizedBox(height: 12),
           SegmentedControl<String>(
             items: [
-              SegmentItem(label: tr(ref, 'All'), value: 'all'),
               SegmentItem(label: tr(ref, 'Upcoming'), value: 'upcoming'),
               SegmentItem(label: tr(ref, 'Completed'), value: 'completed'),
               SegmentItem(label: tr(ref, 'Cancelled'), value: 'cancelled'),
+              SegmentItem(label: tr(ref, 'All'), value: 'all'),
             ],
             selected: _filter,
             onChanged: (v) {

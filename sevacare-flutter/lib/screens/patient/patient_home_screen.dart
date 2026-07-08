@@ -12,6 +12,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/time_theme.dart';
 import '../../core/utils/app_snack.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/date_utils.dart';
 import '../../core/utils/error_utils.dart';
 import '../../core/utils/doctor_name.dart';
@@ -58,7 +59,8 @@ class PatientHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<PatientHomeScreen> createState() => _PatientHomeScreenState();
 }
 
-class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
+class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
+    with AutoRefreshMixin {
   PatientHomeView? _homeData;
   bool _loading = true;
   String? _error;
@@ -70,6 +72,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     super.initState();
     _load();
     _loadDismissedRatings();
+    startAutoRefresh(() => _load(silent: true));
   }
 
   static String _dismissKey(String patientId) =>
@@ -102,11 +105,13 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final auth = ref.read(authProvider);
       final repo = ref.read(repositoryProvider);
@@ -117,7 +122,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       );
       if (mounted) setState(() => _homeData = data);
     } catch (e) {
-      if (mounted)
+      if (mounted && !silent)
         setState(
           () => _error = extractErrorMessage(
             e,
@@ -125,7 +130,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
           ),
         );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -475,10 +480,10 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                         Expanded(
                           child: Center(
                             child: Text(
-                              'Timeline: $timelineLabel',
+                              timelineLabel,
                               style: AppTextStyles.label(
-                                SevaCareColors.textMuted,
-                              ),
+                                SevaCareColors.text,
+                              ).copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
                         ),

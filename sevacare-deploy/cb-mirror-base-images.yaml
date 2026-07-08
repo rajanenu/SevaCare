@@ -1,0 +1,20 @@
+# One-time (and on Flutter SDK upgrades): mirror the frontend base images into
+# our own Artifact Registry so every build pulls them in-region instead of
+# cross-cloud from ghcr.io / Docker Hub (~2 GB saved per build).
+#   gcloud builds submit --no-source --config=sevacare-deploy/cb-mirror-base-images.yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        docker pull ghcr.io/cirruslabs/flutter:3.41.7
+        docker tag ghcr.io/cirruslabs/flutter:3.41.7 asia-south1-docker.pkg.dev/sevacareapp/sevacare/flutter-sdk:3.41.7
+        docker push asia-south1-docker.pkg.dev/sevacareapp/sevacare/flutter-sdk:3.41.7
+        docker pull nginx:alpine
+        docker tag nginx:alpine asia-south1-docker.pkg.dev/sevacareapp/sevacare/nginx:alpine
+        docker push asia-south1-docker.pkg.dev/sevacareapp/sevacare/nginx:alpine
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s

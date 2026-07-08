@@ -6,8 +6,8 @@ Secrets live in **Secret Manager** and in the gitignored local **`.env.productio
 ## Live URLs
 | Service | URL |
 |---|---|
-| Frontend (Flutter web) | https://sevacare-frontend-209136271820.asia-south1.run.app |
-| Backend (Spring Boot API) | https://sevacare-backend-209136271820.asia-south1.run.app |
+| Frontend (Flutter web) | https://sevacare-frontend-2glz4tgi3q-el.a.run.app |
+| Backend (Spring Boot API) | https://sevacare-backend-2glz4tgi3q-el.a.run.app |
 | Backend health | …/actuator/health |
 
 ## Architecture
@@ -30,6 +30,17 @@ export CLOUDSDK_PYTHON=/opt/homebrew/bin/python3.11   # SDK's bundled Py3.9 is u
 gcloud auth login          # account: sigineni123@gmail.com (owns sevacareapp)
 gcloud config set project sevacareapp
 ```
+
+## Build speed
+Both cloud builds run on `E2_HIGHCPU_8` workers (set in the cb-*.yaml files) and the
+frontend pulls its Flutter SDK + nginx base images from our own Artifact Registry
+mirror (in-region) instead of ghcr.io/Docker Hub. After upgrading the Flutter SDK
+version in `Dockerfile.frontend`, refresh the mirror once:
+```bash
+gcloud builds submit --no-source --config=sevacare-deploy/cb-mirror-base-images.yaml
+```
+Backend and frontend submits are independent — run them in parallel (two terminals
+or `&`) when both changed.
 
 ## Redeploy backend (after code change)
 ```bash

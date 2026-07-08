@@ -8,4 +8,7 @@ steps:
 images: ['asia-south1-docker.pkg.dev/sevacareapp/sevacare/backend:latest']
 options:
   logging: CLOUD_LOGGING_ONLY
+  # 8 vCPUs: flutter/dart2js and maven parallelize well — default 1-vCPU
+  # workers made the frontend build take ~5 min (costs a few cents/build).
+  machineType: E2_HIGHCPU_8
 timeout: 1800s

@@ -143,4 +143,40 @@ public final class DoctorDtos {
 
     public record DoctorAvailabilityCollection(String tenantPublicId, String date, java.util.List<DoctorAvailabilityView> doctors) {
     }
+
+    // ── Working hours (doctor-controlled schedule used for real slot generation) ──
+    // Distinct from DoctorAvailabilityView/Collection above, which is a per-date
+    // leave+blocks overview, not a recurring schedule.
+
+    public record DoctorWorkingHoursRule(
+            // Legacy scope kept for rows written before date-range rules;
+            // new rules always send EVERYDAY and rely on the date fields below.
+            @NotBlank @Pattern(regexp = "WEEKDAY|WEEKEND|EVERYDAY") String dayScope,
+            @NotBlank String sessionLabel,
+            @NotBlank @Pattern(regexp = "^\\d{2}:\\d{2}$") String startTime,
+            @NotBlank @Pattern(regexp = "^\\d{2}:\\d{2}$") String endTime,
+            // Date-range scoping: null fromDate = applies from any date,
+            // null toDate = no end date (ongoing). When several rules match a
+            // date, the narrowest range wins, so a single-day rule overrides
+            // the general schedule.
+            @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") String fromDate,
+            @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$") String toDate,
+            // null is treated as true (included).
+            Boolean includeSaturday,
+            Boolean includeSunday
+    ) {
+        public boolean saturdayIncluded() { return includeSaturday == null || includeSaturday; }
+        public boolean sundayIncluded() { return includeSunday == null || includeSunday; }
+    }
+
+    public record DoctorWorkingHoursUpdateRequest(
+            @NotEmpty java.util.List<DoctorWorkingHoursRule> rules
+    ) {
+    }
+
+    public record DoctorWorkingHoursView(
+            String doctorPublicId,
+            java.util.List<DoctorWorkingHoursRule> rules
+    ) {
+    }
 }

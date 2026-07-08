@@ -1,5 +1,7 @@
 package com.sevacare.tenant.service;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,6 +53,7 @@ public class TenantSchemaMaintenanceService {
         ensureCoreIndexes(schemaName);
         ensureTokenBookingAndDoctorProfileFields(schemaName);
         ensureBookingSourceField(schemaName);
+        ensureDoctorAvailabilityTable(schemaName);
     }
 
     private void ensureAdminUserTableShape(String schemaName) {
@@ -358,5 +361,54 @@ public class TenantSchemaMaintenanceService {
         jdbcTemplate.execute(
                 "CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_appt_booking_source ON " + schemaName + ".appointment (booking_source)"
         );
+    }
+
+    // Real, doctor-controlled working hours (day scope + start/end time), replacing the
+    // one-size-fits-all hardcoded 09:00-14:00/17:00-21:00 window every doctor used to get.
+    // Backfills the exact same two windows as default rows for any doctor with no rows
+    // yet, so no existing doctor's bookable hours change until someone edits them.
+    private void ensureDoctorAvailabilityTable(String schemaName) {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS %s.doctor_availability (
+                    id               BIGSERIAL PRIMARY KEY,
+                    doctor_public_id VARCHAR(16) NOT NULL,
+                    day_scope        VARCHAR(16) NOT NULL,
+                    session_label    VARCHAR(20) NOT NULL,
+                    start_time       TIME        NOT NULL,
+                    end_time         TIME        NOT NULL,
+                    active           BOOLEAN     NOT NULL DEFAULT true,
+                    created_at       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )""".formatted(schemaName));
+        jdbcTemplate.execute(
+                "CREATE INDEX IF NOT EXISTS idx_" + schemaName + "_doctor_availability_doctor ON " + schemaName + ".doctor_availability (doctor_public_id)"
+        );
+
+        // Date-range scoping columns (2026-07): rules can now target an explicit
+        // from/to date window with per-weekend-day inclusion instead of the
+        // WEEKDAY/WEEKEND/EVERYDAY scopes. NULL dates = unbounded, so
+        // pre-existing rows keep their old behavior unchanged.
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor_availability ADD COLUMN IF NOT EXISTS from_date DATE");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor_availability ADD COLUMN IF NOT EXISTS to_date DATE");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor_availability ADD COLUMN IF NOT EXISTS include_saturday BOOLEAN NOT NULL DEFAULT true");
+        jdbcTemplate.execute("ALTER TABLE " + schemaName + ".doctor_availability ADD COLUMN IF NOT EXISTS include_sunday BOOLEAN NOT NULL DEFAULT true");
+
+        List<String> doctorIds = jdbcTemplate.queryForList(
+                "SELECT doctor_public_id FROM " + schemaName + ".doctor " +
+                "WHERE doctor_public_id NOT IN (SELECT DISTINCT doctor_public_id FROM " + schemaName + ".doctor_availability)",
+                String.class
+        );
+        for (String doctorId : doctorIds) {
+            jdbcTemplate.update(
+                    "INSERT INTO " + schemaName + ".doctor_availability " +
+                    "(doctor_public_id, day_scope, session_label, start_time, end_time) VALUES (?, 'EVERYDAY', 'Morning', '09:00', '14:00')",
+                    doctorId
+            );
+            jdbcTemplate.update(
+                    "INSERT INTO " + schemaName + ".doctor_availability " +
+                    "(doctor_public_id, day_scope, session_label, start_time, end_time) VALUES (?, 'EVERYDAY', 'Evening', '17:00', '21:00')",
+                    doctorId
+            );
+        }
     }
 }

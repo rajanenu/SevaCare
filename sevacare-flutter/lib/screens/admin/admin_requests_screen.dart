@@ -4,6 +4,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -16,7 +17,8 @@ class AdminRequestsScreen extends ConsumerStatefulWidget {
   ConsumerState<AdminRequestsScreen> createState() => _AdminRequestsScreenState();
 }
 
-class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
+class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
+    with AutoRefreshMixin {
   int _tab = 0; // 0=Leave Requests, 1=Send Message
   LeaveRequestCollection? _requests;
   bool _loading = true;
@@ -37,6 +39,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
   void initState() {
     super.initState();
     _load();
+    startAutoRefresh(() => _load(silent: true));
   }
 
   @override
@@ -46,8 +49,8 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() { _loading = true; _error = null; });
     try {
       final auth = ref.read(authProvider);
       final repo = ref.read(repositoryProvider);
@@ -62,20 +65,25 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
         });
       }
     } catch (e) {
-      if (mounted) { setState(() => _error = extractErrorMessage(e, fallback: 'Failed to load.')); }
+      if (mounted && !silent) { setState(() => _error = extractErrorMessage(e, fallback: 'Failed to load.')); }
     } finally {
-      if (mounted) { setState(() => _loading = false); }
+      if (mounted && !silent) { setState(() => _loading = false); }
     }
   }
 
   Future<void> _action(LeaveRequestRecord req, String action) async {
+    final isMessage = req.leaveType.toUpperCase() == 'MESSAGE';
     final responseCtrl = TextEditingController();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: SevaCareColors.surface,
         title: Text(
-          action == 'APPROVE' ? 'Approve Leave' : action == 'DECLINE' ? 'Decline Leave' : 'Add Comment',
+          action == 'APPROVE'
+              ? (isMessage ? 'Acknowledge Message' : 'Approve Leave')
+              : action == 'DECLINE'
+                  ? (isMessage ? 'Dismiss Message' : 'Decline Leave')
+                  : (isMessage ? 'Reply' : 'Add Comment'),
           style: AppTextStyles.cardTitle(SevaCareColors.text),
         ),
         content: Column(
@@ -83,7 +91,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                '${req.isStaffRequest ? '${req.doctorName} (IP-Staff)' : 'Dr. ${req.doctorName}'}  •  ${req.leaveType}',
+                '${req.isStaffRequest ? '${req.doctorName} (IP-Staff)' : 'Dr. ${req.doctorName}'}  •  ${isMessage ? 'Message' : req.leaveType}',
                 style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
             if (req.fromDate != null) ...[
               const SizedBox(height: 4),
@@ -94,9 +102,9 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             ],
             const SizedBox(height: 12),
             AppFormField(
-              label: tr(ref, 'Response / Comment (optional)'),
+              label: tr(ref, isMessage ? 'Reply (optional)' : 'Response / Comment (optional)'),
               controller: responseCtrl,
-              placeholder: 'Add a message to the doctor…',
+              placeholder: isMessage ? 'Write a reply to the doctor…' : 'Add a message to the doctor…',
               maxLines: 3,
             ),
           ],
@@ -112,7 +120,11 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              action == 'APPROVE' ? tr(ref, 'Approve') : action == 'DECLINE' ? tr(ref, 'Decline') : tr(ref, 'Send'),
+              action == 'APPROVE'
+                  ? tr(ref, isMessage ? 'Acknowledge' : 'Approve')
+                  : action == 'DECLINE'
+                      ? tr(ref, isMessage ? 'Dismiss' : 'Decline')
+                      : tr(ref, 'Send'),
               style: AppTextStyles.label(Colors.white),
             ),
           ),
@@ -222,8 +234,8 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
         PageHeader(
           title: tr(ref, 'Requests & Messages'),
           subtitle: pending > 0
-              ? '$pending leave request(s) pending approval'
-              : tr(ref, 'All leave requests up to date'),
+              ? '$pending request(s) awaiting your action'
+              : tr(ref, 'All requests up to date'),
         ),
         const SizedBox(height: 16),
 
@@ -323,14 +335,6 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tr(ref, 'Broadcast / Direct Message'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-          const SizedBox(height: 4),
-          Text(
-            tr(ref, 'Send a notification to all doctors, a department, or a specific doctor.'),
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-          ),
-          const SizedBox(height: 16),
-
           // ── Target type selector (3 chips) ──────────────────────────────────
           Row(children: [
             Expanded(child: _TargetChip(
@@ -467,14 +471,26 @@ class _LeaveRequestCard extends ConsumerWidget {
 
   Color get _statusColor => _statusColors[request.status] ?? SevaCareColors.textMuted;
   bool  get _isPending   => request.status == 'PENDING';
+  bool  get _isMessage   => request.leaveType.toUpperCase() == 'MESSAGE';
+
+  // Messages read as a conversation item, not a leave to approve — so they get
+  // their own icon, accent color, chip and button labels.
+  Color get _accent => _isMessage ? const Color(0xFF2563EB) : SevaCareColors.primary;
 
   String _typeLabel(WidgetRef ref) => switch (request.leaveType.toUpperCase()) {
     'SICK'      => tr(ref, 'Sick Leave'),
     'VACATION'  => tr(ref, 'Vacation'),
     'EMERGENCY' => tr(ref, 'Emergency'),
-    'MESSAGE'   => tr(ref, 'Query'),
+    'MESSAGE'   => tr(ref, 'Message'),
     _           => tr(ref, 'Other Leave'),
   };
+
+  String _statusLabel() {
+    if (_isMessage && (request.status == 'APPROVED' || request.status == 'AUTO_APPROVED')) {
+      return 'ACKNOWLEDGED';
+    }
+    return request.status.replaceAll('_', ' ');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -487,11 +503,12 @@ class _LeaveRequestCard extends ConsumerWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: SevaCareColors.primary.withValues(alpha: 0.10),
+                color: _accent.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.event_busy_outlined, size: 20,
-                  color: SevaCareColors.primary),
+              child: Icon(
+                  _isMessage ? Icons.chat_bubble_outline_rounded : Icons.event_busy_outlined,
+                  size: 20, color: _accent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -503,7 +520,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                     style: AppTextStyles.cardTitle(SevaCareColors.text)),
                 Text(
                     request.isStaffRequest ? '${_typeLabel(ref)} · IP-Staff' : _typeLabel(ref),
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(_isMessage ? _accent : SevaCareColors.textMuted)),
               ]),
             ),
             Container(
@@ -512,7 +529,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                 color: _statusColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: Text(request.status.replaceAll('_', ' '),
+              child: Text(_statusLabel(),
                   style: AppTextStyles.badgeText(_statusColor)),
             ),
           ]),
@@ -571,39 +588,65 @@ class _LeaveRequestCard extends ConsumerWidget {
             const Divider(height: 1),
             const SizedBox(height: 12),
 
-            // Row 1: Comment + Decline (secondary, equal width)
-            Row(children: [
-              Expanded(
-                child: _ActionBtn(
-                  label: tr(ref, 'Comment'),
-                  icon: Icons.comment_outlined,
-                  color: SevaCareColors.primary,
-                  filled: false,
-                  onTap: () => onAction('COMMENT'),
+            if (_isMessage) ...[
+              // Messages: Reply + Acknowledge — no decline, a message isn't a
+              // leave to approve or reject.
+              Row(children: [
+                Expanded(
+                  child: _ActionBtn(
+                    label: tr(ref, 'Reply'),
+                    icon: Icons.reply_rounded,
+                    color: _accent,
+                    filled: false,
+                    onTap: () => onAction('COMMENT'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActionBtn(
-                  label: tr(ref, 'Decline'),
-                  icon: Icons.close_rounded,
-                  color: SevaCareColors.danger,
-                  filled: false,
-                  onTap: () => onAction('DECLINE'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActionBtn(
+                    label: tr(ref, 'Acknowledge'),
+                    icon: Icons.mark_chat_read_outlined,
+                    color: SevaCareColors.mint,
+                    filled: true,
+                    onTap: () => onAction('APPROVE'),
+                  ),
                 ),
-              ),
-            ]),
-            const SizedBox(height: 8),
+              ]),
+            ] else ...[
+              // Row 1: Comment + Decline (secondary, equal width)
+              Row(children: [
+                Expanded(
+                  child: _ActionBtn(
+                    label: tr(ref, 'Comment'),
+                    icon: Icons.comment_outlined,
+                    color: SevaCareColors.primary,
+                    filled: false,
+                    onTap: () => onAction('COMMENT'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActionBtn(
+                    label: tr(ref, 'Decline'),
+                    icon: Icons.close_rounded,
+                    color: SevaCareColors.danger,
+                    filled: false,
+                    onTap: () => onAction('DECLINE'),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
 
-            // Row 2: Approve (primary, full width)
-            _ActionBtn(
-              label: tr(ref, 'Approve Leave'),
-              icon: Icons.check_circle_outline_rounded,
-              color: SevaCareColors.mint,
-              filled: true,
-              fullWidth: true,
-              onTap: () => onAction('APPROVE'),
-            ),
+              // Row 2: Approve (primary, full width)
+              _ActionBtn(
+                label: tr(ref, 'Approve Leave'),
+                icon: Icons.check_circle_outline_rounded,
+                color: SevaCareColors.mint,
+                filled: true,
+                fullWidth: true,
+                onTap: () => onAction('APPROVE'),
+              ),
+            ],
           ],
         ],
       ),

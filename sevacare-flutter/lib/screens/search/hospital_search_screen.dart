@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -343,6 +345,68 @@ class _HospitalCard extends ConsumerWidget {
     this.isFavorite = false,
   });
 
+  Future<void> _showQrDialog(BuildContext context, WidgetRef ref) async {
+    String? qrLink;
+    try {
+      final result =
+          await ref.read(repositoryProvider).getPublicTenantQrCode(tenant.tenantPublicId);
+      final uuid = result['qrcodeUuid'] as String? ?? '';
+      if (uuid.isNotEmpty) {
+        qrLink = '${AppConfig.apiBaseUrl}/public/qrcode/$uuid/book';
+      }
+    } catch (_) {}
+    if (!context.mounted) return;
+    if (qrLink == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('QR code is not available right now.')),
+      );
+      return;
+    }
+    final link = qrLink;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(tenant.hospitalName,
+            style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 224,
+              height: 224,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SevaCareColors.border, width: 1),
+              ),
+              child: QrImageView(
+                data: link,
+                version: QrVersions.auto,
+                size: 200,
+                errorCorrectionLevel: QrErrorCorrectLevel.M,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Scan with your phone camera to book an appointment — no login needed.',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Hospital photo (if the platform admin uploaded one) — also warms the
@@ -350,158 +414,201 @@ class _HospitalCard extends ConsumerWidget {
     final heroBytes =
         ref.watch(tenantHeroImageProvider(tenant.tenantPublicId)).valueOrNull;
 
+    // Two-line layout: the top row is only avatar + name/meta + favorite +
+    // chevron, so the hospital name always gets the full width. Chips
+    // (Recent, distance) and the Explore/QR links live on a bottom Wrap that
+    // flows to a second line on narrow screens instead of truncating anything.
     return AppCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left: avatar + text
-          Expanded(
-            child: Row(
-              children: [
-                // Hospital photo, else letter logomark
-                if (heroBytes != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    child: Image.memory(
-                      heroBytes,
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                    ),
-                  )
-                else
-                  Container(
+          Row(
+            children: [
+              // Hospital photo, else letter logomark
+              if (heroBytes != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  child: Image.memory(
+                    heroBytes,
                     width: 44,
                     height: 44,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: SevaCareColors.buttonGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
+                )
+              else
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: SevaCareColors.buttonGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    child: Center(
-                      child: Text(
-                        tenant.hospitalName.isNotEmpty
-                            ? tenant.hospitalName[0].toUpperCase()
-                            : 'H',
-                        style: AppTextStyles.display(
-                          size: 18,
-                          weight: FontWeight.w700,
-                          color: SevaCareColors.textOnPrimary,
-                        ),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  ),
+                  child: Center(
+                    child: Text(
+                      tenant.hospitalName.isNotEmpty
+                          ? tenant.hospitalName[0].toUpperCase()
+                          : 'H',
+                      style: AppTextStyles.display(
+                        size: 18,
+                        weight: FontWeight.w700,
+                        color: SevaCareColors.textOnPrimary,
                       ),
                     ),
                   ),
-                const SizedBox(width: 12),
-                // Name and meta
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            tenant.hospitalName,
+                            style: AppTextStyles.cardTitle(SevaCareColors.text),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isRecent) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: SevaCareColors.mintSoft,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                            ),
                             child: Text(
-                              tenant.hospitalName,
-                              style: AppTextStyles.cardTitle(SevaCareColors.text),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              'Recent',
+                              style: AppTextStyles.label(SevaCareColors.mintForeground),
                             ),
                           ),
-                          if (isRecent) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: SevaCareColors.mintSoft,
-                                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                              ),
-                              child: Text(
-                                'Recent',
-                                style: AppTextStyles.label(SevaCareColors.mintForeground),
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${tenant.city} · ${tenant.specialty}',
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () => context.push('/explore/${tenant.tenantPublicId}', extra: tenant.hospitalName),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Explore Doctors',
-                              style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.arrow_forward, size: 12, color: SevaCareColors.primary),
-                          ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tenant.city,
+                            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                        if (tenant.distance != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: SevaCareColors.surfaceMuted,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                              border: Border.all(color: SevaCareColors.border, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.near_me,
+                                  size: 11,
+                                  color: SevaCareColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  tenant.distance!,
+                                  style: AppTextStyles.label(SevaCareColors.primary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Favorite toggle
+              InkWell(
+                onTap: onToggleFavorite,
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    size: 18,
+                    color: isFavorite ? SevaCareColors.danger : SevaCareColors.textMuted,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: SevaCareColors.textMuted,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // ── Bottom line: links left, status chips right ────────────────────
+          Padding(
+            padding: const EdgeInsets.only(left: 56),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // behavior: opaque + padding = a generous hit target; with
+                // deferToChild, taps landing between the tiny glyphs fell
+                // through to the card's own onTap (login) — which is why this
+                // link "sometimes didn't work".
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.push('/explore/${tenant.tenantPublicId}', extra: tenant.hospitalName),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Explore Doctors',
+                          style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.arrow_forward, size: 12, color: SevaCareColors.primary),
+                      ],
+                    ),
+                  ),
+                ),
+                // Booking QR — tap to enlarge and scan.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showQrDialog(context, ref),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.qr_code_2, size: 15, color: SevaCareColors.primary),
+                        const SizedBox(width: 2),
+                        Text(
+                          'QR',
+                          style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 4),
-          // Favorite toggle
-          InkWell(
-            onTap: onToggleFavorite,
-            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: 18,
-                color: isFavorite ? SevaCareColors.danger : SevaCareColors.textMuted,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // Right: distance badge
-          if (tenant.distance != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: SevaCareColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                border: Border.all(color: SevaCareColors.border, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.near_me,
-                    size: 11,
-                    color: SevaCareColors.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    tenant.distance!,
-                    style: AppTextStyles.label(SevaCareColors.primary),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(width: 4),
-          // Chevron
-          const Icon(
-            Icons.chevron_right,
-            size: 18,
-            color: SevaCareColors.textMuted,
           ),
         ],
       ),

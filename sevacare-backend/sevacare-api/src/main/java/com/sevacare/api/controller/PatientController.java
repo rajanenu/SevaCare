@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.PatientDtos;
@@ -27,10 +28,16 @@ public class PatientController {
 
     private final PatientDomainService patientDomainService;
     private final ReferenceDataService referenceDataService;
+    private final DoctorAvailabilityService doctorAvailabilityService;
 
-    public PatientController(PatientDomainService patientDomainService, ReferenceDataService referenceDataService) {
+    public PatientController(
+            PatientDomainService patientDomainService,
+            ReferenceDataService referenceDataService,
+            DoctorAvailabilityService doctorAvailabilityService
+    ) {
         this.patientDomainService = patientDomainService;
         this.referenceDataService = referenceDataService;
+        this.doctorAvailabilityService = doctorAvailabilityService;
     }
 
     @GetMapping("/{tenantPublicId}/{patientPublicId}/home")
@@ -63,6 +70,39 @@ public class PatientController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(patientDomainService.getBookedSlots(tenantPublicId, doctorId, date));
+    }
+
+    // This doctor's actual bookable morning/evening windows for one date, derived
+    // from their own working-hours rules (see DoctorController.getWorkingHours) —
+    // replaces the tenant-wide morningSlots/eveningSlots from booking/setup once a
+    // specific doctor is selected.
+    @GetMapping("/{tenantPublicId}/booking/doctor-slots")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.DoctorSlotsView> doctorSlots(
+            @PathVariable String tenantPublicId,
+            @RequestParam String doctorId,
+            @RequestParam String date
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(doctorAvailabilityService.slotsForDate(tenantPublicId, doctorId, date));
+    }
+
+    // Per-date availability flags for the booking screen's date strip — one call
+    // for the whole strip instead of one doctor-slots call per date.
+    @GetMapping("/{tenantPublicId}/booking/doctor-available-dates")
+    @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.DoctorAvailableDatesView> doctorAvailableDates(
+            @PathVariable String tenantPublicId,
+            @RequestParam String doctorId,
+            @RequestParam String from,
+            @RequestParam(defaultValue = "15") int days
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(doctorAvailabilityService.availableDates(tenantPublicId, doctorId, from, days));
     }
 
     // Richer availability: booked + doctor-blocked windows + leave status in one call

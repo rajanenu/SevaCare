@@ -80,6 +80,21 @@ public final class HospitalManagementDtos {
     ) {
     }
 
+    // ==================== Quick Booking (chatbot flow) ====================
+    // Mirrors the QR booking form fields. doctorPublicId/specialty/doctorName are
+    // all optional — the server resolves a real doctor from whichever is present.
+    public record QuickBookingRequest(
+            @NotBlank String patientName,
+            @NotBlank String patientMobile,
+            String specialty,
+            String doctorName,
+            Integer patientAge,
+            String doctorPublicId,
+            LocalDate preferredDate,
+            String symptoms
+    ) {
+    }
+
     // ==================== Appointment Request (QR-based flow) ====================
     public record AppointmentRequestSubmitRequest(
             @NotBlank String patientName,

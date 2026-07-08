@@ -14,6 +14,10 @@ spring:
     url: ${SEVACARE_DB_URL:jdbc:postgresql://localhost:5432/seva_care}
     username: ${SEVACARE_DB_USERNAME:postgres}
     password: ${SEVACARE_DB_PASSWORD:postgres}
+    hikari:
+      # Keep DB-side now()/CURRENT_TIMESTAMP defaults in IST too, matching the
+      # JVM default set in SevaCareApiApplication (Cloud SQL defaults to UTC).
+      connection-init-sql: SET TIME ZONE 'Asia/Kolkata'
   jpa:
     hibernate:
       ddl-auto: none

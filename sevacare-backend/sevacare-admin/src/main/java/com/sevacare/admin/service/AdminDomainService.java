@@ -474,7 +474,8 @@ public class AdminDomainService {
         for (String[] source : new String[][] {
                 {"PATIENT_APP", "Patient App"},
                 {"QR_CODE", "QR Code"},
-                {"IP_STAFF", "IP-Staff"}
+                {"IP_STAFF", "IP-Staff"},
+                {"CHATBOT", "Chatbot"}
         }) {
             String code = source[0];
             String label = source[1];
@@ -530,24 +531,63 @@ public class AdminDomainService {
     @Transactional(readOnly = true)
     public AdminDtos.PatientPage listPatientsWithLastAppointment(
             String tenantPublicId, int page, int size, String search, String sortBy, String sortDir) {
+        return listPatientsWithLastAppointment(tenantPublicId, page, size, search, sortBy, sortDir, null, null, null);
+    }
+
+    /**
+     * fromDate/toDate (yyyy-MM-dd) keep only patients with at least one
+     * appointment in that window — how front-desk staff find "everyone who
+     * visited last week". specialty narrows the same window to one department's
+     * doctors; hospital-wide today (always null from the UI), the hook exists
+     * so department-scoped IP-Staff can reuse this query untouched.
+     */
+    @Transactional(readOnly = true)
+    public AdminDtos.PatientPage listPatientsWithLastAppointment(
+            String tenantPublicId, int page, int size, String search, String sortBy, String sortDir,
+            String fromDate, String toDate, String specialty) {
         String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
         int safeSize   = Math.max(1, Math.min(size, 100));
         int safeOffset = Math.max(0, page) * safeSize;
         boolean hasSearch = search != null && !search.isBlank();
         String like = hasSearch ? "%" + search.trim().toLowerCase() + "%" : null;
+        boolean hasFrom = fromDate != null && !fromDate.isBlank();
+        boolean hasTo   = toDate != null && !toDate.isBlank();
+        boolean hasSpec = specialty != null && !specialty.isBlank();
+        boolean hasVisitFilter = hasFrom || hasTo || hasSpec;
 
+        // "Recent patients first" is the default staff view — most recent
+        // visit on top unless an explicit sort is requested.
         String orderBy = (sortBy != null && PATIENT_SORT_COLUMNS.containsKey(sortBy))
                 ? PATIENT_SORT_COLUMNS.get(sortBy) + " " + ("asc".equalsIgnoreCase(sortDir) ? "ASC" : "DESC")
                         + " NULLS LAST, p.patient_public_id DESC"
-                : "p.patient_public_id DESC";
+                : "last_appointment DESC NULLS LAST, p.patient_public_id DESC";
+
+        // appointment_slot is 'yyyy-MM-dd[ HH:mm]' text — date-prefix compares work lexically.
+        StringBuilder visitClause = new StringBuilder();
+        List<Object> visitArgs = new ArrayList<>();
+        if (hasVisitFilter) {
+            visitClause.append("AND EXISTS (SELECT 1 FROM ").append(schema).append(".appointment a2 ")
+                    .append("WHERE a2.patient_public_id = p.patient_public_id AND a2.tenant_public_id = p.tenant_public_id");
+            if (hasFrom) { visitClause.append(" AND a2.appointment_slot >= ?"); visitArgs.add(fromDate.trim()); }
+            if (hasTo)   { visitClause.append(" AND a2.appointment_slot <= ?"); visitArgs.add(toDate.trim() + " 23:59"); }
+            if (hasSpec) {
+                visitClause.append(" AND a2.doctor_public_id IN (SELECT d.doctor_public_id FROM ")
+                        .append(schema).append(".doctor d WHERE d.specialty = ?)");
+                visitArgs.add(specialty.trim());
+            }
+            visitClause.append(") ");
+        }
+
+        String searchClause = hasSearch ? "AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?) " : "";
+        List<Object> filterArgs = new ArrayList<>();
+        filterArgs.add(tenantPublicId);
+        if (hasSearch) { filterArgs.add(like); filterArgs.add(like); }
+        filterArgs.addAll(visitArgs);
 
         // Total count
-        String countSql = "SELECT COUNT(*) FROM " + schema + ".patient WHERE tenant_public_id = ?" +
-                (hasSearch ? " AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "");
-        Object[] countArgs = hasSearch
-                ? new Object[]{tenantPublicId, like, like}
-                : new Object[]{tenantPublicId};
-        Long total = jdbcTemplate.queryForObject(countSql, Long.class, countArgs);
+        String countSql = "SELECT COUNT(*) FROM " + schema + ".patient p WHERE p.tenant_public_id = ? "
+                + searchClause + visitClause;
+        Long total = jdbcTemplate.queryForObject(countSql, Long.class, filterArgs.toArray());
 
         // Paginated patients with last appointment slot via correlated sub-select
         String dataSql = """
@@ -558,16 +598,15 @@ public class AdminDomainService {
                         ORDER BY a.appointment_slot DESC LIMIT 1) AS last_appointment
                 FROM %s.patient p
                 WHERE p.tenant_public_id = ?
-                %s
+                %s%s
                 ORDER BY %s
                 LIMIT ? OFFSET ?
-                """.formatted(schema, schema,
-                hasSearch ? "AND (LOWER(full_name) LIKE ? OR mobile_number LIKE ?)" : "",
-                orderBy);
+                """.formatted(schema, schema, searchClause, visitClause, orderBy);
 
-        Object[] dataArgs = hasSearch
-                ? new Object[]{tenantPublicId, like, like, safeSize, safeOffset}
-                : new Object[]{tenantPublicId, safeSize, safeOffset};
+        List<Object> dataArgList = new ArrayList<>(filterArgs);
+        dataArgList.add(safeSize);
+        dataArgList.add(safeOffset);
+        Object[] dataArgs = dataArgList.toArray();
 
         List<AdminDtos.PatientSummary> patients = jdbcTemplate.query(dataSql, dataArgs, (rs, i) ->
                 new AdminDtos.PatientSummary(

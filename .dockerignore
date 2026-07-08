@@ -31,3 +31,7 @@ sevacare-e2e-test/
 .logs/
 **/*.log
 docs/
+
+# Marketing/promo assets — never part of the app, not needed in any image build
+marketing/
+sevacare-flutter/Photos/

@@ -22,9 +22,13 @@ substitutions:
   _FRONTEND_SERVICE: sevacare-frontend
   _BACKEND_IMAGE: ${_GCP_REGION}-docker.pkg.dev/${_GCP_PROJECT}/sevacare/backend
   _FRONTEND_IMAGE: ${_GCP_REGION}-docker.pkg.dev/${_GCP_PROJECT}/sevacare/frontend
-  _BACKEND_URL: https://sevacare-backend-placeholder.run.app
-  # Comma-separated web origins allowed by the backend CORS filter (the frontend URL).
-  _CORS_ORIGINS: https://sevacare-frontend-placeholder.run.app
+  _BACKEND_URL: https://sevacare-backend-2glz4tgi3q-el.a.run.app
+  # Comma-separated web origins allowed by the backend CORS filter. Cloud Run
+  # serves every service under BOTH the hash-style and project-number-style
+  # URLs, so both frontend forms must be listed. The backend's own URLs are
+  # also listed because the QR booking page is served from the backend origin
+  # and browsers attach an Origin header to its form POSTs.
+  _CORS_ORIGINS: https://sevacare-frontend-2glz4tgi3q-el.a.run.app,https://sevacare-frontend-209136271820.asia-south1.run.app,https://sevacare-backend-2glz4tgi3q-el.a.run.app,https://sevacare-backend-209136271820.asia-south1.run.app
 
 steps:
   # ── 1. Build backend image ─────────────────────────────────────────────────
@@ -88,7 +92,8 @@ steps:
       - --cpu=1
       - --min-instances=1
       - --max-instances=5
-      - --set-env-vars=SPRING_PROFILES_ACTIVE=production,SEVACARE_CORS_ORIGINS=${_CORS_ORIGINS}
+      # ^@^ switches the env-var delimiter to @ so the comma-separated CORS list survives.
+      - --set-env-vars=^@^SPRING_PROFILES_ACTIVE=production@SEVACARE_CORS_ORIGINS=${_CORS_ORIGINS}
       - --set-secrets=SEVACARE_DB_URL=SEVACARE_DB_URL:latest,SEVACARE_DB_USERNAME=SEVACARE_DB_USERNAME:latest,SEVACARE_DB_PASSWORD=SEVACARE_DB_PASSWORD:latest,SEVACARE_AUTH_SECRET=SEVACARE_AUTH_SECRET:latest
 
   # ── 5. Deploy frontend to Cloud Run ───────────────────────────────────────

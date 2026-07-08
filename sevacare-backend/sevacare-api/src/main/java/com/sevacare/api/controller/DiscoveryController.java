@@ -26,7 +26,9 @@ import com.sevacare.doctor.service.DoctorDomainService;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.DiscoveryDtos;
 import com.sevacare.shared.dto.DoctorDtos;
+import com.sevacare.shared.dto.HospitalManagementDtos;
 import com.sevacare.shared.tenant.TenantContext;
+import com.sevacare.tenant.service.HospitalManagementService;
 import com.sevacare.tenant.service.ReferenceDataService;
 import com.sevacare.tenant.service.TenantRegistryService;
 
@@ -40,6 +42,7 @@ public class DiscoveryController {
     private final DoctorDomainService doctorDomainService;
     private final ReferenceDataService referenceDataService;
     private final OnboardingDocumentService onboardingDocumentService;
+    private final HospitalManagementService hospitalManagementService;
     private final ObjectMapper objectMapper;
 
     public DiscoveryController(
@@ -47,12 +50,14 @@ public class DiscoveryController {
             DoctorDomainService doctorDomainService,
             ReferenceDataService referenceDataService,
             OnboardingDocumentService onboardingDocumentService,
+            HospitalManagementService hospitalManagementService,
             ObjectMapper objectMapper
     ) {
         this.tenantRegistryService = tenantRegistryService;
         this.doctorDomainService = doctorDomainService;
         this.referenceDataService = referenceDataService;
         this.onboardingDocumentService = onboardingDocumentService;
+        this.hospitalManagementService = hospitalManagementService;
         this.objectMapper = objectMapper;
     }
 
@@ -65,6 +70,17 @@ public class DiscoveryController {
     @GetMapping("/tenants/{tenantPublicId}/hero-image")
     public ContractResponse<DiscoveryDtos.TenantHeroImage> getTenantHeroImage(@PathVariable String tenantPublicId) {
         return ContractResponse.of(tenantRegistryService.getTenantHeroImage(tenantPublicId));
+    }
+
+    /**
+     * The hospital's booking QR (get-or-create) — public so the hospital search
+     * list can show a scannable QR to anyone, same code the platform admin sees.
+     */
+    @GetMapping("/tenants/{tenantPublicId}/qrcode")
+    public ContractResponse<HospitalManagementDtos.HospitalQRCodeGenerateResponse> getTenantQrCode(@PathVariable String tenantPublicId) {
+        // Resolving the schema also validates the tenant id before creating anything.
+        tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        return ContractResponse.of(hospitalManagementService.generateOrGetQRCode(tenantPublicId));
     }
 
     @GetMapping("/tenants/{tenantPublicId}/doctors")

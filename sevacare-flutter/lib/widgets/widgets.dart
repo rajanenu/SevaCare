@@ -6,6 +6,7 @@ export 'glass_card.dart';
 export 'metric_tile.dart';
 export 'bottom_nav.dart';
 export 'segmented_control.dart';
+export 'availability_editor.dart';
 export 'status_badge.dart';
 export 'search_field.dart';
 export 'accent_card.dart';

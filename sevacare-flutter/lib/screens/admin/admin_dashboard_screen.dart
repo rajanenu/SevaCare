@@ -6,6 +6,7 @@ import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/time_theme.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -322,7 +323,8 @@ class _DashboardTab extends ConsumerStatefulWidget {
   ConsumerState<_DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends ConsumerState<_DashboardTab> {
+class _DashboardTabState extends ConsumerState<_DashboardTab>
+    with AutoRefreshMixin {
   AdminOverview? _overview;
   List<DoctorRecord> _doctors = [];
   BookingChannelStats? _channelStats;
@@ -334,13 +336,16 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
   void initState() {
     super.initState();
     _load();
+    startAutoRefresh(() => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final auth = ref.read(authProvider);
       final hospital = ref.read(hospitalProvider);
@@ -363,7 +368,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() {
           _error = extractErrorMessage(
             e,
@@ -544,7 +549,11 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
               label: 'IP-Staff',
               variant: MetricVariant.peach,
             ),
-            MetricTile(value: '', label: '', variant: MetricVariant.peach),
+            MetricTile(
+              value: '${_countForSegment('CHATBOT')}',
+              label: 'Chatbot',
+              variant: MetricVariant.primary,
+            ),
           ],
         ),
         if ((_channelStats?.qrPendingRequests ?? 0) > 0) ...[
@@ -568,7 +577,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '${_channelStats!.qrPendingRequests} QR booking request${_channelStats!.qrPendingRequests == 1 ? '' : 's'} awaiting doctor confirmation',
+                    '${_channelStats!.qrPendingRequests} booking request${_channelStats!.qrPendingRequests == 1 ? '' : 's'} could not be auto-confirmed — doctor action needed',
                     style: AppTextStyles.bodyText(SevaCareColors.warning),
                   ),
                 ),
@@ -1569,6 +1578,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
   String _selectedSpecialty = 'General Physician';
   String _selectedAvailability = 'Available';
   String _selectedBookingMode = 'BOTH';
+  List<AvailabilityRule> _availabilityRules = AvailabilityRule.defaultRules();
   bool _saving = false;
   String? _formError;
   String? _formSuccess;
@@ -1684,6 +1694,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       _selectedSpecialty = 'General Physician';
       _selectedAvailability = 'Available';
       _selectedBookingMode = 'BOTH';
+      _availabilityRules = AvailabilityRule.defaultRules();
       _loadNextDoctorId();
     });
   }
@@ -1707,6 +1718,11 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       setState(() => _formError = 'Fee is required.');
       return;
     }
+    final availabilityError = AvailabilityEditor.validate(_availabilityRules);
+    if (availabilityError != null) {
+      setState(() => _formError = availabilityError);
+      return;
+    }
     final confirmed = await showConfirmDialog(
       context,
       title: 'Add Doctor',
@@ -1724,7 +1740,7 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
       final auth = ref.read(authProvider);
       final hospital = ref.read(hospitalProvider);
       final repo = ref.read(repositoryProvider);
-      await repo.createDoctorRecord(
+      final created = await repo.createDoctorRecord(
         hospital.tenantPublicId,
         auth.token ?? '',
         DoctorUpsertRequest(
@@ -1743,6 +1759,17 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
               : _qualificationCtrl.text.trim(),
         ),
       );
+      try {
+        await repo.updateDoctorWorkingHours(
+          hospital.tenantPublicId,
+          created.doctorPublicId,
+          auth.token ?? '',
+          _availabilityRules.map((r) => r.toJson()).toList(),
+        );
+      } catch (_) {
+        // Non-fatal — the doctor already has the backend's default working
+        // hours backfilled; they (or admin) can adjust later from Profile.
+      }
       if (mounted) {
         setState(() {
           _saving = false;
@@ -2033,6 +2060,18 @@ class _DoctorManagementTabState extends ConsumerState<_DoctorManagementTab> {
             onChanged: (v) {
               if (v != null) setState(() => _selectedBookingMode = v);
             },
+          ),
+          const SizedBox(height: 8),
+          Text('Availability', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          const SizedBox(height: 4),
+          Text(
+            'Default working hours — the doctor can adjust these later from their own Profile.',
+            style: AppTextStyles.label(SevaCareColors.textMuted),
+          ),
+          const SizedBox(height: 10),
+          AvailabilityEditor(
+            initialRules: _availabilityRules,
+            onChanged: (rules) => setState(() => _availabilityRules = rules),
           ),
           if (_formError != null) ...[
             Container(

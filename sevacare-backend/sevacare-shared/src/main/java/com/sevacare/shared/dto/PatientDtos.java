@@ -23,6 +23,19 @@ public final class PatientDtos {
         public record BookingSetupView(String tenantPublicId, int slotIntervalMinutes, List<String> specialties, List<String> availableDates, List<String> morningSlots, List<String> eveningSlots) {
         }
 
+        // Per-doctor slot windows derived from that doctor's own working-hours rules
+        // (see DoctorDtos.DoctorWorkingHoursView) for one date, replacing the generic
+        // tenant-wide morningSlots/eveningSlots above once a specific doctor is picked.
+        public record DoctorDateAvailability(String date, boolean available) {
+        }
+
+        /** Per-date availability flags over a date span — powers the booking date strip. */
+        public record DoctorAvailableDatesView(String tenantPublicId, String doctorPublicId, List<DoctorDateAvailability> dates) {
+        }
+
+        public record DoctorSlotsView(String tenantPublicId, String doctorPublicId, String date, List<String> morningSlots, List<String> eveningSlots) {
+        }
+
         public record AppointmentBookingRequest(
             @NotBlank String tenantPublicId,
             @NotBlank String patientPublicId,

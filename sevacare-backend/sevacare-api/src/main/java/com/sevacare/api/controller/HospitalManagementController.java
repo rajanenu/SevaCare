@@ -1,5 +1,7 @@
 package com.sevacare.api.controller;
 
+import java.time.LocalDate;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -97,6 +99,39 @@ public class HospitalManagementController {
             @PathVariable String qrcodeUuid
     ) {
         return ContractResponse.of(hospitalManagementService.getQRCodeFormData(qrcodeUuid));
+    }
+
+    // ==================== Quick Booking (chatbot flow, PUBLIC) ====================
+    // No qrcodeUuid here — reached from the pre-login chatbot once a hospital is
+    // selected. Carries the same fields as the QR booking form; the request goes
+    // through the same appointment_request table and doctor inbox as the QR flow
+    // and is auto-confirmed with the next available token for the chosen date.
+    @PostMapping("/public/tenant/{tenantPublicId}/quick-booking")
+    public ContractResponse<HospitalManagementDtos.AppointmentRequestView> submitQuickBooking(
+            @PathVariable String tenantPublicId,
+            @Valid @RequestBody HospitalManagementDtos.QuickBookingRequest req
+    ) {
+        var doctor = hospitalManagementService.resolveDoctorForQuickBooking(
+                tenantPublicId,
+                req.doctorPublicId() != null && !req.doctorPublicId().isBlank()
+                        ? req.doctorPublicId() : req.doctorName(),
+                req.specialty());
+        String normalizedMobile = req.patientMobile().replaceAll("\\D", "");
+        LocalDate preferredDate = req.preferredDate() == null || req.preferredDate().isBefore(LocalDate.now())
+                ? LocalDate.now() : req.preferredDate();
+        var submitReq = new HospitalManagementDtos.AppointmentRequestSubmitRequest(
+                req.patientName().trim(),
+                normalizedMobile,
+                req.patientAge() == null || req.patientAge() <= 0 ? 1 : req.patientAge(),
+                req.symptoms() == null || req.symptoms().isBlank()
+                        ? "Requested via SevaCare Assistant chatbot" : req.symptoms().trim(),
+                doctor.doctorPublicId(),
+                doctor.specialty() == null ? "" : doctor.specialty(),
+                preferredDate
+        );
+        return ContractResponse.of(
+                appointmentRequestService.submitAppointmentRequest(tenantPublicId, normalizedMobile, submitReq, "CHATBOT")
+        );
     }
 
     // ==================== Appointment Request Management ====================

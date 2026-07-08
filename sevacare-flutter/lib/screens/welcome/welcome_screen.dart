@@ -134,19 +134,22 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                 baseDelay: const Duration(milliseconds: 80),
                 child: Row(
                   children: [
+                    // Nearby search and QR booking already shipped — these are
+                    // the genuinely upcoming features.
                     Expanded(
                         child: _ComingSoonCard(
-                            icon: Icons.near_me_rounded, label: 'Nearby')),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: _ComingSoonCard(
-                            icon: Icons.qr_code_scanner_rounded,
-                            label: 'Scan QR')),
+                            icon: Icons.health_and_safety_outlined,
+                            label: 'Insurance')),
                     const SizedBox(width: 10),
                     Expanded(
                         child: _ComingSoonCard(
                             icon: Icons.local_pharmacy_outlined,
                             label: 'Pharmacy')),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: _ComingSoonCard(
+                            icon: Icons.videocam_outlined,
+                            label: 'Consult')),
                   ],
                 ),
               ),
@@ -433,8 +436,11 @@ class _ComingSoonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Fixed height + single-line label so all three cards render identically
+    // regardless of label length.
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      height: 78,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
         color: SevaCareColors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -442,7 +448,7 @@ class _ComingSoonCard extends StatelessWidget {
             color: SevaCareColors.border.withValues(alpha: 0.6), width: 1),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon,
               size: 22,
@@ -452,6 +458,8 @@ class _ComingSoonCard extends StatelessWidget {
             label,
             style: AppTextStyles.label(SevaCareColors.textMuted),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

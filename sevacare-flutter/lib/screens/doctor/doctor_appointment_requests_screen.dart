@@ -3,14 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
 
-/// Doctor-facing inbox of appointment requests submitted by patients who
-/// scanned the hospital QR code. Pending requests appear first; the doctor
-/// confirms one by assigning a slot/time, which the patient is contacted on.
+/// Doctor-facing inbox of appointment requests from the hospital QR code and
+/// the chatbot. Requests are auto-confirmed with the next available token on
+/// submission — pending ones only appear when auto-confirm failed (e.g. the
+/// doctor was on leave) and can still be confirmed manually here.
 class DoctorAppointmentRequestsScreen extends ConsumerStatefulWidget {
   const DoctorAppointmentRequestsScreen({super.key});
 
@@ -20,7 +22,7 @@ class DoctorAppointmentRequestsScreen extends ConsumerStatefulWidget {
 }
 
 class _DoctorAppointmentRequestsScreenState
-    extends ConsumerState<DoctorAppointmentRequestsScreen> {
+    extends ConsumerState<DoctorAppointmentRequestsScreen> with AutoRefreshMixin {
   AppointmentRequestCollection? _data;
   bool _loading = true;
   String? _error;
@@ -29,13 +31,16 @@ class _DoctorAppointmentRequestsScreenState
   void initState() {
     super.initState();
     _load();
+    startAutoRefresh(() => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final auth = ref.read(authProvider);
       final data = await ref.read(repositoryProvider).getDoctorAppointmentRequests(
@@ -45,11 +50,11 @@ class _DoctorAppointmentRequestsScreenState
           );
       if (mounted) setState(() => _data = data);
     } catch (e) {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() => _error = extractErrorMessage(e, fallback: 'Failed to load booking requests.'));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -110,8 +115,8 @@ class _DoctorAppointmentRequestsScreenState
             PageHeader(
               title: 'Booking Requests',
               subtitle: pending > 0
-                  ? '$pending pending request${pending == 1 ? '' : 's'} from QR bookings'
-                  : 'Appointment requests from patients who scanned your hospital QR',
+                  ? '$pending request${pending == 1 ? '' : 's'} need${pending == 1 ? 's' : ''} manual confirmation'
+                  : 'QR & chatbot bookings — auto-confirmed with a token',
             ),
             const SizedBox(height: 16),
             if (_loading)
@@ -189,7 +194,8 @@ class _RequestCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${request.specialty.isNotEmpty ? '${request.specialty} · ' : ''}Age ${request.patientAge}',
+                      '${request.specialty.isNotEmpty ? '${request.specialty} · ' : ''}'
+                      '${request.patientAge > 0 ? 'Age ${request.patientAge}' : 'Age not provided'}',
                       style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
                   ],
@@ -446,7 +452,7 @@ class _EmptyBox extends StatelessWidget {
           Text('No booking requests yet', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
           const SizedBox(height: 6),
           Text(
-            'When a patient scans your hospital QR code and books, their request appears here.',
+            'When a patient books via your hospital QR code or the chatbot, their request appears here with its auto-assigned token.',
             style: AppTextStyles.bodyText(SevaCareColors.textMuted),
             textAlign: TextAlign.center,
           ),

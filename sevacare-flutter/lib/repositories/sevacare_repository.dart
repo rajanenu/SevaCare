@@ -181,9 +181,9 @@ class SevaCareRepository {
 
   Future<Map<String, dynamic>> getAdminPatients(
       String tenantId, int page, int size, String? search, String token,
-      {String? sortBy, String? sortDir}) async {
+      {String? sortBy, String? sortDir, String? fromDate, String? toDate, String? specialty}) async {
     return _client.get<Map<String, dynamic>>(
-      ApiConstants.adminPatients(tenantId, page: page, size: size, search: search, sortBy: sortBy, sortDir: sortDir),
+      ApiConstants.adminPatients(tenantId, page: page, size: size, search: search, sortBy: sortBy, sortDir: sortDir, fromDate: fromDate, toDate: toDate, specialty: specialty),
       fromJson: (d) => d as Map<String, dynamic>,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
@@ -353,6 +353,64 @@ class SevaCareRepository {
       fromJson: (d) => DoctorRecord.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
+  }
+
+  /// Doctor's own working-hours rules (date range + weekend flags + time window).
+  /// Each rule is `{dayScope, sessionLabel, startTime, endTime, fromDate,
+  /// toDate, includeSaturday, includeSunday}` — dates nullable (null = unbounded).
+  Future<List<Map<String, dynamic>>> getDoctorWorkingHours(
+      String tenantId, String doctorId, String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.doctorWorkingHours(tenantId, doctorId),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final rules = data['rules'] as List? ?? [];
+    return rules.cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> updateDoctorWorkingHours(
+    String tenantId,
+    String doctorId,
+    String token,
+    List<Map<String, dynamic>> rules,
+  ) async {
+    final data = await _client.put<Map<String, dynamic>>(
+      ApiConstants.doctorWorkingHours(tenantId, doctorId),
+      body: {'rules': rules},
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final updated = data['rules'] as List? ?? [];
+    return updated.cast<Map<String, dynamic>>();
+  }
+
+  /// This doctor's actual bookable morning/evening slots for one date, derived
+  /// from their working hours — use in place of the tenant-wide booking/setup
+  /// slots once a specific doctor is selected.
+  Future<Map<String, dynamic>> getDoctorSlots(
+      String tenantId, String doctorId, String date, String token) async {
+    return _client.get<Map<String, dynamic>>(
+      ApiConstants.doctorSlots(tenantId, doctorId, date),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Dates (yyyy-MM-dd) on which this doctor has NO working hours, over
+  /// [days] days starting at [from] — used to gray out the booking date strip.
+  Future<Set<String>> getDoctorUnavailableDates(
+      String tenantId, String doctorId, String from, int days, String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.doctorAvailableDates(tenantId, doctorId, from, days),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final dates = data['dates'] as List? ?? const [];
+    return {
+      for (final d in dates.cast<Map<String, dynamic>>())
+        if (d['available'] == false) d['date'] as String,
+    };
   }
 
   Future<void> deleteDoctorRecord(String tenantId, String doctorId, String token) async {
@@ -807,6 +865,45 @@ class SevaCareRepository {
     return _client.post<Map<String, dynamic>>(
       ApiConstants.qrCodeAppointmentRequest(qrcodeUuid),
       body: body,
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  /// Chatbot booking with the same fields as the QR portal. The request lands
+  /// in the chosen doctor's inbox and is auto-confirmed with the next token —
+  /// the response carries requestStatus/assignedSlot to show the patient.
+  Future<Map<String, dynamic>> submitQuickBookingRequest(
+    String tenantPublicId, {
+    required String patientName,
+    required String patientMobile,
+    int? patientAge,
+    String? doctorPublicId,
+    String? preferredDate,
+    String? symptoms,
+    String? specialty,
+    String? doctorName,
+  }) async {
+    return _client.post<Map<String, dynamic>>(
+      ApiConstants.quickBookingRequest(tenantPublicId),
+      body: {
+        'patientName': patientName,
+        'patientMobile': patientMobile,
+        if (patientAge != null && patientAge > 0) 'patientAge': patientAge,
+        if (doctorPublicId != null && doctorPublicId.isNotEmpty) 'doctorPublicId': doctorPublicId,
+        if (preferredDate != null && preferredDate.isNotEmpty) 'preferredDate': preferredDate,
+        if (symptoms != null && symptoms.trim().isNotEmpty) 'symptoms': symptoms.trim(),
+        if (specialty != null && specialty.trim().isNotEmpty) 'specialty': specialty.trim(),
+        if (doctorName != null && doctorName.trim().isNotEmpty) 'doctorName': doctorName.trim(),
+      },
+      fromJson: (d) => d as Map<String, dynamic>,
+    );
+  }
+
+  /// Public get-or-create booking QR for a hospital — powers the QR icon in
+  /// the hospital search list. Returns the qrcodeUuid used in the booking URL.
+  Future<Map<String, dynamic>> getPublicTenantQrCode(String tenantPublicId) async {
+    return _client.get<Map<String, dynamic>>(
+      '/public/tenants/$tenantPublicId/qrcode',
       fromJson: (d) => d as Map<String, dynamic>,
     );
   }

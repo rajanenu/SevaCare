@@ -11,6 +11,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/time_theme.dart';
 import '../../core/utils/app_snack.dart';
+import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -314,6 +315,10 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
 
   SlotStatusView? _status;
   bool _loadingStatus = false;
+  List<String>? _doctorMorningSlots;
+  List<String>? _doctorEveningSlots;
+  List<String> get _morningSlots => _doctorMorningSlots ?? _setup?.morningSlots ?? [];
+  List<String> get _eveningSlots => _doctorEveningSlots ?? _setup?.eveningSlots ?? [];
 
   @override
   void initState() {
@@ -369,9 +374,11 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
     setState(() {
       _loadingStatus = true;
       _status = null;
+      _doctorMorningSlots = null;
+      _doctorEveningSlots = null;
     });
+    final auth = ref.read(authProvider);
     try {
-      final auth = ref.read(authProvider);
       final status = await ref.read(repositoryProvider).getSlotStatus(
         auth.tenantPublicId ?? '', _doctorId, _date, auth.token ?? '',
       );
@@ -380,6 +387,17 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
     } finally {
       if (mounted) setState(() => _loadingStatus = false);
     }
+    try {
+      final slots = await ref.read(repositoryProvider).getDoctorSlots(
+        auth.tenantPublicId ?? '', _doctorId, _date, auth.token ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _doctorMorningSlots = List<String>.from(slots['morningSlots'] as List? ?? const []);
+          _doctorEveningSlots = List<String>.from(slots['eveningSlots'] as List? ?? const []);
+        });
+      }
+    } catch (_) {}
   }
 
   DoctorAvailabilityView? _availabilityFor(String doctorId) {
@@ -395,7 +413,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
 
   int get _freeSlotCount {
     if (_setup == null || _status == null) return 0;
-    final all = [..._setup!.morningSlots, ..._setup!.eveningSlots];
+    final all = [..._morningSlots, ..._eveningSlots];
     return all
         .where((s) =>
             !_status!.bookedSlots.contains(s) && !_status!.blockedSlots.contains(s))
@@ -419,8 +437,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
         child: _RetryRow(msg: _error!, onRetry: _load),
       );
     }
-    final totalSlots =
-        (_setup?.morningSlots.length ?? 0) + (_setup?.eveningSlots.length ?? 0);
+    final totalSlots = _morningSlots.length + _eveningSlots.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,25 +685,25 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              if (_setup!.morningSlots.isNotEmpty) ...[
-                                Text('Morning  09:00 – 14:00',
+                              if (_morningSlots.isNotEmpty) ...[
+                                Text('Morning  ${_morningSlots.first} – ${_morningSlots.last}',
                                     style: AppTextStyles.label(SevaCareColors.textMuted)),
                                 const SizedBox(height: 6),
                                 _SlotGrid(
-                                  slots: _setup!.morningSlots,
+                                  slots: _morningSlots,
                                   booked: _status!.bookedSlots,
                                   blocked: _status!.blockedSlots,
                                   selected: '',
                                   onSelect: (_) {},
                                 ),
                               ],
-                              if (_setup!.eveningSlots.isNotEmpty) ...[
+                              if (_eveningSlots.isNotEmpty) ...[
                                 const SizedBox(height: 10),
-                                Text('Evening  17:00 – 21:00',
+                                Text('Evening  ${_eveningSlots.first} – ${_eveningSlots.last}',
                                     style: AppTextStyles.label(SevaCareColors.textMuted)),
                                 const SizedBox(height: 6),
                                 _SlotGrid(
-                                  slots: _setup!.eveningSlots,
+                                  slots: _eveningSlots,
                                   booked: _status!.bookedSlots,
                                   blocked: _status!.blockedSlots,
                                   selected: '',
@@ -1228,6 +1245,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
   List<String> _blockedSlots = [];
   bool _doctorOnLeave = false;
   bool _loadingSlots = false;
+  List<String>? _doctorMorningSlots;
+  List<String>? _doctorEveningSlots;
+  List<String> get _morningSlots => _doctorMorningSlots ?? _setup?.morningSlots ?? [];
+  List<String> get _eveningSlots => _doctorEveningSlots ?? _setup?.eveningSlots ?? [];
 
   // Token booking
   String _bookingType = 'SLOT'; // 'SLOT' or 'TOKEN'
@@ -1242,6 +1263,11 @@ class _BookTabState extends ConsumerState<_BookTab> {
   // Prescription attachments
   List<PickedPrescriptionFile> _attachments = [];
   int _attachmentsResetKey = 0;
+
+  // Registration-only mode: create/refresh the patient record without booking
+  // an appointment (walk-ins whose consultation is already done, or pure
+  // registration visits). They can be booked later from the Patients tab.
+  bool _registerOnly = false;
 
   // Submit
   bool _booking = false;
@@ -1359,9 +1385,11 @@ class _BookTabState extends ConsumerState<_BookTab> {
       _blockedSlots = [];
       _doctorOnLeave = false;
       _slot = '';
+      _doctorMorningSlots = null;
+      _doctorEveningSlots = null;
     });
+    final auth = ref.read(authProvider);
     try {
-      final auth = ref.read(authProvider);
       final status = await ref
           .read(repositoryProvider)
           .getSlotStatus(
@@ -1381,6 +1409,20 @@ class _BookTabState extends ConsumerState<_BookTab> {
     } catch (_) {
       if (mounted) setState(() => _loadingSlots = false);
     }
+    try {
+      final slots = await ref.read(repositoryProvider).getDoctorSlots(
+            auth.tenantPublicId ?? '',
+            _doctorId,
+            _date,
+            auth.token ?? '',
+          );
+      if (mounted) {
+        setState(() {
+          _doctorMorningSlots = List<String>.from(slots['morningSlots'] as List? ?? const []);
+          _doctorEveningSlots = List<String>.from(slots['eveningSlots'] as List? ?? const []);
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadTokenPreview() async {
@@ -1475,6 +1517,67 @@ class _BookTabState extends ConsumerState<_BookTab> {
     return parts.join(' · ');
   }
 
+  /// Registration without an appointment. Same idempotent register call the
+  /// booking flow uses, plus an upsert so age/gender land on the record.
+  Future<void> _registerPatientOnly(String name, String mobile) async {
+    setState(() {
+      _booking = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final auth = ref.read(authProvider);
+      final tenantId = auth.tenantPublicId ?? '';
+      final resp = await apiClient.post<Map<String, dynamic>>(
+        '/admin/patients',
+        body: {
+          'tenantPublicId': tenantId,
+          'name': name,
+          'mobileNumber': mobile,
+          'specialtyOrAgeBand': '',
+        },
+        fromJson: (d) => d as Map<String, dynamic>,
+        extraHeaders: {
+          'Authorization': 'Bearer ${auth.token}',
+          'X-Tenant-Id': tenantId,
+        },
+      );
+      final patientId = resp['publicId'] as String? ?? '';
+      if (patientId.isNotEmpty) {
+        await ref.read(repositoryProvider).upsertPatientRecord(
+              tenantId,
+              patientId,
+              auth.token ?? '',
+              PatientUpsertRequest(
+                fullName: name,
+                mobileNumber: mobile,
+                status: 'active',
+                gender: _gender,
+                age: int.tryParse(_ageCtrl.text.trim()),
+              ),
+            );
+      }
+      if (mounted) {
+        setState(() {
+          _success =
+              '$name registered — no appointment booked.\nFind them in the Patients tab to book a consultation later.';
+          _nameCtrl.clear();
+          _mobileCtrl.clear();
+          _ageCtrl.clear();
+          _gender = 'male';
+          _booking = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = extractErrorMessage(e, fallback: 'Failed to register patient.');
+          _booking = false;
+        });
+      }
+    }
+  }
+
   Future<void> _book() async {
     final name = _nameCtrl.text.trim();
     final mobile = _mobileCtrl.text.trim();
@@ -1485,6 +1588,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
     }
     if (mobile.length < 10) {
       setState(() => _error = 'Enter valid 10-digit mobile');
+      return;
+    }
+    if (_registerOnly) {
+      await _registerPatientOnly(name, mobile);
       return;
     }
     if (_specialty.isEmpty) {
@@ -1670,6 +1777,30 @@ class _BookTabState extends ConsumerState<_BookTab> {
             const SizedBox(height: 12),
           ],
 
+          // ── Mode: full booking vs registration only ───────────────────────────
+          if (!_hasPrefill) ...[
+            SegmentedControl<bool>(
+              selected: _registerOnly,
+              items: const [
+                SegmentItem(value: false, label: 'Register & Book', icon: Icons.event_available_outlined),
+                SegmentItem(value: true, label: 'Register Only', icon: Icons.person_add_alt_outlined),
+              ],
+              onChanged: (v) => setState(() {
+                _registerOnly = v;
+                _error = null;
+                _success = null;
+              }),
+            ),
+            if (_registerOnly) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Creates the patient record without an appointment — for walk-ins already consulted or registration-only visits. Book later from the Patients tab.',
+                style: AppTextStyles.label(SevaCareColors.textMuted),
+              ),
+            ],
+            const SizedBox(height: 12),
+          ],
+
           // ── Booking details: patient, vitals, prescriptions, specialty ────────
           AppCard(
             child: Column(
@@ -1735,6 +1866,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
                   ],
                 ),
 
+                if (!_registerOnly) ...[
                 const SizedBox(height: 16),
                 const SectionDivider(),
                 const SizedBox(height: 12),
@@ -1927,12 +2059,13 @@ class _BookTabState extends ConsumerState<_BookTab> {
                           ],
                         ],
                       ),
+                ],
               ],
             ),
           ),
 
           // ── Slot / Token mode toggle ─────────────────────────────────────────
-          if (!_loadingSetup && _setupError == null && _doctorId.isNotEmpty &&
+          if (!_registerOnly && !_loadingSetup && _setupError == null && _doctorId.isNotEmpty &&
               (_doctors.where((d) => d.doctorPublicId == _doctorId).firstOrNull?.bookingMode ?? 'BOTH') == 'BOTH') ...[
             const SizedBox(height: 12),
             SegmentedControl<String>(
@@ -1952,7 +2085,8 @@ class _BookTabState extends ConsumerState<_BookTab> {
           ],
 
           // ── Date ──────────────────────────────────────────────────────────────
-          if (!_loadingSetup &&
+          if (!_registerOnly &&
+              !_loadingSetup &&
               _setupError == null &&
               _doctorId.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -2095,10 +2229,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
                           ),
                           const SizedBox(height: 8),
                         ],
-                        if (_setup!.morningSlots.isNotEmpty) ...[
+                        if (_morningSlots.isNotEmpty) ...[
                           _SlotAccordionSection(
-                            title: 'Morning  09:00 – 14:00',
-                            slots: _setup!.morningSlots,
+                            title: 'Morning  ${_morningSlots.first} – ${_morningSlots.last}',
+                            slots: _morningSlots,
                             booked: _bookedSlots,
                             blocked: _blockedSlots,
                             selected: _slot,
@@ -2109,11 +2243,11 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                     _expandedSlotSession == 'MORNING' ? '' : 'MORNING'),
                           ),
                         ],
-                        if (_setup!.eveningSlots.isNotEmpty) ...[
+                        if (_eveningSlots.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           _SlotAccordionSection(
-                            title: 'Evening  17:00 – 21:00',
-                            slots: _setup!.eveningSlots,
+                            title: 'Evening  ${_eveningSlots.first} – ${_eveningSlots.last}',
+                            slots: _eveningSlots,
                             booked: _bookedSlots,
                             blocked: _blockedSlots,
                             selected: _slot,
@@ -2124,12 +2258,30 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                     _expandedSlotSession == 'EVENING' ? '' : 'EVENING'),
                           ),
                         ],
-                        if (_setup!.morningSlots.isEmpty &&
-                            _setup!.eveningSlots.isEmpty)
-                          Text(
-                            'No slots configured.',
-                            style: AppTextStyles.bodyText(
-                              SevaCareColors.textMuted,
+                        if (_morningSlots.isEmpty && _eveningSlots.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: SevaCareColors.warningSurface,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.event_busy,
+                                  size: 16,
+                                  color: SevaCareColors.warning,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '$_doctorName is not available on $_date under their working hours. Pick another date or doctor.',
+                                    style: AppTextStyles.label(
+                                      SevaCareColors.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                       ],
@@ -2149,8 +2301,8 @@ class _BookTabState extends ConsumerState<_BookTab> {
           ],
           const SizedBox(height: 12),
           PrimaryButton(
-            label: 'Book Appointment',
-            icon: Icons.check_circle_outline,
+            label: _registerOnly ? 'Register Patient' : 'Book Appointment',
+            icon: _registerOnly ? Icons.person_add_alt : Icons.check_circle_outline,
             isLoading: _booking,
             fullWidth: true,
             onPressed: _booking ? null : _book,
@@ -2241,7 +2393,8 @@ class _PatientsTab extends ConsumerStatefulWidget {
   ConsumerState<_PatientsTab> createState() => _PatientsTabState();
 }
 
-class _PatientsTabState extends ConsumerState<_PatientsTab> {
+class _PatientsTabState extends ConsumerState<_PatientsTab>
+    with AutoRefreshMixin {
   final _searchCtrl = TextEditingController();
   Timer? _searchTimer;
 
@@ -2255,7 +2408,47 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
   String? _sortBy;
   String _sortDir = 'asc';
 
+  // Visited-between filter: only patients with an appointment in this window.
+  // Default (null) = 10 most recent patients first, no window.
+  DateTime? _visitFrom;
+  DateTime? _visitTo;
+
   static const _pageSize = 10;
+
+  String? get _fromDateStr => _visitFrom == null
+      ? null
+      : '${_visitFrom!.year}-${_visitFrom!.month.toString().padLeft(2, '0')}-${_visitFrom!.day.toString().padLeft(2, '0')}';
+  String? get _toDateStr => _visitTo == null
+      ? null
+      : '${_visitTo!.year}-${_visitTo!.month.toString().padLeft(2, '0')}-${_visitTo!.day.toString().padLeft(2, '0')}';
+
+  Future<void> _pickVisitRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: now.subtract(const Duration(days: 365 * 3)),
+      lastDate: now,
+      initialDateRange: _visitFrom != null && _visitTo != null
+          ? DateTimeRange(start: _visitFrom!, end: _visitTo!)
+          : null,
+      helpText: 'Patients who visited between',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _visitFrom = picked.start;
+        _visitTo = picked.end;
+      });
+      _load(reset: true);
+    }
+  }
+
+  void _clearVisitRange() {
+    setState(() {
+      _visitFrom = null;
+      _visitTo = null;
+    });
+    _load(reset: true);
+  }
 
   bool get _hasMore => _patients.length < _total;
 
@@ -2275,6 +2468,13 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
   void initState() {
     super.initState();
     _load(reset: true);
+    // Silent first-page refresh — skipped while searching or paged deeper,
+    // so it never clobbers what the user is looking at.
+    startAutoRefresh(() async {
+      if (_page <= 1 && _searchCtrl.text.trim().isEmpty && _visitFrom == null && !_loadingMore) {
+        await _load();
+      }
+    });
   }
 
   @override
@@ -2320,6 +2520,8 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
             auth.token ?? '',
             sortBy: _sortBy,
             sortDir: _sortDir,
+            fromDate: _fromDateStr,
+            toDate: _toDateStr,
           );
       final list = (data['patients'] as List? ?? [])
           .map((e) => PatientSummary.fromJson(e as Map<String, dynamic>))
@@ -2358,6 +2560,8 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
             auth.token ?? '',
             sortBy: _sortBy,
             sortDir: _sortDir,
+            fromDate: _fromDateStr,
+            toDate: _toDateStr,
           );
       final list = (data['patients'] as List? ?? [])
           .map((e) => PatientSummary.fromJson(e as Map<String, dynamic>))
@@ -2757,6 +2961,56 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
             onChanged: _onSearchChanged,
             textInputAction: TextInputAction.search,
           ),
+          const SizedBox(height: 4),
+
+          // Visited-between filter + default hint
+          Row(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _pickVisitRange,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _visitFrom != null ? SevaCareColors.primarySoft : SevaCareColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: _visitFrom != null
+                          ? SevaCareColors.primary.withValues(alpha: 0.35)
+                          : SevaCareColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.date_range_outlined,
+                          size: 14,
+                          color: _visitFrom != null ? SevaCareColors.primary : SevaCareColors.textMuted),
+                      const SizedBox(width: 5),
+                      Text(
+                        _visitFrom == null
+                            ? 'Visited between…'
+                            : '${_fromDateStr!}  →  ${_toDateStr!}',
+                        style: AppTextStyles.label(
+                            _visitFrom != null ? SevaCareColors.primary : SevaCareColors.textMuted),
+                      ),
+                      if (_visitFrom != null) ...[
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: _clearVisitRange,
+                          child: const Icon(Icons.close, size: 14, color: SevaCareColors.primary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (_visitFrom == null && _searchCtrl.text.isEmpty)
+                Text('Most recent first',
+                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ],
+          ),
           const SizedBox(height: 8),
 
           if (_loading)
@@ -2786,9 +3040,11 @@ class _PatientsTabState extends ConsumerState<_PatientsTab> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
                 child: Text(
-                  _searchCtrl.text.isEmpty
-                      ? 'No patients registered yet.'
-                      : 'No patients match your search.',
+                  _visitFrom != null
+                      ? 'No patients visited in the selected dates.'
+                      : _searchCtrl.text.isEmpty
+                          ? 'No patients registered yet.'
+                          : 'No patients match your search.',
                   style: AppTextStyles.bodyText(SevaCareColors.textMuted),
                   textAlign: TextAlign.center,
                 ),

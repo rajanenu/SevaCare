@@ -26,4 +26,5 @@ sevacare-flutter/.flutter-plugins-dependencies
 sevacare-e2e-test/
 docs/
 sevacare-flutter/Photos/
+marketing/
 # NOTE: sevacare-flutter/pubspec.lock is intentionally NOT ignored (Dockerfile.frontend needs it)

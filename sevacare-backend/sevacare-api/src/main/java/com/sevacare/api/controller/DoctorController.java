@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.doctor.service.DoctorDomainService;
 import com.sevacare.doctor.service.SlotBlockService;
 import com.sevacare.patient.service.PatientDomainService;
@@ -31,11 +32,18 @@ public class DoctorController {
     private final DoctorDomainService doctorDomainService;
     private final PatientDomainService patientDomainService;
     private final SlotBlockService slotBlockService;
+    private final DoctorAvailabilityService doctorAvailabilityService;
 
-    public DoctorController(DoctorDomainService doctorDomainService, PatientDomainService patientDomainService, SlotBlockService slotBlockService) {
+    public DoctorController(
+            DoctorDomainService doctorDomainService,
+            PatientDomainService patientDomainService,
+            SlotBlockService slotBlockService,
+            DoctorAvailabilityService doctorAvailabilityService
+    ) {
         this.doctorDomainService = doctorDomainService;
         this.patientDomainService = patientDomainService;
         this.slotBlockService = slotBlockService;
+        this.doctorAvailabilityService = doctorAvailabilityService;
     }
 
     @GetMapping("/{tenantPublicId}/{doctorPublicId}/dashboard")
@@ -268,6 +276,35 @@ public class DoctorController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(slotBlockService.availabilityForDate(tenantPublicId, date));
+    }
+
+    // ── Working hours — doctor-controlled schedule used for real slot generation ──
+    // Distinct from the /availability endpoint above (that's a per-date leave+blocks
+    // overview); this is the recurring day-scoped schedule a doctor/admin configures.
+
+    @GetMapping("/{tenantPublicId}/{doctorPublicId}/working-hours")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<DoctorDtos.DoctorWorkingHoursView> getWorkingHours(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(doctorAvailabilityService.getWorkingHours(tenantPublicId, doctorPublicId));
+    }
+
+    @PutMapping("/{tenantPublicId}/{doctorPublicId}/working-hours")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<DoctorDtos.DoctorWorkingHoursView> updateWorkingHours(
+            @PathVariable String tenantPublicId,
+            @PathVariable String doctorPublicId,
+            @Valid @RequestBody DoctorDtos.DoctorWorkingHoursUpdateRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(doctorAvailabilityService.replaceWorkingHours(tenantPublicId, doctorPublicId, request));
     }
 
     // Doctor's prescription history
