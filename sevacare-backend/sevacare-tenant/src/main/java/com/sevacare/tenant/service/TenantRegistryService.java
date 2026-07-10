@@ -17,16 +17,16 @@ public class TenantRegistryService {
 
     private final TenantRegistryRepository tenantRegistryRepository;
     private final JdbcTemplate jdbcTemplate;
-    private final TenantSchemaMaintenanceService schemaMaintenanceService;
+    private final TenantMigrationService tenantMigrationService;
 
     public TenantRegistryService(
             TenantRegistryRepository tenantRegistryRepository,
             JdbcTemplate jdbcTemplate,
-            TenantSchemaMaintenanceService schemaMaintenanceService
+            TenantMigrationService tenantMigrationService
     ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
-        this.schemaMaintenanceService = schemaMaintenanceService;
+        this.tenantMigrationService = tenantMigrationService;
     }
 
     @Transactional(readOnly = true)
@@ -136,8 +136,6 @@ public class TenantRegistryService {
             String pinCode
     ) {
         String schemaName = buildTenantSchemaName(tenantPublicId);
-        jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-        createTenantSchema(schemaName);
 
         TenantRegistry tenant = new TenantRegistry();
         tenant.setTenantPublicId(tenantPublicId);
@@ -154,12 +152,15 @@ public class TenantRegistryService {
         if (contactEmail != null && !contactEmail.isBlank()) {
             tenant.setEmail(contactEmail.trim());
         }
-        tenantRegistryRepository.save(tenant);
 
-        // Repair schema shape immediately — a hospital onboarded while the server
-        // keeps running (no restart) must work from the first request, not just
-        // after the next boot-time sweep (TenantAdminSchemaInitializer).
-        schemaMaintenanceService.ensureSchemaShape(tenant, schemaName);
+        // Create and migrate the schema before the registry row exists, so a
+        // hospital onboarded while the server keeps running works from its first
+        // request rather than after the next boot sweep. Flyway commits on its own
+        // connection: if the save below rolls back, an empty schema is left behind,
+        // which the next attempt reuses rather than trips over.
+        tenantMigrationService.migrate(tenant);
+
+        tenantRegistryRepository.save(tenant);
 
         if (contactMobile != null && !contactMobile.isBlank()) {
             seedHospitalAdmin(schemaName, tenantPublicId, contactName, contactMobile, contactEmail);
@@ -235,182 +236,6 @@ public class TenantRegistryService {
         }
         
         return requestPublicId;
-    }
-
-    private void createTenantSchema(String schemaName) {
-        // Create tables following the pattern from bootstrap migration
-        String tenantSchemaDdl = """
-            CREATE TABLE IF NOT EXISTS %s.patient (
-                patient_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                full_name VARCHAR(160) NOT NULL,
-                mobile_number VARCHAR(24) NOT NULL,
-                email VARCHAR(160),
-                age INT,
-                gender VARCHAR(24),
-                address TEXT,
-                status VARCHAR(24) DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                deletion_requested_at TIMESTAMP,
-                photo_base64 TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS %s.doctor (
-                doctor_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                full_name VARCHAR(160) NOT NULL,
-                specialty VARCHAR(120),
-                availability VARCHAR(160),
-                fee VARCHAR(24),
-                mobile_number VARCHAR(24),
-                active BOOLEAN DEFAULT true,
-                age INT,
-                address VARCHAR(160),
-                about_me TEXT,
-                available_from DATE,
-                ready_to_look_patients BOOLEAN DEFAULT true,
-                booking_mode VARCHAR(16) NOT NULL DEFAULT 'BOTH',
-                experience_years INT,
-                qualification VARCHAR(200),
-                deletion_requested_at TIMESTAMP,
-                photo_base64 TEXT
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.doctor_details (
-                doctor_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                mobile_number VARCHAR(24),
-                age INT,
-                gender VARCHAR(24),
-                license_number VARCHAR(80),
-                experience_years INT,
-                address VARCHAR(160),
-                city VARCHAR(120),
-                state VARCHAR(120),
-                FOREIGN KEY (doctor_public_id) REFERENCES %s.doctor(doctor_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.doctor_schedule (
-                schedule_public_id VARCHAR(24) PRIMARY KEY,
-                doctor_public_id VARCHAR(24) NOT NULL,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                appointment_interval_minutes INT,
-                lunch_break_start_time VARCHAR(24),
-                lunch_break_end_time VARCHAR(24),
-                max_appointments_per_day INT,
-                working_days VARCHAR(200),
-                clinic_start_time VARCHAR(24),
-                clinic_end_time VARCHAR(24),
-                FOREIGN KEY (doctor_public_id) REFERENCES %s.doctor(doctor_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.appointment (
-                appointment_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                patient_public_id VARCHAR(24) NOT NULL,
-                doctor_public_id VARCHAR(24) NOT NULL,
-                appointment_date DATE,
-                appointment_slot VARCHAR(80),
-                appointment_status VARCHAR(24) DEFAULT 'upcoming',
-                notes TEXT,
-                consultation_fee INTEGER DEFAULT 0,
-                vitals_summary VARCHAR(1000),
-                booking_type VARCHAR(16) NOT NULL DEFAULT 'SLOT',
-                token_number INTEGER,
-                token_session VARCHAR(16),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (patient_public_id) REFERENCES %s.patient(patient_public_id),
-                FOREIGN KEY (doctor_public_id) REFERENCES %s.doctor(doctor_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.prescription (
-                prescription_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                appointment_public_id VARCHAR(24),
-                patient_public_id VARCHAR(24) NOT NULL,
-                doctor_public_id VARCHAR(24) NOT NULL,
-                doctor_name VARCHAR(120),
-                issued_on VARCHAR(20),
-                prescription_date DATE,
-                notes TEXT,
-                valid_until DATE,
-                file_url VARCHAR(500),
-                status VARCHAR(20) DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (patient_public_id) REFERENCES %s.patient(patient_public_id),
-                FOREIGN KEY (doctor_public_id) REFERENCES %s.doctor(doctor_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.prescription_medicine (
-                id BIGSERIAL PRIMARY KEY,
-                prescription_public_id VARCHAR(24) NOT NULL,
-                medicine_name VARCHAR(255),
-                strength VARCHAR(100),
-                frequency VARCHAR(255),
-                duration VARCHAR(100),
-                instructions TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                FOREIGN KEY (prescription_public_id) REFERENCES %s.prescription(prescription_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.medical_history (
-                id BIGSERIAL PRIMARY KEY,
-                patient_public_id VARCHAR(24) NOT NULL,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                record_type VARCHAR(50),
-                record_value VARCHAR(255) NOT NULL DEFAULT '',
-                notes TEXT,
-                record_date DATE,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                FOREIGN KEY (patient_public_id) REFERENCES %s.patient(patient_public_id)
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.doctor_license_metadata (
-                license_public_id VARCHAR(24) PRIMARY KEY,
-                doctor_public_id VARCHAR(24),
-                tenant_public_id VARCHAR(24),
-                license_number VARCHAR(80),
-                issuing_authority VARCHAR(160),
-                issue_date DATE,
-                expiry_date DATE
-            );
-            
-            CREATE TABLE IF NOT EXISTS %s.admin_user (
-                admin_public_id VARCHAR(24) PRIMARY KEY,
-                tenant_public_id VARCHAR(24) NOT NULL,
-                mobile_number VARCHAR(24),
-                email VARCHAR(160),
-                name VARCHAR(160),
-                full_name VARCHAR(160),
-                active BOOLEAN DEFAULT true,
-                user_type VARCHAR(16) DEFAULT 'ADMIN',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                deletion_requested_at TIMESTAMP,
-                photo_base64 TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS %s.token_counter (
-                tenant_public_id  VARCHAR(24) NOT NULL,
-                doctor_public_id  VARCHAR(24) NOT NULL,
-                token_date        DATE        NOT NULL,
-                session           VARCHAR(16) NOT NULL,
-                last_token        INTEGER     NOT NULL DEFAULT 0,
-                PRIMARY KEY (tenant_public_id, doctor_public_id, token_date, session)
-            );
-
-            CREATE TABLE IF NOT EXISTS %s.doctor_review (
-                id BIGSERIAL PRIMARY KEY,
-                appointment_public_id VARCHAR(16) NOT NULL UNIQUE,
-                doctor_public_id VARCHAR(16) NOT NULL,
-                patient_public_id VARCHAR(16) NOT NULL,
-                rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-                comment VARCHAR(1000),
-                created_at TIMESTAMP NOT NULL DEFAULT now()
-            );
-            """;
-
-        jdbcTemplate.execute(tenantSchemaDdl.replace("%s", schemaName));
     }
 
     /**

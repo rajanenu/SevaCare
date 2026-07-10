@@ -25,7 +25,7 @@ import com.sevacare.tenant.service.HospitalManagementService;
  * PatientDomainService.bookingSetup). Each doctor can define one or more
  * day-scoped (WEEKDAY/WEEKEND/EVERYDAY) session windows, min 2 hours each.
  * Stored in the doctor_availability table (backfilled with the old default
- * windows for every existing doctor by TenantSchemaMaintenanceService).
+ * windows for every existing doctor by the V1 tenant baseline migration).
  */
 @Service
 public class DoctorAvailabilityService {
