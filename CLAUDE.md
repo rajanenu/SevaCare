@@ -26,6 +26,10 @@ tasks) depends on `-patient`, `-doctor`, `-admin`, `-tenant`, all of which depen
 # Backend — compile before you claim anything works
 cd sevacare-backend && mvn -q -T1C -DskipTests compile
 
+# Pharmacy integration tests need Docker (Testcontainers). Always pass -am:
+# a bare -pl sevacare-api resolves a stale sevacare-pharmacy jar.
+cd sevacare-backend && mvn -pl sevacare-api -am test
+
 # Flutter — analyze must stay at zero errors/warnings (16 pre-existing infos are fine)
 cd sevacare-flutter && flutter analyze
 
@@ -64,6 +68,19 @@ do not write new ones that way — put per-tenant DDL in `db/tenant`.
 stay structurally identical, so schema drift never returns. Verify on a `pg_dump` clone
 first, apply locally, then sync Cloud SQL — but ask before touching prod (see "Never
 deploy unprompted"). Prove parity by diffing `information_schema`, don't assume it.
+
+**Stock is a ledger, never a quantity.** `stock_ledger` is append-only and
+`batch_balance` is a cache of its sum. Postgres triggers enforce both: the ledger raises
+on UPDATE/DELETE, and the balance raises on any write that did not `SET LOCAL
+sevacare.ledger_append = 'on'` — which only `StockLedgerService` does, inside a
+transaction. Correct a mistake with a compensating row (`correction_of`), never an edit.
+Quantities are base units (tablets, ml); money is integer paise; GST is basis points.
+
+**Pharmacy rules are OFF/SUGGEST/ENFORCE knobs**, resolved platform default →
+`platform.capability_profile` → tenant `pharmacy_config`. Never a boolean.
+`EXPIRED_BATCH_DISPENSE` is the one knob with no OFF. A negative balance is information
+(a receipt was never entered), not corruption — only ENFORCE refuses it. Pharmacy is off
+for a tenant whose `tenant_registry.pharmacy_profile_key` is NULL.
 
 **One appointment queue.** Every booking — slot or token, from any of the four channels
 (patient app, IP-Staff, QR portal, chatbot) — draws a token from the same
