@@ -69,6 +69,15 @@ stay structurally identical, so schema drift never returns. Verify on a `pg_dump
 first, apply locally, then sync Cloud SQL — but ask before touching prod (see "Never
 deploy unprompted"). Prove parity by diffing `information_schema`, don't assume it.
 
+**A tenant is a set of modules, not a kind of business.** `tenant_registry` carries
+`clinical_enabled` (doctors/patients/prescriptions) and `pharmacy_profile_key` (NULL =
+no pharmacy); a check constraint forbids both being off. There is no `tenant_kind`
+column — `TenantKind` is only the onboarding question, translated once and discarded.
+`TenantModuleService` is the sole owner of "does this tenant have X?"; the API gate,
+`GET /api/v1/capabilities` and the pharmacy policy engine all delegate to it. A module
+the tenant lacks answers **404, not 403** — 403 leaks that it exists. A standalone
+medical store is a first-class customer, not a hospital with the doctors deleted.
+
 **Stock is a ledger, never a quantity.** `stock_ledger` is append-only and
 `batch_balance` is a cache of its sum. Postgres triggers enforce both: the ledger raises
 on UPDATE/DELETE, and the balance raises on any write that did not `SET LOCAL
