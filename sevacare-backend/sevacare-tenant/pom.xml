@@ -35,5 +35,11 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
+        <!-- Outbox event payloads are JSONB. The ObjectMapper bean itself comes
+             from the web starter in sevacare-api; this is the compile-time API. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
     </dependencies>
 </project>

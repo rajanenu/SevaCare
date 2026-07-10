@@ -48,10 +48,22 @@ carry no tenant context, so they set it explicitly and restore the previous valu
 Cross-tenant tables (`tenant_registry`, `appointment_request`, `whatsapp_outbox`,
 `user_otp_override`) live in `public`.
 
-**Schema drift is real.** Tenant schemas were provisioned by different migrations and do
-not all carry the same tables. A migration that loops over `tenant_t_%` must guard each
-statement with `to_regclass(...) IS NULL` before touching a table — see
-`V32__whatsapp_outbox_and_perf_indexes.sql`.
+**Tenant schemas are versioned.** Migrations in `sevacare-tenant/.../db/tenant` run once
+per tenant schema, tracked in that schema's own `flyway_tenant_history`, driven by
+`TenantMigrationService`. `V1__tenant_baseline.sql` is a *reconciling* baseline that
+converges every schema to one shape, so V2 onward may be ordinary forward migrations
+that assume that shape. Flyway is baselined at version **0**, not its default of 1 —
+at 1 it records V1 as applied and silently skips it.
+
+Public-schema migrations (`sevacare-api/.../db/migration`) are separate and still run
+via Spring Boot's auto-configured Flyway. Old ones loop over `tenant_t_%` and guard each
+statement with `to_regclass(...) IS NULL` (see `V32__whatsapp_outbox_and_perf_indexes.sql`);
+do not write new ones that way — put per-tenant DDL in `db/tenant`.
+
+**A DB change means both databases.** Local `seva_care` and the Cloud SQL prod DB must
+stay structurally identical, so schema drift never returns. Verify on a `pg_dump` clone
+first, apply locally, then sync Cloud SQL — but ask before touching prod (see "Never
+deploy unprompted"). Prove parity by diffing `information_schema`, don't assume it.
 
 **One appointment queue.** Every booking — slot or token, from any of the four channels
 (patient app, IP-Staff, QR portal, chatbot) — draws a token from the same
