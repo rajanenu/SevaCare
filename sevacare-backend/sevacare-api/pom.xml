@@ -95,6 +95,21 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- The pharmacy's stock ledger is enforced by database triggers, row
+             locks and ON CONFLICT clauses. An in-memory database would test a
+             different program, so the integration tests run against the same
+             Postgres major version Cloud SQL runs. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -102,6 +117,21 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- Testcontainers' bundled docker-java asks the daemon for
+                             Docker API v1.32 by default. Engine 25+ answers 400, and
+                             Testcontainers reports it as "Could not find a valid
+                             Docker environment", which sends you hunting for a socket
+                             that was never the problem. 1.41 has been supported since
+                             Docker 20.10, so pinning it works on old and new daemons. -->
+                        <api.version>1.41</api.version>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>
