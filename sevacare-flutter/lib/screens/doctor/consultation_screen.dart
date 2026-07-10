@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/ai/clinical_assist.dart';
+import '../../core/clinical/rx_templates.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_snack.dart';
@@ -53,6 +54,16 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   // Follow-up reminder — selected before completing, sent with the prescription
   int? _followUpDays;
 
+  // WhatsApp delivery of the prescription. Opt-out, not opt-in: paper is the
+  // exception now, so the doctor only touches this when a patient asks them to.
+  bool _sendWhatsapp = true;
+
+  // Quick templates: the built-in set is chosen by the doctor's specialty, and
+  // the custom ones are shortcuts this doctor saved on this device.
+  List<RxTemplate> _builtInTemplates = builtInTemplatesFor(null);
+  List<RxTemplate> _customTemplates = [];
+  bool _saveAsTemplate = false;
+
   // Patient history
   List<PrescriptionDetailView> _prevPrescriptions = [];
   bool _historyLoading = false;
@@ -73,8 +84,37 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     _selectedPatientCtrl = ref.read(doctorSelectedPatientIdProvider.notifier);
     _selectedAppointmentCtrl = ref.read(doctorSelectedAppointmentIdProvider.notifier);
     _selectedFacetCtrl = ref.read(doctorSelectedFacetProvider.notifier);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPatientHistory());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPatientHistory();
+      _loadTemplates();
+    });
     _medNameCtrl.addListener(_onMedicineNameChanged);
+  }
+
+  /// Picks the template set matching the doctor's specialty and merges in the
+  /// shortcuts they saved themselves. Failing to resolve the specialty is not an
+  /// error — the general-medicine set is a sensible answer for any doctor.
+  Future<void> _loadTemplates() async {
+    final auth = ref.read(authProvider);
+    final doctorId = auth.subjectPublicId ?? '';
+
+    final custom = await CustomRxTemplates.load(doctorId);
+    if (mounted && custom.isNotEmpty) {
+      setState(() => _customTemplates = custom);
+    }
+
+    try {
+      final record = await ref.read(repositoryProvider).getDoctorRecord(
+            ref.read(hospitalProvider).tenantPublicId,
+            doctorId,
+            auth.token ?? '',
+          );
+      if (mounted) {
+        setState(() => _builtInTemplates = builtInTemplatesFor(record.specialty));
+      }
+    } catch (_) {
+      // Keep the general set.
+    }
   }
 
   @override
@@ -230,29 +270,131 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     );
   }
 
-  void _addMedicine() {
+  Future<void> _addMedicine() async {
     final name = _medNameCtrl.text.trim();
     if (name.isEmpty) {
       AppSnack.error(context, 'Medicine name is required.');
       return;
     }
+
+    final medicine = RxTemplateMedicine(
+      name: name,
+      strength: _medStrengthCtrl.text.trim(),
+      freq: _medFreqCtrl.text.trim(),
+      dur: _medDurationCtrl.text.trim(),
+      note: _medInstructionsCtrl.text.trim(),
+    );
+
+    // Saving happens before the form is cleared so a cancelled name prompt
+    // leaves the doctor's typed medicine intact.
+    if (_saveAsTemplate && !await _promptSaveTemplate(medicine)) {
+      return;
+    }
+
     setState(() {
       _medicines.add(MedicineView(
-        name: name,
-        strength: _medStrengthCtrl.text.trim(),
-        frequency: _medFreqCtrl.text.trim(),
-        duration: _medDurationCtrl.text.trim(),
-        instructions: _medInstructionsCtrl.text.trim().isNotEmpty
-            ? _medInstructionsCtrl.text.trim()
-            : null,
+        name: medicine.name,
+        strength: medicine.strength,
+        frequency: medicine.freq,
+        duration: medicine.dur,
+        instructions: medicine.note.isNotEmpty ? medicine.note : null,
       ));
       _medNameCtrl.clear();
       _medStrengthCtrl.clear();
       _medFreqCtrl.clear();
       _medDurationCtrl.clear();
       _medInstructionsCtrl.clear();
+      _saveAsTemplate = false;
       _addMedicineExpanded = false;
     });
+  }
+
+  /// Asks for the chip label, then persists a single-medicine template for this
+  /// doctor. Returns false when the doctor backs out of the name prompt.
+  Future<bool> _promptSaveTemplate(RxTemplateMedicine medicine) async {
+    final labelCtrl = TextEditingController(text: medicine.name);
+    final label = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.bookmark_add_outlined, size: 20, color: SevaCareColors.mint),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Save as Quick Template', style: AppTextStyles.cardTitle(SevaCareColors.text))),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This medicine becomes a one-tap chip in your Quick Templates, on this device.',
+              style: AppTextStyles.label(SevaCareColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: labelCtrl,
+              autofocus: true,
+              style: AppTextStyles.inputText(SevaCareColors.text),
+              decoration: InputDecoration(
+                labelText: 'Template name',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(child: SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx))),
+              const SizedBox(width: 10),
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Save',
+                  onPressed: () => Navigator.pop(ctx, labelCtrl.text.trim()),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    labelCtrl.dispose();
+
+    if (label == null || label.isEmpty) return false;
+
+    final saved = await CustomRxTemplates.add(
+      ref.read(authProvider).subjectPublicId ?? '',
+      RxTemplate(
+        label: label,
+        icon: Icons.bookmark_added_outlined,
+        color: SevaCareColors.mint,
+        medicines: [medicine],
+        isCustom: true,
+      ),
+    );
+    if (!mounted) return true;
+    setState(() => _customTemplates = saved);
+    AppSnack.success(context, '"$label" saved to your Quick Templates.');
+    return true;
+  }
+
+  Future<void> _deleteCustomTemplate(RxTemplate template) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Remove "${template.label}"?',
+      message: 'This only removes your saved shortcut. Nothing in the prescription changes.',
+      confirmLabel: 'Remove',
+      isDanger: true,
+    );
+    if (!confirmed) return;
+    final remaining = await CustomRxTemplates.remove(
+      ref.read(authProvider).subjectPublicId ?? '',
+      template.label,
+    );
+    if (mounted) setState(() => _customTemplates = remaining);
   }
 
   void _removeMedicine(int index) {
@@ -262,7 +404,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   /// Shows exactly what a template will add before touching the prescription —
   /// templates cover multiple medicines at once, so a silent bulk-add left
   /// doctors unsure whether anything had happened.
-  void _previewTemplate(_RxTemplate template) {
+  void _previewTemplate(RxTemplate template) {
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -304,9 +446,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('${m.name} ${m.strength}',
+                              Text('${m.name} ${m.strength}'.trim(),
                                   style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.text)),
-                              Text('${m.freq} · ${m.dur} · ${m.note}',
+                              Text(
+                                  [m.freq, m.dur, m.note]
+                                      .where((s) => s.isNotEmpty)
+                                      .join(' · '),
                                   style: AppTextStyles.label(SevaCareColors.textMuted)),
                             ],
                           ),
@@ -314,16 +459,18 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                       ],
                     ),
                   ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: template.color.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
+                if (template.notes.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: template.color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(template.notes, style: AppTextStyles.label(template.color)),
                   ),
-                  child: Text(template.notes, style: AppTextStyles.label(template.color)),
-                ),
+                ],
               ],
             ),
           ),
@@ -403,7 +550,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
 
       final doctorName = auth.subjectName.isNotEmpty ? auth.subjectName : 'Doctor';
       final combinedNotes = [
-        if (vitalsStr != null) vitalsStr,
+        ?vitalsStr,
         if (userNotes.isNotEmpty) userNotes,
       ].join('\n');
 
@@ -419,6 +566,7 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           medicines: List.unmodifiable(_medicines),
           notes: combinedNotes.isNotEmpty ? combinedNotes : null,
           followUpDays: _followUpDays,
+          sendWhatsapp: _sendWhatsapp,
         ),
       );
 
@@ -437,7 +585,9 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           context,
           _medicines.isEmpty
               ? 'Consultation completed.'
-              : 'Consultation completed — prescription issued.',
+              : _sendWhatsapp
+                  ? 'Consultation completed — prescription issued and sent on WhatsApp.'
+                  : 'Consultation completed — prescription issued.',
         );
         context.go('/doctor');
       }
@@ -557,7 +707,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
           const SizedBox(height: 12),
 
           // ── Quick Prescription Templates ──────────────────────────────────
-          _QuickTemplatesBar(onSelect: _previewTemplate),
+          _QuickTemplatesBar(
+            builtIn: _builtInTemplates,
+            custom: _customTemplates,
+            onSelect: _previewTemplate,
+            onDeleteCustom: _deleteCustomTemplate,
+          ),
           const SizedBox(height: 16),
 
           // ── Write Prescription section (single card, accordion to add) ─────
@@ -691,6 +846,33 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                     placeholder: 'e.g. After meals',
                     maxLines: 2,
                   ),
+                  // A medicine a doctor types often is a template waiting to
+                  // happen — offer it here rather than making them retype it.
+                  InkWell(
+                    onTap: () => setState(() => _saveAsTemplate = !_saveAsTemplate),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: _saveAsTemplate,
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            activeColor: SevaCareColors.mint,
+                            onChanged: (v) => setState(() => _saveAsTemplate = v ?? false),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Also save this medicine as a Quick Template',
+                              style: AppTextStyles.label(SevaCareColors.textMuted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   PrimaryButton(
                     label: 'Add to List',
                     icon: Icons.add,
@@ -775,6 +957,57 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                 ),
               );
             }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // ── WhatsApp delivery ──────────────────────────────────────────────
+          InkWell(
+            onTap: () => setState(() => _sendWhatsapp = !_sendWhatsapp),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _sendWhatsapp ? const Color(0xFFF0FBF7) : SevaCareColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _sendWhatsapp ? SevaCareColors.mint : SevaCareColors.border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _sendWhatsapp,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    activeColor: SevaCareColors.mint,
+                    onChanged: (v) => setState(() => _sendWhatsapp = v ?? false),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Send prescription on WhatsApp',
+                          style: AppTextStyles.body(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: _sendWhatsapp ? SevaCareColors.mintForeground : SevaCareColors.text,
+                          ),
+                        ),
+                        Text(
+                          _followUpDays == null
+                              ? "Delivered to the patient's registered mobile number."
+                              : "Prescription now, and a follow-up reminder in $_followUpDays days.",
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chat_bubble_outline, size: 16, color: SevaCareColors.mint),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -1214,13 +1447,21 @@ class _MedicineRow extends StatelessWidget {
 }
 
 // ── Quick Prescription Templates ──────────────────────────────────────────────
-// Feature #2: One-tap condition templates that pre-fill medicines + notes.
-
-typedef _TemplateSelectCallback = void Function(_RxTemplate template);
+// One-tap condition templates that pre-fill medicines + notes. The built-in set
+// is chosen by the doctor's specialty; the custom set is theirs alone.
 
 class _QuickTemplatesBar extends StatefulWidget {
-  final _TemplateSelectCallback onSelect;
-  const _QuickTemplatesBar({required this.onSelect});
+  final List<RxTemplate> builtIn;
+  final List<RxTemplate> custom;
+  final void Function(RxTemplate template) onSelect;
+  final void Function(RxTemplate template) onDeleteCustom;
+
+  const _QuickTemplatesBar({
+    required this.builtIn,
+    required this.custom,
+    required this.onSelect,
+    required this.onDeleteCustom,
+  });
 
   @override
   State<_QuickTemplatesBar> createState() => _QuickTemplatesBarState();
@@ -1229,64 +1470,9 @@ class _QuickTemplatesBar extends StatefulWidget {
 class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
   bool _expanded = false;
 
-  static const _templates = [
-    _RxTemplate(
-      label: 'Common Cold',
-      icon: Icons.sick_outlined,
-      color: Color(0xFF6366F1),
-      notes: 'Rest, stay hydrated, avoid cold food/drinks.',
-      medicines: [
-        (name: 'Paracetamol', strength: '500mg', freq: 'TDS', dur: '5 days',   note: 'After food'),
-        (name: 'Cetirizine',  strength: '10mg',  freq: 'OD',  dur: '5 days',   note: 'At night'),
-        (name: 'Ambroxol',    strength: '30mg',  freq: 'BD',  dur: '5 days',   note: 'After food'),
-      ],
-    ),
-    _RxTemplate(
-      label: 'Hypertension',
-      icon: Icons.favorite_border,
-      color: Color(0xFFDB4E2D),
-      notes: 'Low-salt diet. Monitor BP daily. Follow up in 2 weeks.',
-      medicines: [
-        (name: 'Amlodipine',  strength: '5mg',  freq: 'OD', dur: '30 days', note: 'Morning'),
-        (name: 'Telmisartan', strength: '40mg', freq: 'OD', dur: '30 days', note: 'Morning'),
-      ],
-    ),
-    _RxTemplate(
-      label: 'Diabetes F/U',
-      icon: Icons.water_drop_outlined,
-      color: Color(0xFFF0A86B),
-      notes: 'Check HbA1c in 3 months. Low-sugar diet. Walk 30 min daily.',
-      medicines: [
-        (name: 'Metformin',   strength: '500mg', freq: 'BD', dur: '30 days', note: 'After food'),
-        (name: 'Glimepiride', strength: '1mg',   freq: 'OD', dur: '30 days', note: 'Before breakfast'),
-      ],
-    ),
-    _RxTemplate(
-      label: 'Gastritis',
-      icon: Icons.medication_outlined,
-      color: Color(0xFF52C499),
-      notes: 'Avoid spicy food, alcohol, NSAIDs. Eat small frequent meals.',
-      medicines: [
-        (name: 'Pantoprazole', strength: '40mg', freq: 'OD',  dur: '14 days', note: '30 min before food'),
-        (name: 'Domperidone',  strength: '10mg', freq: 'TDS', dur: '7 days',  note: 'Before meals'),
-        (name: 'Sucralfate',   strength: '1g',   freq: 'TDS', dur: '7 days',  note: 'After meals'),
-      ],
-    ),
-    _RxTemplate(
-      label: 'Migraine',
-      icon: Icons.psychology_outlined,
-      color: Color(0xFF7C6FE0),
-      notes: 'Avoid triggers. Rest in dark room during attack.',
-      medicines: [
-        (name: 'Sumatriptan', strength: '50mg',  freq: 'SOS', dur: 'As needed', note: 'At onset'),
-        (name: 'Naproxen',    strength: '500mg', freq: 'BD',  dur: '3 days',    note: 'With food'),
-        (name: 'Propranolol', strength: '20mg',  freq: 'BD',  dur: '30 days',   note: 'Prevention'),
-      ],
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final total = widget.builtIn.length + widget.custom.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1317,7 +1503,7 @@ class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
                     color: SevaCareColors.peach.withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text('${_templates.length} conditions',
+                  child: Text('$total conditions',
                       style: AppTextStyles.label(SevaCareColors.peachForeground)),
                 ),
                 const Spacer(),
@@ -1330,14 +1516,32 @@ class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
           ),
         ),
         if (_expanded) ...[
+          if (widget.custom.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text('Saved by you', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.custom
+                  .map((t) => _TemplateChip(
+                        template: t,
+                        onTap: () => widget.onSelect(t),
+                        onLongPress: () => widget.onDeleteCustom(t),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 4),
+            Text('Long-press a saved chip to remove it.',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ],
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _templates.map((t) => _TemplateChip(
-              template: t,
-              onTap: () => widget.onSelect(t),
-            )).toList(),
+            children: widget.builtIn
+                .map((t) => _TemplateChip(template: t, onTap: () => widget.onSelect(t)))
+                .toList(),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1350,31 +1554,17 @@ class _QuickTemplatesBarState extends State<_QuickTemplatesBar> {
   }
 }
 
-class _RxTemplate {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final String notes;
-  final List<({String name, String strength, String freq, String dur, String note})> medicines;
-
-  const _RxTemplate({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.notes,
-    required this.medicines,
-  });
-}
-
 class _TemplateChip extends StatelessWidget {
-  final _RxTemplate template;
+  final RxTemplate template;
   final VoidCallback onTap;
-  const _TemplateChip({required this.template, required this.onTap});
+  final VoidCallback? onLongPress;
+  const _TemplateChip({required this.template, required this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(

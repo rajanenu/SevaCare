@@ -79,7 +79,10 @@ public class LeaveRequestService {
         lr.setTenantPublicId(tenantPublicId);
         lr.setDoctorPublicId(requesterId);
         lr.setDoctorName(requesterName);
-        lr.setLeaveType(req.leaveType().toUpperCase());
+        if (req.leaveType() == null || req.leaveType().isBlank()) {
+            throw new IllegalArgumentException("leaveType is required");
+        }
+        lr.setLeaveType(req.leaveType().trim().toUpperCase());
         lr.setMessage(req.message() == null ? "" : req.message());
         lr.setStatus("PENDING");
         lr.setSubmittedAt(LocalDateTime.now());
@@ -165,7 +168,10 @@ public class LeaveRequestService {
         LeaveRequest lr = leaveRequestRepository.findByTenantPublicIdAndRequestPublicId(tenantPublicId, requestPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found"));
 
-        String action = req.action().toUpperCase();
+        if (req.action() == null || req.action().isBlank()) {
+            throw new IllegalArgumentException("action is required");
+        }
+        String action = req.action().trim().toUpperCase();
         switch (action) {
             case "APPROVE" -> lr.setStatus("APPROVED");
             case "DECLINE" -> lr.setStatus("DECLINED");
@@ -299,7 +305,10 @@ public class LeaveRequestService {
     }
 
     private String typeLabel(String type) {
-        return switch (type.toUpperCase()) {
+        if (type == null || type.isBlank()) {
+            return "Other";
+        }
+        return switch (type.trim().toUpperCase()) {
             case "SICK" -> "Sick";
             case "VACATION" -> "Vacation";
             case "EMERGENCY" -> "Emergency";

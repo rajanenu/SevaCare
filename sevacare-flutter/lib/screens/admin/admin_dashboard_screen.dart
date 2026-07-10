@@ -217,9 +217,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           // no refetch, no shimmer flash — and each tab keeps its own scroll
           // position inside the fixed frame.
           Expanded(
-            child: IndexedStack(
+            child: TabStack(
               index: _tabIndex,
-              sizing: StackFit.expand,
               children: [
                 _tabPage(const _DashboardTab()),
                 // Manages its own pinned sub-tab bar + scroll areas.
@@ -380,14 +379,6 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
     }
   }
 
-  Map<String, int> _groupBySpecialty() {
-    final map = <String, int>{};
-    for (final d in _doctors) {
-      map[d.specialty] = (map[d.specialty] ?? 0) + 1;
-    }
-    return map;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -423,7 +414,6 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
     }
 
     final overview = _overview;
-    final specialtyCounts = _groupBySpecialty();
 
     // Patient visits segment labels
     final visitSegments = [
@@ -467,52 +457,6 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
             context.go('/admin');
           },
         ),
-        const SizedBox(height: 24),
-
-        // ── Doctors by Department ─────────────────────────────────────────────
-        Text(
-          'Doctors by Department',
-          style: AppTextStyles.sectionTitle(SevaCareColors.text),
-        ),
-        const SizedBox(height: 12),
-        if (specialtyCounts.isEmpty)
-          AppCard(
-            child: Text(
-              'No doctors on record.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-            ),
-          )
-        else
-          Column(
-            children: [
-              for (int i = 0; i < specialtyCounts.entries.length; i += 2)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: MetricRow(
-                    tiles: [
-                      MetricTile(
-                        value: '${specialtyCounts.entries.elementAt(i).value}',
-                        label: specialtyCounts.entries.elementAt(i).key,
-                        variant: MetricVariant.primary,
-                      ),
-                      if (i + 1 < specialtyCounts.entries.length)
-                        MetricTile(
-                          value:
-                              '${specialtyCounts.entries.elementAt(i + 1).value}',
-                          label: specialtyCounts.entries.elementAt(i + 1).key,
-                          variant: MetricVariant.primary,
-                        )
-                      else
-                        MetricTile(
-                          value: '',
-                          label: '',
-                          variant: MetricVariant.primary,
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
         const SizedBox(height: 24),
 
         // ── Patient Sources (how patients are arriving) ────────────────────────

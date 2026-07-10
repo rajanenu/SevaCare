@@ -1,17 +1,24 @@
 package com.sevacare.api.controller;
 
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -59,14 +66,83 @@ public class ApiExceptionHandler {
         ));
     }
 
+    /**
+     * A malformed date/time in a query param or body is a caller mistake, not a
+     * server fault — without this it surfaced as an opaque 500.
+     */
+    @ExceptionHandler(DateTimeParseException.class)
+    public ResponseEntity<ApiError> handleDateTimeParse(DateTimeParseException ex) {
+        log.warn("api_bad_date value={}", ex.getParsedString());
+        return ResponseEntity.badRequest().body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "BAD_REQUEST",
+                "Invalid date or time value: " + ex.getParsedString(),
+                List.of()
+        ));
+    }
+
+    /** Unparseable JSON body, or a body omitted where one is required. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        log.warn("api_unreadable_body message={}", ex.getMessage());
+        return ResponseEntity.badRequest().body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "BAD_REQUEST",
+                "Request body is missing or malformed",
+                List.of()
+        ));
+    }
+
+    /** A required query parameter was omitted. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex) {
+        log.warn("api_missing_param name={}", ex.getParameterName());
+        return ResponseEntity.badRequest().body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "BAD_REQUEST",
+                "Missing required parameter: " + ex.getParameterName(),
+                List.of()
+        ));
+    }
+
+    /**
+     * An unmatched URL. Without this the catch-all below turned every typo and
+     * probe into a logged 500.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNotFound(NoResourceFoundException ex) {
+        log.debug("api_not_found path={}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.NOT_FOUND.value(),
+                "NOT_FOUND",
+                "No such endpoint",
+                List.of()
+        ));
+    }
+
+    /**
+     * Method security throws this before Spring's entry point can run, so the
+     * anonymous case has to be separated here: no session at all is a 401 (the
+     * app logs out and asks for OTP), a valid session on the wrong endpoint is
+     * a 403.
+     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
-        log.warn("api_access_denied message={}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean anonymous = auth == null
+                || !auth.isAuthenticated()
+                || auth instanceof AnonymousAuthenticationToken;
+        HttpStatus status = anonymous ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN;
+        log.warn("api_access_denied anonymous={} message={}", anonymous, ex.getMessage());
+        return ResponseEntity.status(status).body(new ApiError(
                 Instant.now().toString(),
-                HttpStatus.FORBIDDEN.value(),
-                "FORBIDDEN",
-                "Access denied",
+                status.value(),
+                anonymous ? "UNAUTHORIZED" : "FORBIDDEN",
+                anonymous ? "Session expired — please sign in again" : "Access denied",
                 List.of()
         ));
     }

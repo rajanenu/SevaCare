@@ -40,6 +40,11 @@ mixin AutoRefreshMixin<T extends StatefulWidget> on State<T> {
     if (!mounted || !_appActive || _refreshInFlight || _onAutoRefresh == null) {
       return;
     }
+    // Tabs in an IndexedStack all stay mounted, and `route.isCurrent` is true
+    // for every one of them — so without this check the hidden tabs of a
+    // dashboard each fired their own poll every interval. [TabStack] turns the
+    // ticker off for the tabs it isn't showing; only the visible one refreshes.
+    if (!TickerMode.getValuesNotifier(context).value.enabled) return;
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) return;
     if (MediaQuery.viewInsetsOf(context).bottom > 0) return;
@@ -60,6 +65,30 @@ mixin AutoRefreshMixin<T extends StatefulWidget> on State<T> {
       WidgetsBinding.instance.removeObserver(_lifecycleObserver!);
     }
     super.dispose();
+  }
+}
+
+/// An [IndexedStack] that keeps every tab mounted (instant switching, scroll
+/// positions preserved) but marks the hidden ones inactive. That pauses their
+/// animations and, via [AutoRefreshMixin], their background polling — a
+/// five-tab dashboard used to issue five sets of requests per interval instead
+/// of one.
+class TabStack extends StatelessWidget {
+  final int index;
+  final List<Widget> children;
+
+  const TabStack({super.key, required this.index, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return IndexedStack(
+      index: index,
+      sizing: StackFit.expand,
+      children: [
+        for (int i = 0; i < children.length; i++)
+          TickerMode(enabled: i == index, child: children[i]),
+      ],
+    );
   }
 }
 

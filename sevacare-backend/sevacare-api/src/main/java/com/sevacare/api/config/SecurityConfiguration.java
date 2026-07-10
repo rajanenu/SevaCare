@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -35,6 +37,11 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/v1/public/**", "/api/v1/auth/**").permitAll()
                         .anyRequest().authenticated())
+                // An unauthenticated caller must get 401, not Spring's default
+                // 403 — the app auto-logs-out on 401 only, so a token that no
+                // longer parses used to strand the user on a broken screen.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(
+                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(tenantHeaderFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(tokenAuthenticationFilter, TenantHeaderFilter.class)
                 .build();

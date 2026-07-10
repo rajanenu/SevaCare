@@ -45,6 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _mobileCtrl;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _otpCtrl;
+  bool _otpVisible = false;
 
   bool _roleSelected = false;
   int _resendCountdown = 0;
@@ -166,6 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.read(activeRoleProvider.notifier).state = newRole;
     ref.read(loginFormProvider.notifier).reset();
     // Clear the form when switching roles — no pre-filled mobile or OTP.
+    _otpVisible = false;
     _mobileCtrl.clear();
     _emailCtrl.clear();
     _otpCtrl.clear();
@@ -274,6 +276,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _resendOtp() async {
     ref.read(loginFormProvider.notifier).resetOtp();
     _otpCtrl.clear();
+    _otpVisible = false;
     // _sendOtp() restarts the 120s countdown on success — don't start a second
     // timer here or the countdown decrements twice as fast.
     await _sendOtp();
@@ -566,6 +569,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _otpCtrl,
                     keyboardType: TextInputType.number,
                     required: true,
+                    // Masked so the code is never readable over the user's
+                    // shoulder; the eye toggle is there for mistyping.
+                    obscureText: !_otpVisible,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _otpVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20,
+                        color: SevaCareColors.textMuted,
+                      ),
+                      tooltip: _otpVisible ? 'Hide OTP' : 'Show OTP',
+                      onPressed: () =>
+                          setState(() => _otpVisible = !_otpVisible),
+                    ),
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(4),

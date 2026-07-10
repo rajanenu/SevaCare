@@ -90,8 +90,11 @@ public class AppointmentRequestService {
                 now, confirmed.updatedAt()
             );
         } catch (Exception e) {
-            log.warn("appointment_request_autoconfirm_failed requestPublicId={} tenantPublicId={} reason={}",
-                requestPublicId, tenantPublicId, e.getMessage());
+            // The request survives as pending so the doctor can confirm manually, but
+            // a patient who expected a token just got "we'll call you" instead — log
+            // the stack so the cause is visible rather than inferred.
+            log.warn("appointment_request_autoconfirm_failed requestPublicId={} tenantPublicId={} source={} reason={}",
+                requestPublicId, tenantPublicId, bookingSource, e.getMessage(), e);
         }
 
         return new HospitalManagementDtos.AppointmentRequestView(

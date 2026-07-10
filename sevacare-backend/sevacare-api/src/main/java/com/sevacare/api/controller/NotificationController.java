@@ -15,6 +15,8 @@ import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.NotificationDtos;
 import com.sevacare.shared.tenant.TenantContext;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1")
 public class NotificationController {
@@ -75,13 +77,16 @@ public class NotificationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<String> sendAdminMessage(
             @PathVariable String tenantPublicId,
-            @RequestBody NotificationDtos.AdminMessageRequest body
+            @Valid @RequestBody NotificationDtos.AdminMessageRequest body
     ) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
+        if (body.targetType() == null || body.targetType().isBlank()) {
+            throw new IllegalArgumentException("targetType is required");
+        }
 
-        switch (body.targetType().toUpperCase()) {
+        switch (body.targetType().trim().toUpperCase()) {
             case "ALL" -> doctorRepository
                     .findByTenantPublicIdAndActiveTrueOrderByDoctorPublicIdAsc(tenantPublicId)
                     .forEach(doc -> notificationService.createNotification(

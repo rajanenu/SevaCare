@@ -105,18 +105,13 @@ public class ScheduledTasksService {
     }
 
     private void processRemindersForTenant(String tenantPublicId, LocalDateTime now, LocalDateTime cutoff) {
-        List<Appointment> upcoming = appointmentRepository.findByTenantPublicIdOrderByAppointmentSlotDesc(tenantPublicId)
-                .stream()
-                .filter(a -> "upcoming".equalsIgnoreCase(a.getAppointmentStatus()))
-                .filter(a -> {
-                    try {
-                        LocalDateTime slot = LocalDateTime.parse(a.getAppointmentSlot(), DT_PARSE);
-                        return slot.isAfter(now) && slot.isBefore(cutoff);
-                    } catch (Exception ex) {
-                        return false;
-                    }
-                })
-                .toList();
+        // Filtered in the database on (tenant, status, slot range) — appointment_slot
+        // is "yyyy-MM-dd HH:mm", so a string BETWEEN is also a chronological one.
+        // Pulling the tenant's entire appointment history every 30 minutes and
+        // filtering in memory got slower with every booking the hospital ever took.
+        List<Appointment> upcoming = appointmentRepository
+                .findByTenantPublicIdAndAppointmentStatusAndAppointmentSlotBetween(
+                        tenantPublicId, "upcoming", now.format(DT_PARSE), cutoff.format(DT_PARSE));
 
         for (Appointment appt : upcoming) {
             if (notificationService.reminderAlreadySent(tenantPublicId, appt.getAppointmentPublicId(), "APPOINTMENT_REMINDER")) {

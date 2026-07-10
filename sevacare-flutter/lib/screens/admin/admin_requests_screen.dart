@@ -19,20 +19,16 @@ class AdminRequestsScreen extends ConsumerStatefulWidget {
 
 class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
     with AutoRefreshMixin {
-  int _tab = 0; // 0=Leave Requests, 1=Send Message
+  int _tab = 0; // 0=Requests (leave + doctor messages), 1=Send Message
   LeaveRequestCollection? _requests;
   bool _loading = true;
   String? _error;
 
-  // Message compose
+  // Message compose — the target selection lives in the composer sheet; these
+  // controllers outlive it so a draft survives dismissing the sheet.
   final _titleCtrl = TextEditingController();
   final _bodyCtrl  = TextEditingController();
-  // ALL | DEPARTMENT | INDIVIDUAL
-  String  _targetType      = 'ALL';
-  String? _filterSpecialty;   // for DEPARTMENT + INDIVIDUAL
-  String? _targetDoctorId;    // for INDIVIDUAL
   List<DoctorRecord> _doctors = [];
-  bool    _sending    = false;
   String? _sendSuccess;
 
   @override
@@ -152,50 +148,50 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
     }
   }
 
-  Future<void> _sendMessage() async {
+  /// Returns true when the message went out, so the composer sheet knows
+  /// whether to close itself.
+  Future<bool> _sendMessage({
+    required String targetType,
+    String? targetSpecialty,
+    String? targetDoctorId,
+  }) async {
     if (_titleCtrl.text.trim().isEmpty || _bodyCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Title and message are required.')),
       );
-      return;
+      return false;
     }
-    if (_targetType == 'DEPARTMENT' && (_filterSpecialty == null || _filterSpecialty!.isEmpty)) {
+    if (targetType == 'DEPARTMENT' && (targetSpecialty == null || targetSpecialty.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a department.')),
       );
-      return;
+      return false;
     }
-    if (_targetType == 'INDIVIDUAL' && (_targetDoctorId == null || _targetDoctorId!.isEmpty)) {
+    if (targetType == 'INDIVIDUAL' && (targetDoctorId == null || targetDoctorId.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a doctor.')),
       );
-      return;
+      return false;
     }
-    setState(() { _sending = true; _sendSuccess = null; });
     try {
       final auth = ref.read(authProvider);
       await ref.read(repositoryProvider).sendAdminMessage(
         auth.tenantPublicId ?? '',
         auth.token ?? '',
-        title:          _titleCtrl.text.trim(),
-        body:           _bodyCtrl.text.trim(),
-        targetType:     _targetType,
-        targetSpecialty: _filterSpecialty,
-        targetDoctorId: _targetType == 'INDIVIDUAL' ? _targetDoctorId : null,
+        title:           _titleCtrl.text.trim(),
+        body:            _bodyCtrl.text.trim(),
+        targetType:      targetType,
+        targetSpecialty: targetSpecialty,
+        targetDoctorId:  targetDoctorId,
       );
-      if (mounted) {
-        setState(() {
-          _sendSuccess = switch (_targetType) {
-            'ALL'        => 'Message sent to all doctors.',
-            'DEPARTMENT' => 'Message sent to $_filterSpecialty department.',
-            _            => 'Message sent to selected doctor.',
-          };
-          _titleCtrl.clear();
-          _bodyCtrl.clear();
-          _filterSpecialty = null;
-          _targetDoctorId  = null;
-        });
-      }
+      _sendSuccess = switch (targetType) {
+        'ALL'        => 'Message sent to all doctors.',
+        'DEPARTMENT' => 'Message sent to $targetSpecialty department.',
+        _            => 'Message sent to selected doctor.',
+      };
+      _titleCtrl.clear();
+      _bodyCtrl.clear();
+      return true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -203,8 +199,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
           backgroundColor: SevaCareColors.danger,
         ));
       }
-    } finally {
-      if (mounted) { setState(() => _sending = false); }
+      return false;
     }
   }
 
@@ -215,10 +210,6 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
     }
     return set.toList()..sort();
   }
-
-  List<DoctorRecord> get _filteredDoctors => _filterSpecialty == null
-      ? _doctors
-      : _doctors.where((d) => d.specialty == _filterSpecialty).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +236,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
           child: Row(
             children: [
               _TabBtn(
-                label: tr(ref, 'Leave Requests'),
+                label: tr(ref, 'Requests'),
                 active: _tab == 0,
                 badge: pending > 0 ? pending : null,
                 onTap: () => setState(() => _tab = 0),
@@ -330,94 +321,38 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
     );
   }
 
+  /// The compose form used to live inline in this tab. Between the dashboard's
+  /// header and tab strip, this screen's own header and tab strip, and the
+  /// bottom nav, the form was left a sliver of height — and with the keyboard
+  /// open the Title and Message fields collapsed to a couple of pixels. The
+  /// form now owns a full-height sheet where nothing competes for the space.
   Widget _buildMessageTab() {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Target type selector (3 chips) ──────────────────────────────────
           Row(children: [
-            Expanded(child: _TargetChip(
-              label: tr(ref, 'All'),
-              icon: Icons.groups_outlined,
-              selected: _targetType == 'ALL',
-              onTap: () => setState(() {
-                _targetType = 'ALL';
-                _filterSpecialty = null;
-                _targetDoctorId  = null;
-              }),
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _TargetChip(
-              label: tr(ref, 'Dept.'),
-              icon: Icons.business_outlined,
-              selected: _targetType == 'DEPARTMENT',
-              onTap: () => setState(() {
-                _targetType = 'DEPARTMENT';
-                _targetDoctorId = null;
-              }),
-            )),
-            const SizedBox(width: 8),
-            Expanded(child: _TargetChip(
-              label: tr(ref, 'Doctor'),
-              icon: Icons.person_outline,
-              selected: _targetType == 'INDIVIDUAL',
-              onTap: () => setState(() => _targetType = 'INDIVIDUAL'),
-            )),
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: SevaCareColors.primarySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.campaign_outlined,
+                  size: 21, color: SevaCareColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(ref, 'Message your doctors'),
+                    style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                const SizedBox(height: 2),
+                Text(tr(ref, 'Reach everyone, one department, or a single doctor.'),
+                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+              ]),
+            ),
           ]),
-          const SizedBox(height: 12),
-
-          // ── Department / Specialty filter (DEPARTMENT + INDIVIDUAL) ──────────
-          if (_targetType == 'DEPARTMENT' || _targetType == 'INDIVIDUAL') ...[
-            AppDropdown<String?>(
-              label: _targetType == 'DEPARTMENT'
-                  ? tr(ref, 'Select Department')
-                  : tr(ref, 'Filter by Specialty (optional)'),
-              value: _filterSpecialty,
-              items: [
-                DropdownMenuItem<String?>(
-                    value: null, child: Text(tr(ref, '— All Departments —'))),
-                ..._uniqueSpecialties.map((s) =>
-                    DropdownMenuItem<String?>(value: s, child: Text(s))),
-              ],
-              onChanged: (v) => setState(() {
-                _filterSpecialty = v;
-                _targetDoctorId  = null; // reset doctor on specialty change
-              }),
-            ),
-            const SizedBox(height: 4),
-          ],
-
-          // ── Individual doctor picker ─────────────────────────────────────────
-          if (_targetType == 'INDIVIDUAL') ...[
-            AppDropdown<String>(
-              label: tr(ref, 'Select Doctor'),
-              value: _targetDoctorId ?? '',
-              items: [
-                DropdownMenuItem(value: '', child: Text(tr(ref, '— Select Doctor —'))),
-                ..._filteredDoctors.map((d) => DropdownMenuItem(
-                  value: d.doctorPublicId,
-                  child: Text('Dr. ${d.fullName}'),
-                )),
-              ],
-              onChanged: (v) => setState(
-                  () => _targetDoctorId = (v == null || v.isEmpty) ? null : v),
-            ),
-            const SizedBox(height: 4),
-          ],
-
-          AppFormField(
-            label: tr(ref, 'Title'),
-            controller: _titleCtrl,
-            placeholder: 'e.g. Schedule Change for Next Week',
-          ),
-          AppFormField(
-            label: tr(ref, 'Message'),
-            controller: _bodyCtrl,
-            placeholder: 'Write your message to the doctor(s)…',
-            maxLines: 4,
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
 
           if (_sendSuccess != null) ...[
             Container(
@@ -434,21 +369,270 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
                     style: AppTextStyles.bodyText(SevaCareColors.mintForeground))),
               ]),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
           ],
 
           PrimaryButton(
-            label: switch (_targetType) {
-              'ALL'        => 'Send to All Doctors',
-              'DEPARTMENT' => 'Send to Department',
-              _            => 'Send to Doctor',
-            },
-            icon: Icons.send_rounded,
-            isLoading: _sending,
+            label: tr(ref, 'Compose Message'),
+            icon: Icons.edit_outlined,
             fullWidth: true,
-            onPressed: _sending ? null : _sendMessage,
+            onPressed: _doctors.isEmpty ? null : _openComposer,
           ),
+          if (_doctors.isEmpty) ...[
+            const SizedBox(height: 10),
+            Text(tr(ref, 'Add a doctor before you can send messages.'),
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _openComposer() async {
+    setState(() => _sendSuccess = null);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: SevaCareColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _MessageComposerSheet(
+        titleCtrl: _titleCtrl,
+        bodyCtrl: _bodyCtrl,
+        specialties: _uniqueSpecialties,
+        doctors: _doctors,
+        onSend: _sendMessage,
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+}
+
+// ── Test seam ──────────────────────────────────────────────────────────────────
+
+/// The composer normally opens as a modal sheet from [AdminRequestsScreen].
+/// Widget tests need it standalone to assert the Title/Message fields keep a
+/// usable height when the keyboard is up.
+@visibleForTesting
+Widget buildMessageComposerForTest({
+  required TextEditingController titleCtrl,
+  required TextEditingController bodyCtrl,
+  List<String> specialties = const [],
+  List<DoctorRecord> doctors = const [],
+}) {
+  return _MessageComposerSheet(
+    titleCtrl: titleCtrl,
+    bodyCtrl: bodyCtrl,
+    specialties: specialties,
+    doctors: doctors,
+    onSend: ({required targetType, targetSpecialty, targetDoctorId}) async => true,
+  );
+}
+
+// ── Full-height message composer ───────────────────────────────────────────────
+
+/// Owns its own target selection so typing never rebuilds the screen behind it.
+/// Sits on top of the keyboard and claims the height that is left, so the Title
+/// and Message fields keep their full size no matter what else is on screen.
+class _MessageComposerSheet extends ConsumerStatefulWidget {
+  final TextEditingController titleCtrl;
+  final TextEditingController bodyCtrl;
+  final List<String> specialties;
+  final List<DoctorRecord> doctors;
+  final Future<bool> Function({
+    required String targetType,
+    String? targetSpecialty,
+    String? targetDoctorId,
+  }) onSend;
+
+  const _MessageComposerSheet({
+    required this.titleCtrl,
+    required this.bodyCtrl,
+    required this.specialties,
+    required this.doctors,
+    required this.onSend,
+  });
+
+  @override
+  ConsumerState<_MessageComposerSheet> createState() => _MessageComposerSheetState();
+}
+
+class _MessageComposerSheetState extends ConsumerState<_MessageComposerSheet> {
+  // ALL | DEPARTMENT | INDIVIDUAL
+  String  _targetType = 'ALL';
+  String? _filterSpecialty;
+  String? _targetDoctorId;
+  bool    _sending = false;
+
+  List<DoctorRecord> get _filteredDoctors => _filterSpecialty == null
+      ? widget.doctors
+      : widget.doctors.where((d) => d.specialty == _filterSpecialty).toList();
+
+  Future<void> _submit() async {
+    setState(() => _sending = true);
+    final sent = await widget.onSend(
+      targetType:      _targetType,
+      targetSpecialty: _filterSpecialty,
+      targetDoctorId:  _targetType == 'INDIVIDUAL' ? _targetDoctorId : null,
+    );
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (sent) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboardInset = media.viewInsets.bottom;
+    final available = media.size.height - media.padding.top - keyboardInset;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SizedBox(
+        height: available * 0.94,
+        child: Column(
+          children: [
+            // Grab handle + title bar are pinned; only the form scrolls.
+            const SizedBox(height: 10),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: SevaCareColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+              child: Row(children: [
+                Expanded(child: Text(tr(ref, 'New Message'),
+                    style: AppTextStyles.sectionTitle(SevaCareColors.text))),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: SevaCareColors.textMuted),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ]),
+            ),
+            const Divider(height: 1),
+
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr(ref, 'Send to'),
+                        style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    const SizedBox(height: 8),
+
+                    // ── Target type selector (3 chips) ──────────────────────
+                    Row(children: [
+                      Expanded(child: _TargetChip(
+                        label: tr(ref, 'All'),
+                        icon: Icons.groups_outlined,
+                        selected: _targetType == 'ALL',
+                        onTap: () => setState(() {
+                          _targetType = 'ALL';
+                          _filterSpecialty = null;
+                          _targetDoctorId  = null;
+                        }),
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(child: _TargetChip(
+                        label: tr(ref, 'Dept.'),
+                        icon: Icons.business_outlined,
+                        selected: _targetType == 'DEPARTMENT',
+                        onTap: () => setState(() {
+                          _targetType = 'DEPARTMENT';
+                          _targetDoctorId = null;
+                        }),
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(child: _TargetChip(
+                        label: tr(ref, 'Doctor'),
+                        icon: Icons.person_outline,
+                        selected: _targetType == 'INDIVIDUAL',
+                        onTap: () => setState(() => _targetType = 'INDIVIDUAL'),
+                      )),
+                    ]),
+                    const SizedBox(height: 16),
+
+                    // ── Department / Specialty filter ───────────────────────
+                    if (_targetType == 'DEPARTMENT' || _targetType == 'INDIVIDUAL')
+                      AppDropdown<String?>(
+                        label: _targetType == 'DEPARTMENT'
+                            ? tr(ref, 'Select Department')
+                            : tr(ref, 'Filter by Specialty (optional)'),
+                        value: _filterSpecialty,
+                        items: [
+                          DropdownMenuItem<String?>(
+                              value: null, child: Text(tr(ref, '— All Departments —'))),
+                          ...widget.specialties.map((s) =>
+                              DropdownMenuItem<String?>(value: s, child: Text(s))),
+                        ],
+                        onChanged: (v) => setState(() {
+                          _filterSpecialty = v;
+                          _targetDoctorId  = null; // reset doctor on specialty change
+                        }),
+                      ),
+
+                    // ── Individual doctor picker ────────────────────────────
+                    if (_targetType == 'INDIVIDUAL')
+                      AppDropdown<String>(
+                        label: tr(ref, 'Select Doctor'),
+                        value: _targetDoctorId ?? '',
+                        items: [
+                          DropdownMenuItem(value: '', child: Text(tr(ref, '— Select Doctor —'))),
+                          ..._filteredDoctors.map((d) => DropdownMenuItem(
+                            value: d.doctorPublicId,
+                            child: Text('Dr. ${d.fullName}'),
+                          )),
+                        ],
+                        onChanged: (v) => setState(
+                            () => _targetDoctorId = (v == null || v.isEmpty) ? null : v),
+                      ),
+
+                    AppFormField(
+                      label: tr(ref, 'Title'),
+                      controller: widget.titleCtrl,
+                      placeholder: 'e.g. Schedule Change for Next Week',
+                      required: true,
+                    ),
+                    AppFormField(
+                      label: tr(ref, 'Message'),
+                      controller: widget.bodyCtrl,
+                      placeholder: 'Write your message to the doctor(s)…',
+                      maxLines: 6,
+                      required: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Send action pinned above the keyboard, never over the form.
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              decoration: const BoxDecoration(
+                color: SevaCareColors.surface,
+                border: Border(top: BorderSide(color: SevaCareColors.border)),
+              ),
+              child: PrimaryButton(
+                label: switch (_targetType) {
+                  'ALL'        => 'Send to All Doctors',
+                  'DEPARTMENT' => 'Send to Department',
+                  _            => 'Send to Doctor',
+                },
+                icon: Icons.send_rounded,
+                isLoading: _sending,
+                fullWidth: true,
+                onPressed: _sending ? null : _submit,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

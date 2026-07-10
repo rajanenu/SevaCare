@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -33,6 +34,14 @@ class _CinematicIntroState extends State<CinematicIntro>
   late final List<_IntroParticle> _near;
   bool _finished = false;
 
+  /// The intro is painted over the whole app, so if its animation never
+  /// completes the app is simply invisible. Ticker-driven progress stalls
+  /// whenever the engine stops producing frames — which is exactly what
+  /// happens when Android cold-starts the process while it is still off
+  /// screen. This wall-clock timer is independent of the ticker and dismisses
+  /// the overlay no matter what the animation did.
+  Timer? _failsafe;
+
   static const _letters = ['S', 'e', 'v', 'a', 'C', 'a', 'r', 'e'];
 
   @override
@@ -45,6 +54,7 @@ class _CinematicIntroState extends State<CinematicIntro>
         if (status == AnimationStatus.completed) _finish();
       });
     _ctrl.forward();
+    _failsafe = Timer(const Duration(seconds: 9), _finish);
 
     // Deterministic particle layout (seeded, same idiom as PremiumHeroAnimation)
     _far = List.generate(16, (i) => _IntroParticle.seeded(i * 131 + 7, small: true));
@@ -61,6 +71,7 @@ class _CinematicIntroState extends State<CinematicIntro>
 
   @override
   void dispose() {
+    _failsafe?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -68,6 +79,7 @@ class _CinematicIntroState extends State<CinematicIntro>
   void _finish() {
     if (_finished || !mounted) return;
     _finished = true;
+    _failsafe?.cancel();
     widget.onFinished();
   }
 

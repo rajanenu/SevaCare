@@ -129,14 +129,30 @@ public class DoctorAvailabilityService {
         }
     }
 
+    /**
+     * A row whose start/end time is null or unparseable describes no window at
+     * all — it is dropped rather than allowed to take down every availability
+     * lookup for the doctor.
+     */
+    private static LocalTime readTime(String raw) {
+        if (raw == null || raw.length() < 5) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(raw.substring(0, 5), TIME_FMT);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
     private List<Window> loadWindows(String schema, String doctorPublicId) {
-        return jdbcTemplate.query(
+        List<Window> windows = jdbcTemplate.query(
                 "SELECT day_scope, start_time, end_time, from_date, to_date, include_saturday, include_sunday " +
                 "FROM " + schema + ".doctor_availability WHERE doctor_public_id = ? AND active = true",
                 (rs, i) -> new Window(
                         rs.getString("day_scope"),
-                        LocalTime.parse(rs.getString("start_time").substring(0, 5), TIME_FMT),
-                        LocalTime.parse(rs.getString("end_time").substring(0, 5), TIME_FMT),
+                        readTime(rs.getString("start_time")),
+                        readTime(rs.getString("end_time")),
                         rs.getDate("from_date") == null ? null : rs.getDate("from_date").toLocalDate(),
                         rs.getDate("to_date") == null ? null : rs.getDate("to_date").toLocalDate(),
                         rs.getBoolean("include_saturday"),
@@ -144,6 +160,8 @@ public class DoctorAvailabilityService {
                 ),
                 doctorPublicId
         );
+        windows.removeIf(w -> w.start() == null || w.end() == null);
+        return windows;
     }
 
     /**

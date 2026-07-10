@@ -29,14 +29,27 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authorization != null && authorization.startsWith("Bearer ")) {
             String token = authorization.substring(7);
-            TokenClaims claims = tokenService.parse(token);
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    claims.subjectPublicId(),
-                    token,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + claims.role().toUpperCase()))
-            );
-            authentication.setDetails(claims);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // A token that is malformed, tampered with, or signed by a previous
+            // secret must leave the request anonymous so Spring Security answers
+            // 401 — and the app auto-logs-out. Letting the exception escape the
+            // filter chain instead produced an opaque 500 the client never
+            // recovered from.
+            try {
+                TokenClaims claims = tokenService.parse(token);
+                String role = claims.role();
+                if (role != null && !role.isBlank() && claims.subjectPublicId() != null) {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            claims.subjectPublicId(),
+                            token,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role.trim().toUpperCase()))
+                    );
+                    authentication.setDetails(claims);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            } catch (RuntimeException e) {
+                logger.debug("token_rejected reason=" + e.getMessage());
+                SecurityContextHolder.clearContext();
+            }
         }
 
         filterChain.doFilter(request, response);

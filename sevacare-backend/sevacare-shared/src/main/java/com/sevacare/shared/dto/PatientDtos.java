@@ -217,7 +217,10 @@ public final class PatientDtos {
                 String notes,
                 // When set, a follow_up medical-history record is created for
                 // today + this many days.
-                Integer followUpDays
+                Integer followUpDays,
+                // The doctor's per-consult choice to WhatsApp the prescription (and
+                // schedule the follow-up reminder). Absent means opted in.
+                Boolean sendWhatsapp
             ) {
             }
 
@@ -227,7 +230,9 @@ public final class PatientDtos {
                 String doctorPublicId,
                 String issuedOn,
                 int medicineCount,
-                String status
+                String status,
+                // True when the prescription was queued for WhatsApp delivery.
+                boolean whatsappQueued
             ) {
             }
 

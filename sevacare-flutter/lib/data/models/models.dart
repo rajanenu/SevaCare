@@ -1160,6 +1160,10 @@ class PrescriptionUploadRequest {
   final String? notes;
   final int? followUpDays;
 
+  /// Whether the backend should WhatsApp this prescription to the patient's
+  /// registered mobile, and schedule the follow-up reminder alongside it.
+  final bool sendWhatsapp;
+
   const PrescriptionUploadRequest({
     required this.patientPublicId,
     required this.doctorPublicId,
@@ -1168,6 +1172,7 @@ class PrescriptionUploadRequest {
     required this.medicines,
     this.notes,
     this.followUpDays,
+    this.sendWhatsapp = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1178,6 +1183,7 @@ class PrescriptionUploadRequest {
     'medicines': medicines.map((m) => m.toJson()).toList(),
     if (notes != null && notes!.isNotEmpty) 'notes': notes,
     if (followUpDays != null) 'followUpDays': followUpDays,
+    'sendWhatsapp': sendWhatsapp,
   };
 }
 

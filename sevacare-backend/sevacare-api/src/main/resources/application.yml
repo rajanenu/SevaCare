@@ -18,6 +18,10 @@ spring:
       # Keep DB-side now()/CURRENT_TIMESTAMP defaults in IST too, matching the
       # JVM default set in SevaCareApiApplication (Cloud SQL defaults to UTC).
       connection-init-sql: SET TIME ZONE 'Asia/Kolkata'
+      # A borrowed connection that outlives a request is a leak, not a slow query.
+      max-lifetime: 900000
+      idle-timeout: 300000
+      leak-detection-threshold: 20000
   jpa:
     hibernate:
       ddl-auto: none
@@ -25,6 +29,13 @@ spring:
     properties:
       hibernate:
         format_sql: false
+        # Batch the per-medicine inserts a consult issues, and let read-heavy
+        # queue screens pull rows in blocks instead of one round-trip each.
+        jdbc:
+          batch_size: 30
+          fetch_size: 100
+        order_inserts: true
+        order_updates: true
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -40,6 +51,16 @@ sevacare:
     onboarding-dir: ${SEVACARE_ONBOARDING_STORAGE_DIR:${user.home}/sevacare-storage/onboarding}
   cors:
     allowed-origins: ${SEVACARE_CORS_ORIGINS:http://localhost:8087,http://192.168.*.*:8087,http://10.*.*.*:8087}
+  whatsapp:
+    # Messages are always queued into public.whatsapp_outbox. They are only
+    # delivered once phone-number-id + access-token are set (Meta WhatsApp Cloud
+    # API); until then rows are parked as NO_PROVIDER with a wa.me link intact.
+    enabled: ${SEVACARE_WHATSAPP_ENABLED:true}
+    api-base: ${SEVACARE_WHATSAPP_API_BASE:https://graph.facebook.com/v20.0}
+    phone-number-id: ${SEVACARE_WHATSAPP_PHONE_NUMBER_ID:}
+    access-token: ${SEVACARE_WHATSAPP_ACCESS_TOKEN:}
+    country-code: ${SEVACARE_WHATSAPP_COUNTRY_CODE:91}
+    drain-interval-ms: ${SEVACARE_WHATSAPP_DRAIN_INTERVAL_MS:60000}
 
 server:
   port: ${PORT:8080}

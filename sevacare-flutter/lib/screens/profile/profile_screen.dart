@@ -40,6 +40,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   DoctorRecord? _doctorRecord; // kept to preserve fields this form doesn't edit
   bool _showOptionalFields = false;
   bool _personalInfoExpanded = false; // personal info accordion — closed by default
+  bool _availabilityExpanded = false; // availability accordion — closed by default
   bool _loading = true;
   bool _saving = false;
   bool _saved = false;
@@ -904,34 +905,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           placeholder: 'e.g. MS Cardiology, USA',
                           onChanged: (_) => setState(() => _saved = false),
                         ),
-                        const SizedBox(height: 8),
-                        Text('Availability', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Set when you take consultations, and how patients can book (slot, token, or both).',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
-                        ),
-                        const SizedBox(height: 10),
-                        AppDropdown<String>(
-                          label: 'Booking Mode',
-                          value: _bookingMode,
-                          items: const [
-                            DropdownMenuItem(value: 'BOTH', child: Text('Slot + Token')),
-                            DropdownMenuItem(value: 'SLOT', child: Text('Slot only')),
-                            DropdownMenuItem(value: 'TOKEN', child: Text('Token only')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) setState(() { _bookingMode = v; _saved = false; });
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        AvailabilityEditor(
-                          initialRules: _availabilityRules,
-                          onChanged: (rules) => setState(() {
-                            _availabilityRules = rules;
-                            _saved = false;
-                          }),
-                        ),
                       ],
                       GestureDetector(
                         onTap: () => setState(() => _showOptionalFields = !_showOptionalFields),
@@ -993,6 +966,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // ── Availability (own accordion, closed by default) ───────────
+                // Working hours are a long form. Folding them into Personal
+                // Information made the profile screen feel like a wall of
+                // controls, so they get their own collapsed section and their
+                // own Save — which is the same _save() the profile card uses.
+                if (widget.role == UserRole.doctor) ...[
+                  _AccordionCard(
+                    title: 'Availability & Booking Mode',
+                    expanded: _availabilityExpanded,
+                    onToggle: () => setState(() => _availabilityExpanded = !_availabilityExpanded),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Set when you take consultations, and how patients can book (slot, token, or both).',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                        const SizedBox(height: 10),
+                        AppDropdown<String>(
+                          label: 'Booking Mode',
+                          value: _bookingMode,
+                          items: const [
+                            DropdownMenuItem(value: 'BOTH', child: Text('Slot + Token')),
+                            DropdownMenuItem(value: 'SLOT', child: Text('Slot only')),
+                            DropdownMenuItem(value: 'TOKEN', child: Text('Token only')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() { _bookingMode = v; _saved = false; });
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        AvailabilityEditor(
+                          initialRules: _availabilityRules,
+                          onChanged: (rules) => setState(() {
+                            _availabilityRules = rules;
+                            _saved = false;
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                        PrimaryButton(
+                          label: 'Save Availability',
+                          onPressed: _save,
+                          isLoading: _saving,
+                          fullWidth: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // ── Settings ─────────────────────────────────────────────────
                 AppCard(

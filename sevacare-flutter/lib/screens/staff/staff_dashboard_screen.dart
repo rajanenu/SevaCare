@@ -90,9 +90,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           // All tabs stay mounted (IndexedStack) so switching doesn't refetch
           // or flash loading states, and each keeps its own scroll position.
           Expanded(
-            child: IndexedStack(
+            child: TabStack(
               index: _tab,
-              sizing: StackFit.expand,
               children: [
                 _tabPage(_BookTab(
                   key: ValueKey(_prefillPatient?.patientPublicId ?? '__new__'),

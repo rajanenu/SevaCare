@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.admin.service.AdminDomainService;
 import com.sevacare.api.security.TokenService;
+import com.sevacare.api.service.OtpService;
 import com.sevacare.doctor.service.DoctorDomainService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.AuthDtos;
@@ -22,14 +23,13 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
-    private static final String LOCAL_OTP = "0000";
-
     private final TenantRegistryService tenantRegistryService;
     private final PatientDomainService patientDomainService;
     private final DoctorDomainService doctorDomainService;
     private final AdminDomainService adminDomainService;
     private final PlatformAdminService platformAdminService;
     private final TokenService tokenService;
+    private final OtpService otpService;
 
     public AuthController(
             TenantRegistryService tenantRegistryService,
@@ -37,7 +37,8 @@ public class AuthController {
             DoctorDomainService doctorDomainService,
             AdminDomainService adminDomainService,
             PlatformAdminService platformAdminService,
-            TokenService tokenService
+            TokenService tokenService,
+            OtpService otpService
     ) {
         this.tenantRegistryService = tenantRegistryService;
         this.patientDomainService = patientDomainService;
@@ -45,6 +46,7 @@ public class AuthController {
         this.adminDomainService = adminDomainService;
         this.platformAdminService = platformAdminService;
         this.tokenService = tokenService;
+        this.otpService = otpService;
     }
 
     @PostMapping("/otp/request")
@@ -57,7 +59,7 @@ public class AuthController {
                     request.tenantPublicId(),
                     request.role(),
                     request.mobileNumber(),
-                    LOCAL_OTP
+                    null
             ));
         }
 
@@ -91,7 +93,7 @@ public class AuthController {
                 request.tenantPublicId(),
                 request.role(),
                 request.mobileNumber(),
-                LOCAL_OTP
+                null
         ));
     }
 
@@ -101,7 +103,7 @@ public class AuthController {
             if (!platformAdminService.hasActivePlatformAdminByMobile(request.mobileNumber())) {
                 throw new IllegalArgumentException("Unauthorized platform admin mobile number");
             }
-            if (!LOCAL_OTP.equals(request.otp())) {
+            if (!otpService.matches(request.mobileNumber(), request.otp())) {
                 throw new IllegalArgumentException("Invalid OTP");
             }
             String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
@@ -110,7 +112,7 @@ public class AuthController {
             return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName, "ADMIN"));
         }
 
-        if (!LOCAL_OTP.equals(request.otp())) {
+        if (!otpService.matches(request.mobileNumber(), request.otp())) {
             throw new IllegalArgumentException("Invalid OTP");
         }
 

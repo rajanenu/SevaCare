@@ -373,6 +373,7 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
   bool _submitting = false;
   bool _submitted = false;
   String? _assignedToken;
+  String? _requestPublicId;
   String? _error;
 
   @override
@@ -455,6 +456,7 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
         setState(() {
           _submitting = false;
           _submitted = true;
+          _requestPublicId = result['requestPublicId'] as String?;
           _assignedToken = result['requestStatus'] == 'confirmed'
               ? result['assignedSlot'] as String?
               : null;
@@ -493,36 +495,82 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
     );
   }
 
+  /// Mirrors the QR portal's confirmation page: green tick, the token in a
+  /// prominent pill, and the request ID. A chatbot booking is the same booking,
+  /// so it must land with the same certainty.
   Widget _successContent() {
     final confirmed = _assignedToken != null && _assignedToken!.isNotEmpty;
+    final hospital = widget.hospitalName.isNotEmpty ? widget.hospitalName : 'the hospital';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(confirmed ? '✅ Appointment confirmed!' : '✅ Appointment request sent!',
-            style: AppTextStyles.bodyText(SevaCareColors.text).copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: confirmed
+                    ? const Color(0xFFE7F8F0)
+                    : SevaCareColors.primarySoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                confirmed ? Icons.check_rounded : Icons.schedule_rounded,
+                size: 20,
+                color: confirmed ? const Color(0xFF12A150) : SevaCareColors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                confirmed ? 'Appointment Confirmed!' : 'Request Submitted!',
+                style: AppTextStyles.bodyText(SevaCareColors.text)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
         if (confirmed) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: SevaCareColors.primarySoft,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(_assignedToken!,
-                style: AppTextStyles.bodyText(SevaCareColors.primary)
-                    .copyWith(fontWeight: FontWeight.w700)),
+            child: Text(
+              _assignedToken!,
+              style: AppTextStyles.bodyText(SevaCareColors.primary)
+                  .copyWith(fontWeight: FontWeight.w800, fontSize: 15),
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            'Show this token at ${widget.hospitalName.isNotEmpty ? widget.hospitalName : 'the hospital'} reception on your visit.',
+            'Your token is booked. Show this token number at $hospital reception on your visit.',
             style: AppTextStyles.label(SevaCareColors.textMuted),
           ),
         ] else
           Text(
-            '${widget.hospitalName.isNotEmpty ? widget.hospitalName : 'The hospital'} will contact you on ${_mobileCtrl.text.trim()} to confirm your slot.',
+            'Your request has been sent to the doctor. They will review it and confirm your slot. '
+            '$hospital will contact you on ${_mobileCtrl.text.trim()}.',
             style: AppTextStyles.label(SevaCareColors.textMuted),
           ),
+        if (_requestPublicId != null && _requestPublicId!.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: SevaCareColors.background,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: SevaCareColors.border),
+            ),
+            child: Text('Request ID: ${_requestPublicId!}',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+        ],
       ],
     );
   }

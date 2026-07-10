@@ -284,9 +284,8 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
           const SizedBox(height: 16),
 
           Expanded(
-            child: IndexedStack(
+            child: TabStack(
               index: _tab,
-              sizing: StackFit.expand,
               children: [
                 _tabPage(_leaveForm()),
                 _tabPage(_messageForm()),

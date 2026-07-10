@@ -52,6 +52,7 @@ public class PatientDomainService {
     private final AppointmentAttachmentRepository appointmentAttachmentRepository;
     private final DoctorReviewRepository doctorReviewRepository;
         private final JdbcTemplate jdbcTemplate;
+        private final WhatsAppService whatsAppService;
 
     public PatientDomainService(
             PatientRepository patientRepository,
@@ -61,7 +62,8 @@ public class PatientDomainService {
                         MedicalHistoryRepository medicalHistoryRepository,
                         AppointmentAttachmentRepository appointmentAttachmentRepository,
                         DoctorReviewRepository doctorReviewRepository,
-                        JdbcTemplate jdbcTemplate
+                        JdbcTemplate jdbcTemplate,
+                        WhatsAppService whatsAppService
     ) {
         this.patientRepository = patientRepository;
         this.appointmentRepository = appointmentRepository;
@@ -71,7 +73,31 @@ public class PatientDomainService {
         this.appointmentAttachmentRepository = appointmentAttachmentRepository;
         this.doctorReviewRepository = doctorReviewRepository;
                 this.jdbcTemplate = jdbcTemplate;
+                this.whatsAppService = whatsAppService;
     }
+
+        /** Hospital display name, used as the sender identity in outbound WhatsApp messages. */
+        private String hospitalNameOf(String tenantPublicId) {
+                try {
+                        return jdbcTemplate.query(
+                                        "SELECT tenant_name FROM public.tenant_registry WHERE tenant_public_id = ? LIMIT 1",
+                                        rs -> rs.next() ? rs.getString("tenant_name") : null,
+                                        tenantPublicId);
+                } catch (Exception e) {
+                        return null;
+                }
+        }
+
+        private String doctorNameOf(String doctorPublicId) {
+                try {
+                        return jdbcTemplate.query(
+                                        "SELECT full_name FROM " + TenantContext.tenantSchema() + ".doctor WHERE doctor_public_id = ? LIMIT 1",
+                                        rs -> rs.next() ? rs.getString("full_name") : null,
+                                        doctorPublicId);
+                } catch (Exception e) {
+                        return null;
+                }
+        }
 
     @Transactional(readOnly = true)
     public PatientDtos.PatientHomeView home(String tenantPublicId, String patientPublicId) {
@@ -172,6 +198,17 @@ public class PatientDomainService {
                 return new PatientDtos.SlotStatusView(doctorPublicId, date, booked, blocked, onLeave);
         }
 
+        private static LocalTime parseTimeOrNull(String raw) {
+                if (raw == null || raw.isBlank()) {
+                        return null;
+                }
+                try {
+                        return LocalTime.parse(raw.trim());
+                } catch (DateTimeParseException e) {
+                        return null;
+                }
+        }
+
         private List<String> blockedSlotMarks(String doctorPublicId, String date) {
                 String schema = TenantContext.tenantSchema();
                 List<String[]> windows = jdbcTemplate.query(
@@ -181,8 +218,13 @@ public class PatientDomainService {
                 );
                 List<String> marks = new ArrayList<>();
                 for (String[] window : windows) {
-                        LocalTime start = LocalTime.parse(window[0]);
-                        LocalTime end = LocalTime.parse(window[1]);
+                        // A block row with a null/garbage time blocks nothing — skip it
+                        // rather than fail the whole slot lookup for the day.
+                        LocalTime start = parseTimeOrNull(window[0]);
+                        LocalTime end = parseTimeOrNull(window[1]);
+                        if (start == null || end == null) {
+                                continue;
+                        }
                         LocalTime cursor = start.withMinute((start.getMinute() / 15) * 15);
                         while (cursor.isBefore(end)) {
                                 String mark = cursor.format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -264,8 +306,17 @@ public class PatientDomainService {
                         // and token appointments share ONE sequence. The appointment keeps its
                         // chosen time; the token number is what the doctor serves by. Every valid
                         // slot falls in the morning (09:00-14:00) or evening (17:00-21:00) window.
-                        LocalDate slotDate = LocalDate.parse(resolvedSlot.substring(0, 10));
-                        LocalTime slotTime = LocalTime.parse(resolvedSlot.substring(11, 16));
+                        if (resolvedSlot == null || resolvedSlot.length() < 16) {
+                                throw new IllegalArgumentException("Invalid slot. Expected yyyy-MM-ddTHH:mm");
+                        }
+                        LocalDate slotDate;
+                        LocalTime slotTime;
+                        try {
+                                slotDate = LocalDate.parse(resolvedSlot.substring(0, 10));
+                                slotTime = LocalTime.parse(resolvedSlot.substring(11, 16));
+                        } catch (DateTimeParseException e) {
+                                throw new IllegalArgumentException("Invalid slot. Expected yyyy-MM-ddTHH:mm");
+                        }
                         tokenSession = sessionForTime(slotTime);
                         tokenNumber = nextTokenNumber(tenantPublicId, request.doctorPublicId(), slotDate, tokenSession);
                 }
@@ -320,6 +371,22 @@ public class PatientDomainService {
                                 appointmentAttachmentRepository.save(attachment);
                         }
                 }
+
+                // Every booking channel — patient app, IP-Staff, QR portal and chatbot —
+                // funnels through here, so one enqueue covers all four. It joins this
+                // transaction: a rolled-back booking can never leave a queued message.
+                whatsAppService.enqueue(
+                                tenantPublicId,
+                                patient.getMobileNumber(),
+                                WhatsAppService.TYPE_APPOINTMENT_CONFIRMED,
+                                saved.getAppointmentPublicId(),
+                                WhatsAppService.appointmentConfirmedBody(
+                                                hospitalNameOf(tenantPublicId),
+                                                patient.getFullName(),
+                                                doctorNameOf(saved.getDoctorPublicId()),
+                                                saved.getTokenNumber(),
+                                                saved.getTokenSession(),
+                                                saved.getAppointmentSlot()));
 
                 log.info("patient_book_appointment tenantPublicId={} patientPublicId={} appointmentPublicId={} doctorPublicId={} slot={}",
                         tenantPublicId,
@@ -936,7 +1003,7 @@ public class PatientDomainService {
             throw new IllegalArgumentException("Add at least one medicine or a clinical note before completing.");
         }
 
-        patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
+        Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
 
         Prescription prescription = new Prescription();
@@ -969,8 +1036,9 @@ public class PatientDomainService {
             }
         }
 
+        LocalDate followUpDate = null;
         if (request.followUpDays() != null && request.followUpDays() > 0) {
-            LocalDate followUpDate = LocalDate.now().plusDays(request.followUpDays());
+            followUpDate = LocalDate.now().plusDays(request.followUpDays());
             MedicalHistory followUp = new MedicalHistory();
             followUp.setTenantPublicId(tenantPublicId);
             followUp.setPatientPublicId(patientPublicId);
@@ -981,13 +1049,43 @@ public class PatientDomainService {
             medicalHistoryRepository.save(followUp);
         }
 
-        log.info("prescription_upload tenantPublicId={} patientPublicId={} prescriptionPublicId={} doctorPublicId={} medicineCount={} followUpDays={}",
+        // The doctor's checkbox is opt-out, so a missing flag means "send".
+        boolean sendWhatsapp = request.sendWhatsapp() == null || request.sendWhatsapp();
+        if (sendWhatsapp) {
+            String hospitalName = hospitalNameOf(tenantPublicId);
+            List<String> medicineLines = request.medicines() == null ? List.of()
+                    : request.medicines().stream().map(PatientDomainService::medicineLine).toList();
+
+            whatsAppService.enqueue(
+                    tenantPublicId,
+                    patient.getMobileNumber(),
+                    WhatsAppService.TYPE_PRESCRIPTION,
+                    saved.getPrescriptionPublicId(),
+                    WhatsAppService.prescriptionBody(hospitalName, patient.getFullName(), request.doctorName(),
+                            saved.getPrescriptionPublicId(), medicineLines, prescription.getNotes(), request.followUpDays()));
+
+            // Queued now, delivered on the morning of the follow-up date — the outbox
+            // drainer only picks up rows whose scheduled_at has arrived.
+            if (followUpDate != null) {
+                whatsAppService.enqueueAt(
+                        tenantPublicId,
+                        patient.getMobileNumber(),
+                        WhatsAppService.TYPE_FOLLOW_UP,
+                        saved.getPrescriptionPublicId(),
+                        WhatsAppService.followUpBody(hospitalName, patient.getFullName(), request.doctorName(),
+                                followUpDate.toString()),
+                        WhatsAppService.reminderTimeFor(followUpDate));
+            }
+        }
+
+        log.info("prescription_upload tenantPublicId={} patientPublicId={} prescriptionPublicId={} doctorPublicId={} medicineCount={} followUpDays={} whatsapp={}",
                 tenantPublicId,
                 patientPublicId,
                 saved.getPrescriptionPublicId(),
                 saved.getDoctorPublicId(),
                 request.medicines() != null ? request.medicines().size() : 0,
-                request.followUpDays());
+                request.followUpDays(),
+                sendWhatsapp);
 
         return new PatientDtos.PrescriptionUploadResult(
                 saved.getPrescriptionPublicId(),
@@ -995,8 +1093,28 @@ public class PatientDomainService {
                 saved.getDoctorPublicId(),
                 saved.getIssuedOn(),
                 request.medicines() != null ? request.medicines().size() : 0,
-                saved.getStatus()
+                saved.getStatus(),
+                sendWhatsapp
         );
+    }
+
+    /** "Paracetamol 500mg — TDS · 5 days (After food)" */
+    private static String medicineLine(PatientDtos.MedicineUploadRequest m) {
+        StringBuilder sb = new StringBuilder(m.medicineName());
+        if (m.strength() != null && !m.strength().isBlank()) {
+            sb.append(' ').append(m.strength().trim());
+        }
+        String schedule = java.util.stream.Stream.of(m.frequency(), m.duration())
+                .filter(s -> s != null && !s.isBlank())
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.joining(" · "));
+        if (!schedule.isEmpty()) {
+            sb.append(" — ").append(schedule);
+        }
+        if (m.instructions() != null && !m.instructions().isBlank()) {
+            sb.append(" (").append(m.instructions().trim()).append(')');
+        }
+        return sb.toString();
     }
 
     @Transactional(readOnly = true)
