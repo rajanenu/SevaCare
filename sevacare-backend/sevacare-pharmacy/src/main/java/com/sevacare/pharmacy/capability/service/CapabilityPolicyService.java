@@ -15,6 +15,7 @@ import com.sevacare.pharmacy.capability.spi.CapabilityPolicies;
 import com.sevacare.pharmacy.capability.spi.PolicyKey;
 import com.sevacare.pharmacy.capability.spi.PolicyMode;
 import com.sevacare.shared.tenant.TenantContext;
+import com.sevacare.tenant.capability.TenantModuleService;
 import com.sevacare.tenant.support.TenantSchemas;
 
 /**
@@ -35,10 +36,13 @@ public class CapabilityPolicyService implements CapabilityPolicies {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final TenantModuleService tenantModuleService;
 
-    public CapabilityPolicyService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+    public CapabilityPolicyService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper,
+                                   TenantModuleService tenantModuleService) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.tenantModuleService = tenantModuleService;
     }
 
     @Override
@@ -61,14 +65,17 @@ public class CapabilityPolicyService implements CapabilityPolicies {
         return profileKey() != null;
     }
 
+    /**
+     * Delegates rather than reading {@code tenant_registry} itself: "does this
+     * tenant have a pharmacy?" is asked by the API gate, the client's navigation
+     * and this policy engine, and two of them answering differently is exactly
+     * the class of bug a single owner of the question prevents.
+     */
     @Override
     @Transactional(readOnly = true)
     public String profileKey() {
         String tenantPublicId = TenantSchemas.requireTenantId(TenantContext.tenantPublicId());
-        List<String> rows = jdbcTemplate.queryForList(
-                "SELECT pharmacy_profile_key FROM public.tenant_registry WHERE tenant_public_id = ?",
-                String.class, tenantPublicId);
-        return rows.isEmpty() ? null : rows.get(0);
+        return tenantModuleService.manifestOf(tenantPublicId).pharmacyProfileKey();
     }
 
     /**

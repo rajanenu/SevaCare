@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.shared.dto.DiscoveryDtos;
+import com.sevacare.tenant.capability.TenantKind;
 import com.sevacare.tenant.entity.TenantRegistry;
 import com.sevacare.tenant.repository.TenantRegistryRepository;
 
@@ -135,7 +136,44 @@ public class TenantRegistryService {
             String city,
             String pinCode
     ) {
+        return provisionTenant(tenantPublicId, hospitalName, themeKey, contactName, contactMobile,
+                contactEmail, city, pinCode, TenantKind.HOSPITAL, null);
+    }
+
+    /**
+     * Onboards a tenant of any kind. {@code kind} is the answer to the one
+     * question we ask a new customer — "what are you?" — translated here into the
+     * two module switches and then discarded.
+     *
+     * <p>A {@link TenantKind#MEDICAL_STORE} gets the same schema, the same admin
+     * seeding and the same login a hospital does. The difference is entirely in
+     * which modules answer. That symmetry is what lets a store grow into a clinic
+     * later by flipping one column — no migration, no data movement.
+     *
+     * @param pharmacyProfileKeyOverride a larger profile than the kind implies
+     *                                   ({@code PHARMACY_CHAIN}, say), or null
+     */
+    @Transactional
+    public TenantRegistry provisionTenant(
+            String tenantPublicId,
+            String hospitalName,
+            String themeKey,
+            String contactName,
+            String contactMobile,
+            String contactEmail,
+            String city,
+            String pinCode,
+            TenantKind kind,
+            String pharmacyProfileKeyOverride
+    ) {
         String schemaName = buildTenantSchemaName(tenantPublicId);
+
+        String pharmacyProfileKey = pharmacyProfileKeyOverride != null && !pharmacyProfileKeyOverride.isBlank()
+                ? pharmacyProfileKeyOverride.trim()
+                : kind.pharmacyProfileKey();
+        if (!kind.clinicalEnabled() && pharmacyProfileKey == null) {
+            throw new IllegalArgumentException("A tenant with no clinical side must have a pharmacy profile");
+        }
 
         TenantRegistry tenant = new TenantRegistry();
         tenant.setTenantPublicId(tenantPublicId);
@@ -143,6 +181,8 @@ public class TenantRegistryService {
         tenant.setTenantThemeKey(themeKey);
         tenant.setTenantSchemaName(schemaName);
         tenant.setTenantStatus("active");
+        tenant.setClinicalEnabled(kind.clinicalEnabled());
+        tenant.setPharmacyProfileKey(pharmacyProfileKey);
         if (city != null && !city.isBlank()) {
             tenant.setCity(city.trim());
         }

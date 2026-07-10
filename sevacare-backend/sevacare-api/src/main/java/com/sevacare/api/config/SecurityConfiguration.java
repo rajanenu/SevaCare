@@ -17,6 +17,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.sevacare.api.security.ModuleAccessFilter;
 import com.sevacare.api.security.TokenAuthenticationFilter;
 
 @Configuration
@@ -28,7 +29,9 @@ public class SecurityConfiguration {
     private String allowedOrigins;
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, TenantHeaderFilter tenantHeaderFilter, TokenAuthenticationFilter tokenAuthenticationFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, TenantHeaderFilter tenantHeaderFilter,
+                                            TokenAuthenticationFilter tokenAuthenticationFilter,
+                                            ModuleAccessFilter moduleAccessFilter) throws Exception {
         return http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
@@ -44,6 +47,10 @@ public class SecurityConfiguration {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(tenantHeaderFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(tokenAuthenticationFilter, TenantHeaderFilter.class)
+                // Last, because it needs the tenant the token filter resolved. A
+                // module the tenant does not have answers 404, as though it were
+                // never built — see ModuleAccessFilter.
+                .addFilterAfter(moduleAccessFilter, TokenAuthenticationFilter.class)
                 .build();
     }
 
