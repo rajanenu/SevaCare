@@ -1,0 +1,50 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.sevacare</groupId>
+        <artifactId>sevacare-backend</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>sevacare-pharmacy</artifactId>
+
+    <dependencies>
+        <!-- Pharmacy depends on the shared kernel (DTOs, TenantContext, the event
+             contracts) and on tenant (schema migrations, the outbox publisher).
+             It deliberately does NOT depend on patient/doctor/admin: it learns
+             what happened in those modules by subscribing to their events, not
+             by calling into them. PharmacyBoundaryTest enforces this. -->
+        <dependency>
+            <groupId>com.sevacare</groupId>
+            <artifactId>sevacare-shared</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sevacare</groupId>
+            <artifactId>sevacare-tenant</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- The modular monolith stays modular by CI, not by discipline. -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <!-- 1.3.x ships an ASM that cannot read Java 25 class files, which is
+                 what Maven itself may be running on even when the release target
+                 is 21. -->
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -36,6 +36,11 @@
             <artifactId>sevacare-admin</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.sevacare</groupId>
+            <artifactId>sevacare-pharmacy</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

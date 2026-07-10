@@ -27,6 +27,7 @@
         <module>sevacare-patient</module>
         <module>sevacare-doctor</module>
         <module>sevacare-admin</module>
+        <module>sevacare-pharmacy</module>
         <module>sevacare-api</module>
     </modules>
 </project>
