@@ -129,6 +129,7 @@ class ApiConstants {
   // Platform Admin
   static const String platformOverview = '/platform-admin/overview';
   static const String platformTenants = '/platform-admin/tenants';
+  static const String platformPharmacyProfiles = '/platform-admin/pharmacy-profiles';
   static String platformTenant(String tenantId) => '/platform-admin/tenants/$tenantId';
   static String platformTenantHeroImage(String tenantId) => '/platform-admin/tenants/$tenantId/hero-image';
   static String generateQrCode(String tenantId) => '/platform-admin/tenants/$tenantId/qrcode/generate';

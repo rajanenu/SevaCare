@@ -1368,6 +1368,16 @@ class PlatformTenantRecord {
   final String schemaName;
   final String status;
 
+  /// Doctors, appointments, patients. False for a standalone pharmacy.
+  final bool clinicalEnabled;
+
+  /// Null when this tenant has no pharmacy — which is every hospital by default.
+  final String? pharmacyProfileKey;
+
+  /// "Hospital only" · "Pharmacy only" · "Hospital + Pharmacy", from the server
+  /// so the app never has to reason about the combination itself.
+  final String kindLabel;
+
   const PlatformTenantRecord({
     required this.tenantPublicId,
     required this.hospitalName,
@@ -1376,7 +1386,12 @@ class PlatformTenantRecord {
     required this.themeKey,
     required this.schemaName,
     required this.status,
+    this.clinicalEnabled = true,
+    this.pharmacyProfileKey,
+    this.kindLabel = 'Hospital only',
   });
+
+  bool get hasPharmacy => (pharmacyProfileKey ?? '').isNotEmpty;
 
   factory PlatformTenantRecord.fromJson(Map<String, dynamic> json) => PlatformTenantRecord(
     tenantPublicId: json['tenantPublicId'] as String? ?? '',
@@ -1386,6 +1401,29 @@ class PlatformTenantRecord {
     themeKey: json['themeKey'] as String? ?? 'premium',
     schemaName: json['schemaName'] as String? ?? '',
     status: json['status'] as String? ?? '',
+    clinicalEnabled: json['clinicalEnabled'] as bool? ?? true,
+    pharmacyProfileKey: json['pharmacyProfileKey'] as String?,
+    kindLabel: json['kindLabel'] as String? ?? 'Hospital only',
+  );
+}
+
+/// One row of the "what kind of pharmacy?" dropdown, served from
+/// `platform.capability_profile` so a new profile needs no app release.
+class PharmacyProfileOption {
+  final String profileKey;
+  final String displayName;
+  final String description;
+
+  const PharmacyProfileOption({
+    required this.profileKey,
+    required this.displayName,
+    this.description = '',
+  });
+
+  factory PharmacyProfileOption.fromJson(Map<String, dynamic> json) => PharmacyProfileOption(
+    profileKey: json['profileKey'] as String? ?? '',
+    displayName: json['displayName'] as String? ?? '',
+    description: json['description'] as String? ?? '',
   );
 }
 
@@ -1399,6 +1437,15 @@ class PlatformTenantUpsertRequest {
   final String? contactEmail;
   final String? status;
 
+  /// Two checkboxes, because a business *has* a hospital, a pharmacy, or both.
+  /// Pharmacy defaults to off: it is never a hospital's default.
+  final bool hasClinical;
+  final bool hasPharmacy;
+
+  /// Only meaningful when [hasPharmacy]. Null lets the server pick the sensible
+  /// default — a medical store alone, a clinic dispensary beside a hospital.
+  final String? pharmacyProfileKey;
+
   const PlatformTenantUpsertRequest({
     required this.hospitalName,
     this.city,
@@ -1408,6 +1455,9 @@ class PlatformTenantUpsertRequest {
     this.contactMobile,
     this.contactEmail,
     this.status,
+    this.hasClinical = true,
+    this.hasPharmacy = false,
+    this.pharmacyProfileKey,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1419,6 +1469,9 @@ class PlatformTenantUpsertRequest {
     if (contactMobile != null) 'contactMobile': contactMobile,
     if (contactEmail != null) 'contactEmail': contactEmail,
     if (status != null) 'status': status,
+    'hasClinical': hasClinical,
+    'hasPharmacy': hasPharmacy,
+    if (hasPharmacy && pharmacyProfileKey != null) 'pharmacyProfileKey': pharmacyProfileKey,
   };
 }
 

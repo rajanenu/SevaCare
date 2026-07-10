@@ -37,6 +37,35 @@ public enum TenantKind {
         return pharmacyProfileKey;
     }
 
+    /**
+     * What the onboarding form actually collects: two checkboxes. "Hospital" and
+     * "Pharmacy" are things a business <em>has</em>, not types it <em>is</em>, and
+     * plenty of Indian clinics have both — so asking one either/or question would
+     * force half our customers to lie.
+     */
+    public static TenantKind of(boolean clinical, boolean pharmacy) {
+        if (clinical && pharmacy) {
+            return HOSPITAL_WITH_PHARMACY;
+        }
+        if (clinical) {
+            return HOSPITAL;
+        }
+        if (pharmacy) {
+            return MEDICAL_STORE;
+        }
+        throw new IllegalArgumentException(
+                "Select at least one: a hospital, a pharmacy, or both. A tenant with neither has nothing to log in to.");
+    }
+
+    /** The words a platform admin reads back on the tenant list. */
+    public String displayName() {
+        return switch (this) {
+            case MEDICAL_STORE -> "Pharmacy only";
+            case HOSPITAL -> "Hospital only";
+            case HOSPITAL_WITH_PHARMACY -> "Hospital + Pharmacy";
+        };
+    }
+
     public static TenantKind parse(String raw) {
         if (raw == null || raw.isBlank()) {
             return HOSPITAL;

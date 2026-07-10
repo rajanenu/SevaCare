@@ -39,6 +39,17 @@ public class PlatformAdminController {
         return ContractResponse.of(platformAdminService.listTenants());
     }
 
+    /**
+     * Fills the "what kind of pharmacy?" dropdown. The labels live in
+     * {@code platform.capability_profile}, not in the app, so adding a profile
+     * never needs a client release.
+     */
+    @GetMapping("/pharmacy-profiles")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ContractResponse<PlatformAdminDtos.PharmacyProfileCollection> pharmacyProfiles() {
+        return ContractResponse.of(platformAdminService.pharmacyProfiles());
+    }
+
     @PostMapping("/tenants")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ContractResponse<PlatformAdminDtos.PlatformTenantView> createTenant(

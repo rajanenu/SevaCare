@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.shared.dto.PlatformAdminDtos;
+import com.sevacare.tenant.capability.TenantKind;
+import com.sevacare.tenant.capability.TenantModuleService;
 import com.sevacare.tenant.entity.TenantRegistry;
 import com.sevacare.tenant.repository.TenantRegistryRepository;
 
@@ -24,14 +26,27 @@ public class PlatformAdminService {
     private final JdbcTemplate jdbcTemplate;
     private final TenantRegistryService tenantRegistryService;
 
+    private final TenantModuleService tenantModuleService;
+
     public PlatformAdminService(
             TenantRegistryRepository tenantRegistryRepository,
             JdbcTemplate jdbcTemplate,
-            TenantRegistryService tenantRegistryService
+            TenantRegistryService tenantRegistryService,
+            TenantModuleService tenantModuleService
     ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.tenantRegistryService = tenantRegistryService;
+        this.tenantModuleService = tenantModuleService;
+    }
+
+    @Transactional(readOnly = true)
+    public PlatformAdminDtos.PharmacyProfileCollection pharmacyProfiles() {
+        return new PlatformAdminDtos.PharmacyProfileCollection(
+                tenantModuleService.pharmacyProfiles().stream()
+                        .map(p -> new PlatformAdminDtos.PharmacyProfileOptionView(
+                                p.profileKey(), p.displayName(), p.description()))
+                        .toList());
     }
 
     @Transactional(readOnly = true)
@@ -123,11 +138,17 @@ public class PlatformAdminService {
 
     @Transactional
     public PlatformAdminDtos.PlatformTenantView createTenant(PlatformAdminDtos.PlatformTenantUpsertRequest request) {
-        // Contact mobile is mandatory: it becomes the hospital's first admin login.
+        // Contact mobile is mandatory: it becomes the tenant's first admin login,
+        // whether that admin runs a hospital or a medical store.
         String contactMobile = normalizeNullable(request.contactMobile());
         if (contactMobile == null) {
-            throw new IllegalArgumentException("Contact mobile number is required — it becomes the hospital admin login.");
+            throw new IllegalArgumentException("Contact mobile number is required — it becomes the admin login.");
         }
+
+        // Throws with a readable message when both boxes are unticked.
+        TenantKind kind = TenantKind.of(request.clinicalEnabled(), request.pharmacyEnabled());
+        String profileKey = request.pharmacyEnabled() ? normalizeNullable(request.pharmacyProfileKey()) : null;
+
         String tenantPublicId = tenantRegistryService.nextTenantPublicId();
         TenantRegistry tenant = tenantRegistryService.provisionTenant(
                 tenantPublicId,
@@ -135,11 +156,12 @@ public class PlatformAdminService {
                 normalizeThemeKey(request.themeKey()),
                 defaultContactName(request.contactName(), request.hospitalName()),
                 contactMobile,
-                normalizeNullable(request.contactEmail())
+                normalizeNullable(request.contactEmail()),
+                normalizeNullable(request.city()),
+                normalizeNullable(request.pinCode()),
+                kind,
+                profileKey
         );
-        tenant.setCity(normalizeNullable(request.city()) != null ? request.city().trim() : "");
-        tenant.setPinCode(normalizeNullable(request.pinCode()) != null ? request.pinCode().trim() : "");
-        tenantRegistryRepository.save(tenant);
         return toTenantView(tenant);
     }
 
@@ -154,6 +176,27 @@ public class PlatformAdminService {
         tenant.setTenantStatus(normalizeStatus(request.status()));
         if (request.city() != null) tenant.setCity(request.city().trim());
         if (request.pinCode() != null) tenant.setPinCode(request.pinCode().trim());
+
+        // Adding a pharmacy to a hospital a year later is the expected path, so it
+        // is the same request that renamed it. Removing one is guarded: a stock
+        // ledger is a retained record, and unticking a box must never be how it
+        // vanishes from the product. assertSafeToDisable throws with the reason.
+        TenantKind kind = TenantKind.of(request.clinicalEnabled(), request.pharmacyEnabled());
+        String profileKey = request.pharmacyEnabled()
+                ? firstNonBlank(normalizeNullable(request.pharmacyProfileKey()),
+                                tenant.getPharmacyProfileKey(),
+                                kind.pharmacyProfileKey())
+                : null;
+
+        tenantModuleService.assertSafeToDisable(
+                tenantPublicId,
+                tenantModuleService.manifestOf(tenantPublicId),
+                request.clinicalEnabled(),
+                request.pharmacyEnabled());
+
+        tenant.setClinicalEnabled(request.clinicalEnabled());
+        tenant.setPharmacyProfileKey(profileKey);
+
         TenantRegistry saved = tenantRegistryRepository.save(tenant);
         syncHospitalAdmin(saved, request.contactName(), request.contactMobile(), request.contactEmail());
         return toTenantView(saved);
@@ -408,6 +451,7 @@ public class PlatformAdminService {
     }
 
     private PlatformAdminDtos.PlatformTenantView toTenantView(TenantRegistry tenant) {
+        boolean pharmacy = tenant.getPharmacyProfileKey() != null;
         return new PlatformAdminDtos.PlatformTenantView(
                 tenant.getTenantPublicId(),
                 tenant.getTenantName(),
@@ -415,8 +459,25 @@ public class PlatformAdminService {
                 tenant.getPinCode(),
                 tenant.getTenantThemeKey(),
                 tenant.getTenantSchemaName(),
-                tenant.getTenantStatus()
+                tenant.getTenantStatus(),
+                tenant.isClinicalEnabled(),
+                tenant.getPharmacyProfileKey(),
+                TenantKind.of(tenant.isClinicalEnabled(), pharmacy).displayName()
         );
+    }
+
+    /**
+     * Keeps a tenant's existing pharmacy profile when the caller sends none: a
+     * platform admin editing a hospital's city must not silently demote its
+     * PHARMACY_CHAIN to the CLINIC_DISPENSARY default.
+     */
+    private static String firstNonBlank(String... candidates) {
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank()) {
+                return candidate.trim();
+            }
+        }
+        return null;
     }
 
     private TenantRegistry findTenant(String tenantPublicId) {

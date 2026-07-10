@@ -64,10 +64,14 @@ public class TenantModuleService {
     }
 
     /**
-     * Turns the tenant's answer to "what are you?" into the two switches, once,
-     * at onboarding. A pharmacy profile passed explicitly wins over the kind's
-     * default, so a chain can onboard as {@code PHARMACY_CHAIN} rather than being
-     * forced through {@code MEDICAL_STORE} and upgraded afterwards.
+     * Turns the tenant's answer to "what are you?" into the two switches. A
+     * pharmacy profile passed explicitly wins over the kind's default, so a chain
+     * onboards as {@code PHARMACY_CHAIN} rather than being forced through
+     * {@code MEDICAL_STORE} and upgraded afterwards.
+     *
+     * <p>Switching a module <b>on</b> is always safe — its tables exist and are
+     * empty. Switching one <b>off</b> is guarded: see
+     * {@link #assertSafeToDisable}.
      */
     @Transactional
     public void applyKind(String tenantPublicId, TenantKind kind, String pharmacyProfileKeyOverride) {
@@ -79,6 +83,12 @@ public class TenantModuleService {
             throw new IllegalArgumentException(
                     "A tenant with no clinical side must have a pharmacy profile");
         }
+
+        TenantManifest before = manifestOf(tenantPublicId);
+        if (before.tenantName() != null) {
+            assertSafeToDisable(tenantPublicId, before, kind.clinicalEnabled(), profileKey != null);
+        }
+
         jdbcTemplate.update(
                 "UPDATE public.tenant_registry SET clinical_enabled = ?, pharmacy_profile_key = ? " +
                 "WHERE tenant_public_id = ?",
@@ -86,6 +96,74 @@ public class TenantModuleService {
 
         log.info("tenant_modules_set tenantPublicId={} clinical={} pharmacyProfile={}",
                 tenantPublicId, kind.clinicalEnabled(), profileKey);
+    }
+
+    /**
+     * A module that holds records cannot be switched off.
+     *
+     * <p>This is not a data-safety nicety, it is Indian law and basic commercial
+     * sense. A pharmacy's stock ledger and its Schedule H/H1 register are retained
+     * documents that an inspector may ask for years later; a hospital's patient
+     * records likewise. "Untick pharmacy" must never become the way a stock
+     * ledger disappears from every screen in the product while the rows sit in
+     * the schema, unreachable and unaudited.
+     *
+     * <p>Turning a module off before it has been used is fine — that is someone
+     * fixing an onboarding mistake, and there is nothing to lose.
+     */
+    @Transactional(readOnly = true)
+    public void assertSafeToDisable(String tenantPublicId, TenantManifest current,
+                                    boolean clinicalWanted, boolean pharmacyWanted) {
+        String schema = schemaOf(tenantPublicId);
+        if (schema == null) {
+            return;
+        }
+
+        if (current.clinicalEnabled() && !clinicalWanted) {
+            long records = countIn(schema, "patient") + countIn(schema, "appointment");
+            if (records > 0) {
+                throw new IllegalStateException(
+                        "This hospital already has " + records + " patient and appointment records. "
+                        + "Turning the hospital module off would hide them. Deactivate the tenant instead.");
+            }
+        }
+
+        if (current.pharmacyEnabled() && !pharmacyWanted) {
+            long movements = countIn(schema, "stock_ledger");
+            if (movements > 0) {
+                throw new IllegalStateException(
+                        "This pharmacy already has " + movements + " stock movements on its ledger, which is a "
+                        + "retained record. Turning the pharmacy module off would hide it. Deactivate the tenant instead.");
+            }
+        }
+    }
+
+    /** Every profile a platform admin may pick, in the words a customer understands. */
+    @Transactional(readOnly = true)
+    public List<PharmacyProfileOption> pharmacyProfiles() {
+        return jdbcTemplate.query(
+                "SELECT profile_key, display_name, description FROM platform.capability_profile ORDER BY sort_order",
+                (rs, i) -> new PharmacyProfileOption(
+                        rs.getString("profile_key"),
+                        rs.getString("display_name"),
+                        rs.getString("description")));
+    }
+
+    public record PharmacyProfileOption(String profileKey, String displayName, String description) {
+    }
+
+    private String schemaOf(String tenantPublicId) {
+        List<String> rows = jdbcTemplate.queryForList(
+                "SELECT tenant_schema_name FROM public.tenant_registry WHERE tenant_public_id = ?",
+                String.class, tenantPublicId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private long countIn(String schema, String table) {
+        TenantSchemas.require(schema);
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + "." + table, Long.class);
+        return count == null ? 0L : count;
     }
 
     /** The fine-grained flags: wards, rx_queue, transfers… Empty when no pharmacy. */

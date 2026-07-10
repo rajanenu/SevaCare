@@ -20,13 +20,33 @@ public final class PlatformAdminDtos {
             String pinCode,
             String themeKey,
             String schemaName,
-            String status
+            String status,
+            boolean clinicalEnabled,
+            String pharmacyProfileKey,
+            /** "Hospital only" · "Pharmacy only" · "Hospital + Pharmacy" — for the tenant list. */
+            String kindLabel
     ) {
     }
 
     public record PlatformTenantCollection(List<PlatformTenantView> tenants) {
     }
 
+    /**
+     * Two checkboxes, not one type picker. A business <em>has</em> a hospital, a
+     * pharmacy, or both — asking it to pick a single identity would make a large
+     * share of Indian clinics answer wrongly.
+     *
+     * @param hasClinical        doctors, appointments, patients. Absent means true,
+     *                           so every existing caller keeps onboarding hospitals
+     *                           exactly as it did before this field existed.
+     * @param hasPharmacy        absent means false. Pharmacy is never a hospital's
+     *                           default: a hospital with no medicine counter must
+     *                           never see a pharmacy tab it did not ask for.
+     * @param pharmacyProfileKey which kind of pharmacy, when {@code hasPharmacy} is
+     *                           set. Null lets the backend pick the sensible default
+     *                           — MEDICAL_STORE alone, CLINIC_DISPENSARY beside a
+     *                           hospital.
+     */
     public record PlatformTenantUpsertRequest(
             @NotBlank String hospitalName,
             String city,
@@ -35,8 +55,24 @@ public final class PlatformAdminDtos {
             String contactName,
             String contactMobile,
             String contactEmail,
-            String status
+            String status,
+            Boolean hasClinical,
+            Boolean hasPharmacy,
+            String pharmacyProfileKey
     ) {
+        public boolean clinicalEnabled() {
+            return hasClinical == null || hasClinical;
+        }
+
+        public boolean pharmacyEnabled() {
+            return Boolean.TRUE.equals(hasPharmacy);
+        }
+    }
+
+    public record PharmacyProfileOptionView(String profileKey, String displayName, String description) {
+    }
+
+    public record PharmacyProfileCollection(List<PharmacyProfileOptionView> profiles) {
     }
 
     public record PlatformTenantQrCodeView(

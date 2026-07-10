@@ -735,6 +735,18 @@ class SevaCareRepository {
     return list.map((e) => PlatformTenantRecord.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// Fills the "what kind of pharmacy?" dropdown. Served from the database, so a
+  /// new capability profile appears without shipping a new app.
+  Future<List<PharmacyProfileOption>> listPharmacyProfiles(String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.platformPharmacyProfiles,
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+    final list = data['profiles'] as List? ?? [];
+    return list.map((e) => PharmacyProfileOption.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<PlatformTenantRecord> createPlatformTenant(
       PlatformTenantUpsertRequest body, String token) async {
     return _client.post<PlatformTenantRecord>(
