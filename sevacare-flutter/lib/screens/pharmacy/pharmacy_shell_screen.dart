@@ -24,6 +24,7 @@ import '../../widgets/app_form_field.dart';
 import '../../widgets/gradient_button.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/masked_text.dart';
+import '../terms/terms_screen.dart';
 
 String _rupees(int paise) => '₹${(paise / 100).toStringAsFixed(2)}';
 
@@ -172,6 +173,9 @@ class _PharmacyShellScreenState extends ConsumerState<PharmacyShellScreen> {
           if (mounted) ref.read(authProvider.notifier).setCapabilities(caps);
         } catch (_) {/* header just shows the default name */}
       }
+      // A store onboarded before consent was recorded is asked here, once — the
+      // counter is the first screen its owner ever lands on.
+      if (mounted) await maybeAskForTerms(context, ref);
     });
   }
 
@@ -2425,7 +2429,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             icon: const Icon(Icons.upload_file_outlined, size: 18),
-            label: const Text('Import medicines from CSV / Excel'),
+            label: const Text('Import Medicines'),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
             onPressed: _openImportSheet,
           ),
@@ -2575,23 +2579,46 @@ class _StockTabState extends ConsumerState<_StockTab> {
     );
   }
 
+  // The label and the buttons never compete for the same line. In one row, the
+  // buttons take their intrinsic width first and the Expanded label gets whatever
+  // is left — on a phone that was about one character, and the count wrapped into
+  // a vertical column of letters. Stacked, the label owns its line and the actions
+  // own theirs.
   Widget _refillBar() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: SevaCareColors.primarySoft,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.3)),
         ),
-        child: Row(children: [
-          Icon(Icons.local_shipping_outlined, size: 18, color: SevaCareColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text('${_refillSelection.length} item${_refillSelection.length == 1 ? '' : 's'} selected for refill',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          ),
-          TextButton(onPressed: () => setState(_refillSelection.clear), child: const Text('Clear')),
-          const SizedBox(width: 4),
-          GradientButton(label: 'Request Refill', icon: Icons.send_outlined, onPressed: _openRefillSheet),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.local_shipping_outlined, size: 18, color: SevaCareColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('${_refillSelection.length} item${_refillSelection.length == 1 ? '' : 's'} to order',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(_refillSelection.clear),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(42)),
+                child: const Text('Clear'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GradientButton(
+                label: 'Send Order',
+                icon: Icons.send_outlined,
+                fullWidth: true,
+                onPressed: _openRefillSheet,
+              ),
+            ),
+          ]),
         ]),
       );
 

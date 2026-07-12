@@ -298,27 +298,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Rebuilds the session from secure storage. Runs before the first frame, so its
+  /// cost is time the user spends looking at nothing.
+  ///
+  /// One `readAll()` rather than seven `read()`s: each read is a separate platform-channel
+  /// round trip into the Android keystore, and awaiting them one after another made
+  /// startup pay for seven when the decrypt happens once anyway.
   Future<bool> restore() async {
-    final token = await _storage.read(key: _kToken);
-    final tenantId = await _storage.read(key: _kTenantId);
-    final subjectId = await _storage.read(key: _kSubjectId);
-    final roleStr = await _storage.read(key: _kRole);
-    final isGeneric = await _storage.read(key: _kIsGeneric);
-    final subjectName = await _storage.read(key: _kSubjectName);
-    final userType = await _storage.read(key: _kUserType) ?? 'ADMIN';
-    if (token != null && token.isNotEmpty) {
-      state = AuthState(
-        token: token,
-        tenantPublicId: tenantId,
-        subjectPublicId: subjectId,
-        role: roleStr != null ? UserRoleX.fromApi(roleStr, userType: userType) : null,
-        isGenericAdmin: isGeneric == '1',
-        subjectName: subjectName ?? '',
-        userType: userType,
-      );
-      return true;
+    final all = await _storage.readAll();
+    final token = all[_kToken];
+    if (token == null || token.isEmpty) {
+      return false;
     }
-    return false;
+    final userType = all[_kUserType] ?? 'ADMIN';
+    final roleStr = all[_kRole];
+    state = AuthState(
+      token: token,
+      tenantPublicId: all[_kTenantId],
+      subjectPublicId: all[_kSubjectId],
+      role: roleStr != null ? UserRoleX.fromApi(roleStr, userType: userType) : null,
+      isGenericAdmin: all[_kIsGeneric] == '1',
+      subjectName: all[_kSubjectName] ?? '',
+      userType: userType,
+    );
+    return true;
   }
 }
 

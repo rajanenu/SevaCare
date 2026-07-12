@@ -113,7 +113,7 @@ class PharmacyHelpScreen extends ConsumerWidget {
             Text('Common questions', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
             const SizedBox(height: 6),
             _faq('How do I refill stock?',
-                'Stock tab → tick the low or expiring items → Request Refill → send to your supplier by WhatsApp or email.'),
+                'Stock tab → tick the low or expiring items → Send Order → send it to your supplier by WhatsApp or email.'),
             _faq('A customer wants to pay later?',
                 'Complete the sale with payment mode CREDIT and their mobile number — it lands in the Khata on the Dashboard, where you receive the payment later.'),
             _faq('GST rate changed for a medicine?',
@@ -121,6 +121,21 @@ class PharmacyHelpScreen extends ConsumerWidget {
             _faq('Made a wrong bill?',
                 'Open Invoices on the Sell tab: refund lines the customer returned, or void the whole bill — stock goes back automatically.'),
           ]),
+        ),
+        const SizedBox(height: 20),
+
+        // The agreement this store works under — readable at any time, not only at
+        // onboarding.
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            leading: const Icon(Icons.verified_user_outlined, color: SevaCareColors.primary),
+            title: Text('Terms of Service', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            subtitle: Text('What SevaCare does with your data — and what it is not answerable for',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+            trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+            onTap: () => context.push('/terms'),
+          ),
         ),
         const SizedBox(height: 32),
       ]),

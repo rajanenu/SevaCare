@@ -99,6 +99,26 @@ only by catalog writes (so a sale left on-hand stale) and only on the one Cloud 
 instance that served the write. `ETag` must stay in the CORS `exposedHeaders` or the
 browser hides it from the web app.
 
+**Reports are counted, never estimated.** `GET /admin/{tenant}/reports?period=today|week|
+month|year` (`AdminDomainService.report`) counts every figure from that tenant's own rows
+for the window asked for — visits by status, new patients, prescriptions, the busiest
+hour, the day-by-day trend, and revenue as the sum of *the treating doctor's own fee* over
+completed visits (`consultation_fee` if stamped, else the digits of `doctor.fee`). The
+Reports tab used to read the all-time overview counters and multiply completed visits by a
+flat ₹500, so it showed the same numbers every day whichever period button was pressed;
+`overview()` is still all-time and is for the Dashboard, not for Reports. A doctor with no
+fee on file contributes 0, and the tab says so rather than inventing a number.
+
+**A tenant accepts the Terms once, and it is recorded.** `tenant_registry.terms_version /
+_accepted_at / _accepted_by`, owned by `TermsService` (which also holds `CURRENT_VERSION`).
+The document is served from the API (`GET /api/v1/public/terms`) rather than baked into the
+app, so a revision reaches an installed APK without a release. Consent is captured either at
+onboarding (the platform-admin form's checkbox, ticked by default) or, for a tenant that has
+none, by a one-time blocking sheet on the first screen its admin lands on — `maybeAskForTerms`
+in `admin_dashboard_screen` and `pharmacy_shell_screen`. `/capabilities` carries
+`termsAccepted` so login needs no extra round-trip. Bumping `CURRENT_VERSION` re-asks every
+customer; do it only when the agreement's meaning changes.
+
 **Stock is a ledger, never a quantity.** `stock_ledger` is append-only and
 `batch_balance` is a cache of its sum. Postgres triggers enforce both: the ledger raises
 on UPDATE/DELETE, and the balance raises on any write that did not `SET LOCAL
@@ -132,6 +152,28 @@ doctors. Every response is a `ContractResponse` envelope (`data`), because the F
 biometric restore) fetch capabilities into `AuthState.capabilities`; a pharmacy-only tenant
 lands on `/pharmacy`, and admin/staff of a hospital-with-pharmacy get a Pharmacy shortcut in
 their dashboard hero. The counter itself is `PharmacyShellScreen` (Sell / Stock / Today).
+
+**A restored session carries no capabilities — never route on them without asking.**
+`AuthNotifier.restore()` rebuilds the session from secure storage, but capabilities are
+deliberately not persisted (a stale module flag must not outlive a session). So on the cold
+start that follows the OS killing a long-idle app, `isPharmacyOnly` reads false and a
+*pharmacy* owner is routed to `/admin`. That is what produced the "black screen after an
+hour": the hospital dashboard then took its tenant id from `hospitalProvider` — which only a
+hospital *search* fills, so for a pharmacy user it was empty — and asked for
+`/admin//overview`. An empty path segment matches no handler, Spring answers **401**, and the
+global 401 handler reads that as "your token died" and wipes the session. One unset id
+silently destroyed a good login. Screens that can be reached by a restored session must
+settle capabilities *before* they load anything module-specific (`_bootstrap()` in
+`AdminDashboardScreen`), take the tenant from `auth.tenantPublicId` (the session) rather than
+`hospitalProvider` (the last thing browsed), and `ApiClient` now refuses to send any path
+containing `//` so this class of bug fails loudly and locally instead of logging the user out.
+
+**The public tenant directory is module-filtered, in SQL.** `GET /api/v1/public/tenants`
+takes `?module=clinical` (Search Hospitals) or `?module=pharmacy` (Search Pharmacies);
+anything else lists everything, so an old client still works. Each `TenantSummary` also
+carries `hasClinical` / `hasPharmacy`, because a tenant is a *set* of modules — a hospital
+with a dispensary is a truthful result in **both** lists, not a bug. Filter in the query, not
+in memory: the directory is what every anonymous visitor hits first.
 
 **One appointment queue.** Every booking — slot or token, from any of the four channels
 (patient app, IP-Staff, QR portal, chatbot) — draws a token from the same

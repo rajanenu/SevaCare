@@ -167,6 +167,23 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 20),
+
+          // The agreement this hospital works under — readable at any time, not only
+          // at onboarding.
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              leading: const Icon(Icons.verified_user_outlined,
+                  color: SevaCareColors.primary),
+              title: Text('Terms of Service',
+                  style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              subtitle: Text('What SevaCare does with your data — and what it is not answerable for',
+                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+              trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+              onTap: () => context.push('/terms'),
+            ),
+          ),
           const SizedBox(height: 32),
         ],
       ),

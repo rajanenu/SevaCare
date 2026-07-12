@@ -15,8 +15,15 @@ import '../../providers/app_state.dart';
 /// land on the counter (`/pharmacy`).
 ///
 /// Green/teal identity throughout so it reads as "your shop", not "a hospital".
+///
+/// Reached either bare (`/pharmacy-login`) or with a [store] already chosen from
+/// Search Pharmacies — the same two doors a hospital login has. With a [store] the
+/// screen names the shop and, once the mobile resolves, skips the "which shop?"
+/// step; a mobile that doesn't run that shop is told so plainly.
 class PharmacyLoginScreen extends ConsumerStatefulWidget {
-  const PharmacyLoginScreen({super.key});
+  final TenantSummary? store;
+
+  const PharmacyLoginScreen({super.key, this.store});
 
   @override
   ConsumerState<PharmacyLoginScreen> createState() => _PharmacyLoginScreenState();
@@ -65,6 +72,28 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
     try {
       final res = await ref.read(repositoryProvider).pharmacyRequestOtp(mobile);
       if (!mounted) return;
+
+      // Arrived from Search Pharmacies: the shop is already chosen, so the only
+      // question left is whether this mobile actually runs it.
+      final picked = widget.store;
+      if (picked != null) {
+        final match = res.shops
+            .where((s) => s.tenantPublicId == picked.tenantPublicId)
+            .firstOrNull;
+        if (match == null) {
+          setState(() => _error =
+              'That mobile number isn\'t registered to ${picked.hospitalName}.');
+          return;
+        }
+        setState(() {
+          _shops = res.shops;
+          _selected = match;
+          _step = _Step.otp;
+        });
+        _focusOtpSoon();
+        return;
+      }
+
       setState(() {
         _shops = res.shops;
         if (res.shops.length == 1) {
@@ -147,9 +176,14 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
                   _card(),
                   const SizedBox(height: 20),
                   TextButton.icon(
-                    onPressed: () => context.go('/'),
+                    // Back means "undo the last step you took": the store list if
+                    // that's where you came from, otherwise the home screen.
+                    onPressed: () => context.go(
+                        widget.store == null ? '/' : '/pharmacy-search'),
                     icon: const Icon(Icons.arrow_back, size: 16),
-                    label: const Text('Back to SevaCare'),
+                    label: Text(widget.store == null
+                        ? 'Back to SevaCare'
+                        : 'Choose another pharmacy'),
                     style: TextButton.styleFrom(foregroundColor: SevaCareColors.textMuted),
                   ),
                 ],
@@ -175,10 +209,14 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
           child: const Icon(Icons.local_pharmacy_rounded, color: Colors.white, size: 38),
         ),
         const SizedBox(height: 16),
-        const Text('Your Medical Store',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: SevaCareColors.text)),
+        Text(widget.store?.hospitalName ?? 'Your Medical Store',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: SevaCareColors.text)),
         const SizedBox(height: 4),
-        Text('Sign in to run your counter — sell, stock and day-close.',
+        Text(
+            widget.store == null
+                ? 'Sign in to run your counter — sell, stock and day-close.'
+                : '${widget.store!.city} · Sign in to run your counter.',
             textAlign: TextAlign.center,
             style: TextStyle(color: SevaCareColors.textMuted, fontSize: 14)),
       ],

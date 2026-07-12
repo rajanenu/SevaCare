@@ -13,17 +13,21 @@ class SevaCareRepository {
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
-  Future<List<TenantSummary>> listTenants() async {
+  /// The public tenant directory.
+  ///
+  /// [module] narrows it to one shelf — `'clinical'` for Search Hospitals,
+  /// `'pharmacy'` for Search Pharmacies — and the server does the filtering, so a
+  /// medical store never reaches the hospital list to be sieved out here.
+  /// Omitting it lists every tenant.
+  Future<List<TenantSummary>> listTenants({String? module}) async {
     final data = await _client.get<Map<String, dynamic>>(
-      ApiConstants.publicTenants,
+      module == null || module.isEmpty
+          ? ApiConstants.publicTenants
+          : '${ApiConstants.publicTenants}?module=$module',
       fromJson: (d) => d as Map<String, dynamic>,
     );
     final list = data['tenants'] as List? ?? [];
     final tenants = list.map((e) => TenantSummary.fromJson(e as Map<String, dynamic>)).toList();
-    // Assign ascending distances for display
-    for (var i = 0; i < tenants.length; i++) {
-      // We can't mutate const, so recreate with distance
-    }
     return tenants.asMap().entries.map((entry) {
       final t = entry.value;
       return TenantSummary(
@@ -34,6 +38,8 @@ class SevaCareRepository {
         themeKey: t.themeKey,
         distance: '${entry.key + 1}.0 km',
         pinCode: t.pinCode,
+        hasClinical: t.hasClinical,
+        hasPharmacy: t.hasPharmacy,
       );
     }).toList();
   }
@@ -573,6 +579,43 @@ class SevaCareRepository {
     return _client.get<AdminOverview>(
       ApiConstants.adminOverview(tenantId),
       fromJson: (d) => AdminOverview.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Real, period-scoped performance for the Reports tab. period: today|week|month|year.
+  Future<HospitalReport> getHospitalReport(String tenantId, String token, String period) async {
+    return _client.get<HospitalReport>(
+      ApiConstants.adminReport(tenantId, period),
+      fromJson: (d) => HospitalReport.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── Terms of service ────────────────────────────────────────────────────────
+
+  /// Readable without a login — a hospital can read the terms before it has one.
+  Future<TermsDocument> getTerms() async {
+    return _client.get<TermsDocument>(
+      ApiConstants.publicTerms,
+      fromJson: (d) => TermsDocument.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  Future<TermsAcceptance> getTermsAcceptance(String tenantId, String token) async {
+    return _client.get<TermsAcceptance>(
+      ApiConstants.termsAcceptance,
+      fromJson: (d) => TermsAcceptance.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<TermsAcceptance> acceptTerms(
+      String tenantId, String token, String version, String acceptedBy) async {
+    return _client.post<TermsAcceptance>(
+      ApiConstants.acceptTerms,
+      body: {'version': version, 'acceptedBy': acceptedBy},
+      fromJson: (d) => TermsAcceptance.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }

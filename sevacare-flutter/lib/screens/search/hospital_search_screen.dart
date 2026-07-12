@@ -38,7 +38,9 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
   @override
   void initState() {
     super.initState();
-    _tenantsFuture = ref.read(repositoryProvider).listTenants();
+    // Hospitals only — a standalone medical store has no doctors to book and
+    // must not appear here (it has its own list, under Search Pharmacies).
+    _tenantsFuture = ref.read(repositoryProvider).listTenants(module: 'clinical');
     _searchController.addListener(() => setState(() => _query = _searchController.text));
     _loadRecent();
     _loadFavorites();
@@ -174,7 +176,8 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
   }
 
   void _retry() {
-    setState(() => _tenantsFuture = ref.read(repositoryProvider).listTenants());
+    setState(() => _tenantsFuture =
+        ref.read(repositoryProvider).listTenants(module: 'clinical'));
   }
 
   bool _isRecent(String id) => _recentIds.contains(id);

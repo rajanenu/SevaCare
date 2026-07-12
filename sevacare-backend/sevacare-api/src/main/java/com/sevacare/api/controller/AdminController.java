@@ -267,6 +267,18 @@ public class AdminController {
         return ContractResponse.of(adminDomainService.getBookingChannelStats(tenantPublicId));
     }
 
+    /** Real, period-scoped performance figures for the Reports tab. period: today|week|month|year. */
+    @GetMapping("/{tenantPublicId}/reports")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AdminDtos.HospitalReport> getReport(
+            @PathVariable String tenantPublicId,
+            @RequestParam(defaultValue = "week") String period) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(adminDomainService.report(tenantPublicId, period));
+    }
+
     @GetMapping("/{tenantPublicId}/patients")
     @PreAuthorize("hasRole('ADMIN')")
     public ContractResponse<AdminDtos.PatientPage> listPatients(

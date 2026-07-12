@@ -1,5 +1,7 @@
 package com.sevacare.tenant.entity;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -48,6 +50,27 @@ public class TenantRegistry {
      */
     @Column(name = "pharmacy_profile_key", length = 32)
     private String pharmacyProfileKey;
+
+    /**
+     * Which version of the Terms of Service this tenant accepted, when, and who
+     * accepted it. Null until someone does — a tenant onboarded before consent was
+     * recorded is asked once, in the app, rather than being assumed to have agreed.
+     */
+    @Column(name = "terms_version", length = 16)
+    private String termsVersion;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    @Column(name = "terms_accepted_by", length = 160)
+    private String termsAcceptedBy;
+
+    public String getTermsVersion() { return termsVersion; }
+    public void setTermsVersion(String termsVersion) { this.termsVersion = termsVersion; }
+    public LocalDateTime getTermsAcceptedAt() { return termsAcceptedAt; }
+    public void setTermsAcceptedAt(LocalDateTime termsAcceptedAt) { this.termsAcceptedAt = termsAcceptedAt; }
+    public String getTermsAcceptedBy() { return termsAcceptedBy; }
+    public void setTermsAcceptedBy(String termsAcceptedBy) { this.termsAcceptedBy = termsAcceptedBy; }
 
     public boolean isClinicalEnabled() { return clinicalEnabled; }
     public void setClinicalEnabled(boolean clinicalEnabled) { this.clinicalEnabled = clinicalEnabled; }

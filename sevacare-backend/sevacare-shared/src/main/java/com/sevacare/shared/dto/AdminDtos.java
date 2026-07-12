@@ -53,6 +53,49 @@ public final class AdminDtos {
     ) {
     }
 
+    // ── Reports: what the hospital actually did in a window of time ─────────────
+    //
+    // Every number here is counted from this tenant's own appointment / patient /
+    // prescription rows for the requested period. Revenue is the sum of the fee
+    // the treating doctor charges, over the visits that were actually completed —
+    // never a flat per-visit guess, and never an all-time counter dressed up as
+    // "today".
+
+    public record ReportDayPoint(String date, int booked, int completed) {
+    }
+
+    public record ReportDoctorRow(
+            String doctorPublicId,
+            String doctorName,
+            String specialty,
+            int visits,
+            int completed,
+            long revenueRupees
+    ) {
+    }
+
+    public record HospitalReport(
+            String tenantPublicId,
+            String period,        // today | week | month | year
+            String periodLabel,   // "This Week"
+            String fromDate,      // yyyy-MM-dd, inclusive
+            String toDate,        // yyyy-MM-dd, inclusive
+            int totalVisits,
+            int completedVisits,
+            int upcomingVisits,
+            int cancelledVisits,
+            int newPatients,
+            int prescriptionsIssued,
+            long revenueRupees,
+            int avgFeeRupees,
+            int completionRatePct,
+            String peakHour,      // "10:00 - 11:00", or null when nothing is booked
+            List<ReportDayPoint> trend,
+            List<ReportDoctorRow> doctors,
+            List<BookingSourceCount> channels
+    ) {
+    }
+
     public record ManagedActor(String publicId, String tenantPublicId, String name, String action) {
     }
 

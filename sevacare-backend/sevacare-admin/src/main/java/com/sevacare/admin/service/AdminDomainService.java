@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,9 @@ public class AdminDomainService {
     private final AppointmentRepository appointmentRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final JdbcTemplate jdbcTemplate;
+
+    /** Memo for {@link #hasColumn} — schema shape only changes when a migration runs. */
+    private final Map<String, Boolean> columnPresence = new ConcurrentHashMap<>();
 
     public AdminDomainService(
             AdminUserRepository adminUserRepository,
@@ -522,6 +527,177 @@ public class AdminDomainService {
         }
     }
 
+    // ── Reports ─────────────────────────────────────────────────────────────────
+    //
+    // Everything the Reports tab shows is counted here, for one window of time, from
+    // this tenant's own rows. The tab used to read the all-time overview counters and
+    // multiply completed visits by a flat ₹500, which is why it showed the same
+    // numbers every day whatever the period button said.
+    //
+    // What a visit earns is the treating doctor's own fee: the fee stamped on the
+    // appointment if one was (consultation_fee), otherwise the fee configured on the
+    // doctor. doctor.fee is free text ('₹500'), so the digits are pulled out in SQL —
+    // a doctor with no fee on file contributes 0 rather than a guess.
+
+    /** doctor.fee is text like '₹500' — take the digits, and treat 'no fee on file' as 0, not as a default. */
+    private static final String FEE_EXPR =
+            "COALESCE(NULLIF(a.consultation_fee, 0), " +
+            "NULLIF(regexp_replace(COALESCE(d.fee, ''), '[^0-9]', '', 'g'), '')::int, 0)";
+
+    @Transactional(readOnly = true)
+    public AdminDtos.HospitalReport report(String tenantPublicId, String period) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        LocalDate today = LocalDate.now();
+
+        // Calendar-aligned windows, so "This Month" also contains the days still to
+        // come — that is what makes "upcoming" a real number rather than always 0.
+        String key = period == null ? "week" : period.trim().toLowerCase();
+        LocalDate from;
+        LocalDate to;
+        String label;
+        switch (key) {
+            case "today" -> { from = today;                     to = today;                              label = "Today"; }
+            case "month" -> { from = today.withDayOfMonth(1);   to = from.plusMonths(1).minusDays(1);    label = "This Month"; }
+            case "year"  -> { from = today.withDayOfYear(1);    to = from.plusYears(1).minusDays(1);     label = "This Year"; }
+            default      -> {
+                key = "week";
+                from = today.minusDays(today.getDayOfWeek().getValue() - 1L); // Monday
+                to = from.plusDays(6);
+                label = "This Week";
+            }
+        }
+        String fromArg = from.toString();
+        String toArg = to + " 23:59";
+
+        // appointment_slot is 'yyyy-MM-dd HH:mm' text, so a lexicographic range is a
+        // chronological one — the same trick the rest of this file relies on.
+        String joined = " FROM " + schema + ".appointment a LEFT JOIN " + schema + ".doctor d " +
+                " ON d.doctor_public_id = a.doctor_public_id " +
+                " WHERE a.tenant_public_id = ? AND a.appointment_slot >= ? AND a.appointment_slot <= ? ";
+
+        Map<String, Object> totals = jdbcTemplate.queryForMap(
+                "SELECT COUNT(*) AS total, " +
+                " COUNT(*) FILTER (WHERE lower(a.appointment_status) = 'completed') AS completed, " +
+                " COUNT(*) FILTER (WHERE lower(a.appointment_status) = 'cancelled') AS cancelled, " +
+                " COUNT(*) FILTER (WHERE lower(a.appointment_status) NOT IN ('completed', 'cancelled')) AS upcoming, " +
+                " COALESCE(SUM(" + FEE_EXPR + ") FILTER (WHERE lower(a.appointment_status) = 'completed'), 0) AS revenue " +
+                joined,
+                tenantPublicId, fromArg, toArg);
+
+        int total = asInt(totals.get("total"));
+        int completed = asInt(totals.get("completed"));
+        int cancelled = asInt(totals.get("cancelled"));
+        int upcoming = asInt(totals.get("upcoming"));
+        long revenue = asLong(totals.get("revenue"));
+
+        int newPatients = countOrZero(
+                "SELECT COUNT(*) FROM " + schema + ".patient WHERE tenant_public_id = ? " +
+                "AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')",
+                tenantPublicId, fromArg, to.toString());
+
+        int prescriptions = countOrZero(
+                "SELECT COUNT(*) FROM " + schema + ".prescription WHERE tenant_public_id = ? " +
+                "AND COALESCE(prescription_date, created_at::date) BETWEEN ?::date AND ?::date",
+                tenantPublicId, fromArg, to.toString());
+
+        // The shape of the period: hour by hour for one day, day by day for a week or
+        // a month, month by month for a year. Only buckets that have something in them
+        // come back — the client draws the gaps.
+        String bucket = switch (key) {
+            case "today" -> "substring(a.appointment_slot from 12 for 2) || ':00'";
+            case "year"  -> "left(a.appointment_slot, 7)";
+            default      -> "left(a.appointment_slot, 10)";
+        };
+        List<AdminDtos.ReportDayPoint> trend = jdbcTemplate.query(
+                "SELECT " + bucket + " AS bucket, COUNT(*) AS booked, " +
+                " COUNT(*) FILTER (WHERE lower(a.appointment_status) = 'completed') AS completed " +
+                joined + " GROUP BY 1 ORDER BY 1",
+                (rs, i) -> new AdminDtos.ReportDayPoint(
+                        rs.getString("bucket") == null ? "" : rs.getString("bucket"),
+                        rs.getInt("booked"),
+                        rs.getInt("completed")),
+                tenantPublicId, fromArg, toArg);
+
+        List<AdminDtos.ReportDoctorRow> doctors = jdbcTemplate.query(
+                "SELECT a.doctor_public_id, COALESCE(d.full_name, a.doctor_public_id) AS full_name, d.specialty, " +
+                " COUNT(*) AS visits, " +
+                " COUNT(*) FILTER (WHERE lower(a.appointment_status) = 'completed') AS completed, " +
+                " COALESCE(SUM(" + FEE_EXPR + ") FILTER (WHERE lower(a.appointment_status) = 'completed'), 0) AS revenue " +
+                joined +
+                " GROUP BY a.doctor_public_id, d.full_name, d.specialty " +
+                " ORDER BY visits DESC, revenue DESC LIMIT 8",
+                (rs, i) -> new AdminDtos.ReportDoctorRow(
+                        rs.getString("doctor_public_id"),
+                        rs.getString("full_name"),
+                        rs.getString("specialty"),
+                        rs.getInt("visits"),
+                        rs.getInt("completed"),
+                        rs.getLong("revenue")),
+                tenantPublicId, fromArg, toArg);
+
+        String peakHour = null;
+        List<String> hours = jdbcTemplate.query(
+                "SELECT substring(a.appointment_slot from 12 for 2) AS hh, COUNT(*) AS c " + joined +
+                " AND length(a.appointment_slot) >= 13 GROUP BY 1 ORDER BY c DESC, hh ASC LIMIT 1",
+                (rs, i) -> rs.getString("hh"),
+                tenantPublicId, fromArg, toArg);
+        if (!hours.isEmpty() && hours.get(0) != null && !hours.get(0).isBlank()) {
+            try {
+                int h = Integer.parseInt(hours.get(0).trim());
+                peakHour = String.format("%02d:00 - %02d:00", h, (h + 1) % 24);
+            } catch (NumberFormatException ignored) {
+                // A slot without a parseable hour simply has no peak — not an error.
+            }
+        }
+
+        List<AdminDtos.BookingSourceCount> channels = channelCounts(schema, tenantPublicId, fromArg, toArg);
+
+        int avgFee = completed > 0 ? (int) (revenue / completed) : 0;
+        int completionRate = total > 0 ? (int) Math.round(completed * 100.0 / total) : 0;
+
+        log.info("admin_report tenantPublicId={} period={} from={} to={} visits={} completed={} revenue={}",
+                tenantPublicId, key, from, to, total, completed, revenue);
+
+        return new AdminDtos.HospitalReport(
+                tenantPublicId, key, label, from.toString(), to.toString(),
+                total, completed, upcoming, cancelled,
+                newPatients, prescriptions,
+                revenue, avgFee, completionRate, peakHour,
+                trend, doctors, channels);
+    }
+
+    /** Booking channel mix for one window. The four count fields all carry that window. */
+    private List<AdminDtos.BookingSourceCount> channelCounts(
+            String schema, String tenantPublicId, String fromArg, String toArg) {
+        List<AdminDtos.BookingSourceCount> channels = new ArrayList<>();
+        for (String[] source : new String[][] {
+                {"PATIENT_APP", "Patient App"},
+                {"QR_CODE", "QR Code"},
+                {"IP_STAFF", "IP-Staff"},
+                {"CHATBOT", "Chatbot"}
+        }) {
+            int c = countOrZero(
+                    "SELECT COUNT(*) FROM " + schema + ".appointment WHERE tenant_public_id = ? AND booking_source = ? " +
+                    "AND appointment_slot >= ? AND appointment_slot <= ?",
+                    tenantPublicId, source[0], fromArg, toArg);
+            channels.add(new AdminDtos.BookingSourceCount(source[0], source[1], c, c, c, c));
+        }
+        return channels;
+    }
+
+    private int countOrZero(String sql, Object... args) {
+        Long count = jdbcTemplate.queryForObject(sql, Long.class, args);
+        return count == null ? 0 : count.intValue();
+    }
+
+    private static int asInt(Object o) {
+        return o instanceof Number n ? n.intValue() : 0;
+    }
+
+    private static long asLong(Object o) {
+        return o instanceof Number n ? n.longValue() : 0L;
+    }
+
     @Transactional(readOnly = true)
     public AdminDtos.PatientPage listPatientsWithLastAppointment(
             String tenantPublicId, int page, int size, String search) {
@@ -668,14 +844,26 @@ public class AdminDomainService {
         return count == null ? 0L : count;
     }
 
+    /**
+     * Whether a tenant's table carries a column — the shape check the overview uses to
+     * stay tolerant of schemas migrated at different times.
+     *
+     * <p>Memoized because the answer can only change when a migration runs, while the
+     * question was being asked on every request: the admin dashboard re-polls its
+     * overview every 20 seconds, and {@code information_schema.columns} is a catalog view
+     * whose cost grows with the number of columns in the entire database — every tenant
+     * onboarded made this check slower for all of them.
+     */
     private boolean hasColumn(String schemaName, String tableName, String columnName) {
-        Boolean exists = jdbcTemplate.queryForObject(
-                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?)",
-                Boolean.class,
-                schemaName,
-                tableName,
-                columnName
-        );
-        return Boolean.TRUE.equals(exists);
+        return columnPresence.computeIfAbsent(
+                schemaName + "." + tableName + "." + columnName,
+                key -> Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                        "SELECT EXISTS (SELECT 1 FROM information_schema.columns " +
+                                "WHERE table_schema = ? AND table_name = ? AND column_name = ?)",
+                        Boolean.class,
+                        schemaName,
+                        tableName,
+                        columnName
+                )));
     }
 }

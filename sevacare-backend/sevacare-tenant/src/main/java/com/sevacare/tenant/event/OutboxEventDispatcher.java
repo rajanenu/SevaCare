@@ -2,7 +2,9 @@ package com.sevacare.tenant.event;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,18 @@ public class OutboxEventDispatcher {
     private final TenantRegistryRepository tenantRegistryRepository;
     private final List<EventSubscriber> subscribers;
     private final boolean enabled;
+
+    /**
+     * Schemas already known to carry an {@code outbox_event} table.
+     *
+     * <p>The dispatcher wakes every few seconds for every active tenant, and it used to
+     * ask {@code information_schema.tables} each time whether that tenant's outbox
+     * existed — a catalog view whose cost grows with the number of objects in the whole
+     * database, so the check got slower with every tenant onboarded and ran forever
+     * regardless. The answer is a one-way door: a migration creates the table and nothing
+     * drops it. Remember it and the question is asked once per schema per boot.
+     */
+    private final Set<String> schemasWithOutbox = ConcurrentHashMap.newKeySet();
 
     public OutboxEventDispatcher(
             JdbcTemplate jdbcTemplate,
@@ -119,11 +133,26 @@ public class OutboxEventDispatcher {
         }
     }
 
+    /**
+     * Whether [schema] has an outbox to drain, asked at most once per schema per boot.
+     *
+     * <p>{@code to_regclass} is a syscache lookup that costs the same whatever else is in
+     * the database; the {@code information_schema.tables} count it replaces scanned the
+     * catalog and got slower as tenants were added. A schema that answers yes is
+     * remembered, so the steady state asks nothing at all.
+     */
     private boolean hasOutboxTable(String schema) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = 'outbox_event'",
-                Integer.class, schema);
-        return count != null && count > 0;
+        if (schemasWithOutbox.contains(schema)) {
+            return true;
+        }
+        Boolean exists = jdbcTemplate.queryForObject(
+                "SELECT to_regclass(?) IS NOT NULL", Boolean.class, schema + ".outbox_event");
+        if (Boolean.TRUE.equals(exists)) {
+            schemasWithOutbox.add(schema);
+            return true;
+        }
+        // Not cached: a tenant migrated after boot must be picked up on a later tick.
+        return false;
     }
 
     private List<DomainEvent> claimDueEvents(String schema) {

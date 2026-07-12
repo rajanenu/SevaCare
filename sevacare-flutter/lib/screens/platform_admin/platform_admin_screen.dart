@@ -337,6 +337,11 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   String? _formError;
   String? _formSuccess;
 
+  /// Ticked by default: the hospital was shown the terms and agreed before we opened
+  /// the account. Untick it and their own admin is asked in the app instead — the
+  /// question is never simply skipped.
+  bool _termsAccepted = true;
+
   static const _cityOptions = [
     'Bangalore', 'Chennai', 'Hyderabad', 'Visakhapatnam', 'Proddatur', 'Kadapa',
   ];
@@ -437,6 +442,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           hasClinical: true,
           hasPharmacy: false,
           pharmacyProfileKey: null,
+          termsAccepted: _termsAccepted,
         ),
         widget.token,
       );
@@ -743,6 +749,11 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                   placeholder: 'admin@hospital.com',
                   keyboardType: TextInputType.emailAddress,
                 ),
+                _TermsConsentCheckbox(
+                  value: _termsAccepted,
+                  onChanged: (v) => setState(() => _termsAccepted = v),
+                ),
+                const SizedBox(height: 8),
                 if (_formError != null) ...[
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -1073,6 +1084,10 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
   String? _formError;
   String? _formSuccess;
 
+  /// Ticked by default: the store was shown the terms and agreed before we opened the
+  /// account. Untick it and the owner is asked at the counter on first sign-in.
+  bool _termsAccepted = true;
+
   // What kind of store — a plain medical shop, a chemist-and-druggist, etc.
   // Loaded from the platform's capability profiles; MEDICAL_STORE is the default.
   String _profileKey = 'MEDICAL_STORE';
@@ -1182,6 +1197,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
           hasClinical: false,
           hasPharmacy: true,
           pharmacyProfileKey: _profileKey,
+          termsAccepted: _termsAccepted,
         ),
         widget.token,
       );
@@ -1340,6 +1356,11 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                   placeholder: 'owner@store.com',
                   keyboardType: TextInputType.emailAddress,
                 ),
+                _TermsConsentCheckbox(
+                  value: _termsAccepted,
+                  onChanged: (v) => setState(() => _termsAccepted = v),
+                ),
+                const SizedBox(height: 8),
                 if (_formError != null) ...[
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -2047,6 +2068,60 @@ class _ModuleStatCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(label, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Consent, captured where the agreement is actually made — SevaCare shows a
+/// prospective hospital or store the terms, they agree, and we open the account.
+///
+/// Ticked by default because that is what happened; unticking it does not skip the
+/// question, it hands it to the customer's own admin, who is asked to accept in the
+/// app before they can use their dashboard. Either way there is a record of who
+/// agreed to what, and when.
+class _TermsConsentCheckbox extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _TermsConsentCheckbox({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: SevaCareColors.primarySoft,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            value: value,
+            onChanged: (v) => onChanged(v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: Text(
+              'Customer has read and accepted SevaCare\'s Terms of Service',
+              style: AppTextStyles.bodyText(SevaCareColors.text),
+            ),
+            subtitle: Text(
+              'Untick only if they have not — their admin will then be asked in the app.',
+              style: AppTextStyles.label(SevaCareColors.textMuted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: TextButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 15),
+              label: const Text('Read the terms'),
+              onPressed: () => context.push('/terms'),
+            ),
+          ),
         ],
       ),
     );

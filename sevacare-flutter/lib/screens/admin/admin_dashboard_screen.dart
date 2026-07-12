@@ -11,6 +11,7 @@ import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
+import '../terms/terms_screen.dart';
 import 'admin_requests_screen.dart';
 
 // ── Admin bottom nav items ────────────────────────────────────────────────────
@@ -355,23 +356,44 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
   @override
   void initState() {
     super.initState();
-    _load();
-    _ensureCapabilities();
+    _bootstrap();
     startAutoRefresh(() => _load(silent: true));
   }
 
+  /// A cold start (the OS killed a long-idle app, then the user reopened it)
+  /// restores the session but *not* the tenant's modules, so a pharmacy-only
+  /// owner can be standing in the hospital dashboard. Settle what this tenant is
+  /// before loading anything clinical: hand over to the counter if there is no
+  /// clinical side, and only otherwise load. Loading first is what used to fire a
+  /// doomed request and sign the user out.
+  Future<void> _bootstrap() async {
+    final handedOver = await _ensureCapabilities();
+    if (handedOver || !mounted) return;
+    _load();
+    // A tenant onboarded before consent was recorded is asked here, once.
+    if (mounted) await maybeAskForTerms(context, ref);
+  }
+
   /// Learn what this tenant is, so the Pharmacy shortcut appears when the shop
-  /// has that module — and, for a pharmacy-only tenant reached after a biometric
+  /// has that module — and, for a pharmacy-only tenant reached after a session
   /// restore (which carries no capabilities), hand straight over to the counter.
-  Future<void> _ensureCapabilities() async {
+  ///
+  /// Returns true when it handed the user off, meaning this screen is on its way
+  /// out and must not load hospital data it has no right to.
+  Future<bool> _ensureCapabilities() async {
     final auth = ref.read(authProvider);
-    if (auth.capabilities != null || auth.token == null || auth.tenantPublicId == null) return;
+    if (auth.capabilities != null) return auth.capabilities!.isPharmacyOnly;
+    if (auth.token == null || auth.tenantPublicId == null) return false;
     try {
       final caps = await ref.read(repositoryProvider).getCapabilities(auth.tenantPublicId!, auth.token!);
-      if (!mounted) return;
+      if (!mounted) return false;
       ref.read(authProvider.notifier).setCapabilities(caps);
-      if (caps.isPharmacyOnly) context.go('/pharmacy');
+      if (caps.isPharmacyOnly) {
+        context.go('/pharmacy');
+        return true;
+      }
     } catch (_) {/* the shortcut just stays hidden */}
+    return false;
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -386,7 +408,22 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
       final hospital = ref.read(hospitalProvider);
       final repo = ref.read(repositoryProvider);
       final token = auth.token ?? '';
-      final tenantId = hospital.tenantPublicId;
+
+      // The tenant we are *signed in to* — not the one last browsed. hospitalProvider
+      // is only filled by picking a hospital in search, which a pharmacy owner never
+      // does, so trusting it sent '/admin//overview' and the 401 signed them out.
+      final tenantId = (auth.tenantPublicId?.isNotEmpty ?? false)
+          ? auth.tenantPublicId!
+          : hospital.tenantPublicId;
+      if (tenantId.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _error = 'No hospital selected. Please sign in again.';
+          });
+        }
+        return;
+      }
 
       final results = await Future.wait([
         repo.getAdminOverview(tenantId, token),
@@ -2518,11 +2555,19 @@ class _ReportsTab extends ConsumerStatefulWidget {
   ConsumerState<_ReportsTab> createState() => _ReportsTabState();
 }
 
+/// Every figure on this tab is counted on the server, for the period selected, from
+/// this hospital's own appointments, patients and prescriptions. It used to read the
+/// all-time overview counters and multiply completed visits by a flat ₹500 — which is
+/// why it showed the same numbers every day whichever period button was pressed. The
+/// period now goes to the server, and the answer changes with the day's work.
 class _ReportsTabState extends ConsumerState<_ReportsTab> {
-  AdminOverview? _overview;
+  static const _periods = ['today', 'week', 'month', 'year'];
+  static const _periodLabels = ['Today', 'This Week', 'This Month', 'This Year'];
+
+  HospitalReport? _report;
   bool _loading = true;
   String? _error;
-  int _timeFilter = 1; // 0=Today, 1=Week, 2=Month, 3=Year
+  int _timeFilter = 1;
 
   @override
   void initState() {
@@ -2537,15 +2582,18 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
     });
     try {
       final auth = ref.read(authProvider);
-      final hospital = ref.read(hospitalProvider);
-      final repo = ref.read(repositoryProvider);
-      final overview = await repo.getAdminOverview(
-        hospital.tenantPublicId,
-        auth.token ?? '',
-      );
+      // The session's tenant, not the last hospital browsed — a restored session has
+      // no hospitalProvider, and an empty id there is what once sent '/admin//overview'.
+      final tenantId = auth.tenantPublicId ?? '';
+      if (tenantId.isEmpty) {
+        throw StateError('No hospital on this session.');
+      }
+      final report = await ref
+          .read(repositoryProvider)
+          .getHospitalReport(tenantId, auth.token ?? '', _periods[_timeFilter]);
       if (mounted) {
         setState(() {
-          _overview = overview;
+          _report = report;
           _loading = false;
         });
       }
@@ -2559,63 +2607,15 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
     }
   }
 
+  String _money(int rupees) {
+    if (rupees >= 100000) return '₹${(rupees / 100000).toStringAsFixed(2)}L';
+    if (rupees >= 1000) return '₹${(rupees / 1000).toStringAsFixed(1)}K';
+    return '₹$rupees';
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return AppCard(
-        child: Column(
-          children: [
-            Text(
-              'Failed to load reports',
-              style: AppTextStyles.cardTitle(SevaCareColors.danger),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-            ),
-            const SizedBox(height: 12),
-            PrimaryButton(label: 'Retry', onPressed: _load),
-          ],
-        ),
-      );
-    }
-
-    final ov = _overview;
-    final totalVisits =
-        int.tryParse(
-          ov?.metrics.isNotEmpty == true ? ov!.metrics[0].value : '0',
-        ) ??
-        0;
-    final upcoming =
-        int.tryParse(
-          ov != null && ov.metrics.length > 1 ? ov.metrics[1].value : '0',
-        ) ??
-        0;
-    final completed =
-        int.tryParse(
-          ov != null && ov.metrics.length > 2 ? ov.metrics[2].value : '0',
-        ) ??
-        0;
-
-    // Estimate revenue: completed visits × average fee (₹500 baseline)
-    const avgFee = 500;
-    final estRevenue = completed * avgFee;
-    final revenueLabel = estRevenue >= 1000
-        ? '₹${(estRevenue / 1000).toStringAsFixed(1)}K'
-        : '₹$estRevenue';
-
-    final periods = ['Today', 'This Week', 'This Month', 'This Year'];
-    final filterSegments = periods
+    final filterSegments = _periodLabels
         .asMap()
         .entries
         .map((e) => SegmentItem<int>(value: e.key, label: e.value))
@@ -2632,184 +2632,458 @@ class _ReportsTabState extends ConsumerState<_ReportsTab> {
         SegmentedControl<int>(
           items: filterSegments,
           selected: _timeFilter,
-          onChanged: (v) => setState(() => _timeFilter = v),
+          onChanged: (v) {
+            setState(() => _timeFilter = v);
+            _load();
+          },
         ),
         const SizedBox(height: 16),
-
-        // Revenue highlight card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6C63FF), Color(0xFF4A42CC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        if (_loading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(48),
+              child: CircularProgressIndicator(),
             ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
+          )
+        else if (_error != null)
+          AppCard(
+            child: Column(
+              children: [
+                Text(
+                  'Failed to load reports',
+                  style: AppTextStyles.cardTitle(SevaCareColors.danger),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _error!,
+                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                ),
+                const SizedBox(height: 12),
+                PrimaryButton(label: 'Retry', onPressed: _load),
+              ],
+            ),
+          )
+        else
+          ..._body(_report!),
+      ],
+    );
+  }
+
+  List<Widget> _body(HospitalReport r) {
+    final feesMissing = r.completedVisits > 0 && r.revenueRupees == 0;
+
+    return [
+      // Revenue — completed visits, each charged at its own doctor's fee.
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C63FF), Color(0xFF4A42CC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Est. Revenue',
-                      style: AppTextStyles.label(
-                        Colors.white.withValues(alpha: 0.75),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      revenueLabel,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${periods[_timeFilter]}  ·  $completed completed visits × ₹$avgFee avg',
-                      style: AppTextStyles.label(
-                        Colors.white.withValues(alpha: 0.65),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.currency_rupee,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            ],
-          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-
-        // Appointment metrics
-        GridView.count(
-          crossAxisCount: columnsForWidth(
-            MediaQuery.sizeOf(context).width,
-            mobileCols: 2,
-            tabletCols: 4,
-            desktopCols: 4,
-          ),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.65,
+        child: Row(
           children: [
-            _MicroCard(
-              icon: Icons.people_alt_rounded,
-              label: 'Total Visits',
-              value: totalVisits.toString(),
-              sub: periods[_timeFilter].toLowerCase(),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Consultation Revenue',
+                    style: AppTextStyles.label(
+                      Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _money(r.revenueRupees),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    r.completedVisits == 0
+                        ? '${r.periodLabel} · no completed visits yet'
+                        : '${r.periodLabel} · ${r.completedVisits} completed · ₹${r.avgFeeRupees} average',
+                    style: AppTextStyles.label(
+                      Colors.white.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
               ),
             ),
-            _MicroCard(
-              icon: Icons.schedule_rounded,
-              label: 'Upcoming',
-              value: upcoming.toString(),
-              sub: 'booked ahead',
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
               ),
-            ),
-            _MicroCard(
-              icon: Icons.check_circle_rounded,
-              label: 'Completed',
-              value: completed.toString(),
-              sub: 'visits done',
-              gradient: const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF059669)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            _MicroCard(
-              icon: Icons.pie_chart_rounded,
-              label: 'Completion',
-              value:
-                  '${totalVisits > 0 ? ((completed / totalVisits) * 100).toStringAsFixed(0) : 0}%',
-              sub: 'of total visits',
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              child: const Icon(
+                Icons.currency_rupee,
+                color: Colors.white,
+                size: 28,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+      ),
+      const SizedBox(height: 12),
 
-        // Clinic health tips section
-        Text(
-          'Clinic Insights · ${periods[_timeFilter]}',
-          style: AppTextStyles.sectionTitle(SevaCareColors.text),
+      GridView.count(
+        crossAxisCount: columnsForWidth(
+          MediaQuery.sizeOf(context).width,
+          mobileCols: 2,
+          tabletCols: 3,
+          desktopCols: 3,
         ),
-        const SizedBox(height: 12),
-        AppCard(
-          child: _AppointmentBreakdownChart(
-            total: totalVisits,
-            upcoming: upcoming,
-            completed: completed,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Tip card
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: SevaCareColors.mintSoft,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: SevaCareColors.mint.withValues(alpha: 0.3),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 1.65,
+        children: [
+          _MicroCard(
+            icon: Icons.people_alt_rounded,
+            label: 'Visits',
+            value: '${r.totalVisits}',
+            sub: r.periodLabel.toLowerCase(),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          child: Row(
+          _MicroCard(
+            icon: Icons.check_circle_rounded,
+            label: 'Completed',
+            value: '${r.completedVisits}',
+            sub: '${r.completionRatePct}% of visits',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF10B981), Color(0xFF059669)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          _MicroCard(
+            icon: Icons.schedule_rounded,
+            label: 'Still to see',
+            value: '${r.upcomingVisits}',
+            sub: 'not yet consulted',
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          _MicroCard(
+            icon: Icons.person_add_alt_1_rounded,
+            label: 'New Patients',
+            value: '${r.newPatients}',
+            sub: 'first-time registrations',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          _MicroCard(
+            icon: Icons.receipt_long_rounded,
+            label: 'Prescriptions',
+            value: '${r.prescriptionsIssued}',
+            sub: 'issued',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          _MicroCard(
+            icon: Icons.trending_up_rounded,
+            label: 'Busiest hour',
+            value: r.peakHour == null ? '—' : r.peakHour!.split(' ').first,
+            sub: r.peakHour == null ? 'nothing booked yet' : 'most bookings',
+            gradient: const LinearGradient(
+              colors: [Color(0xFFEC4899), Color(0xFFDB2777)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
+
+      Text(
+        'Booked vs. seen · ${r.periodLabel}',
+        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+      ),
+      const SizedBox(height: 12),
+      AppCard(child: _TrendBars(points: r.trend)),
+      const SizedBox(height: 12),
+
+      AppCard(
+        child: _AppointmentBreakdownChart(
+          total: r.totalVisits,
+          upcoming: r.upcomingVisits,
+          completed: r.completedVisits,
+        ),
+      ),
+      const SizedBox(height: 20),
+
+      Text(
+        'By doctor',
+        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+      ),
+      const SizedBox(height: 12),
+      AppCard(
+        child: r.doctors.isEmpty
+            ? Text(
+                'No visits with any doctor in this period.',
+                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              )
+            : Column(
+                children: [
+                  for (final d in r.doctors) ...[
+                    _DoctorRevenueRow(row: d, money: _money),
+                    if (d != r.doctors.last) const Divider(height: 18),
+                  ],
+                ],
+              ),
+      ),
+      const SizedBox(height: 20),
+
+      Text(
+        'How they booked',
+        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+      ),
+      const SizedBox(height: 12),
+      AppCard(
+        child: Column(
+          children: [
+            for (final c in r.channels) ...[
+              _LegendRow(
+                color: _channelColor(c.source),
+                label: c.label,
+                value: c.today, // one window: every field carries the period's count
+              ),
+              if (c != r.channels.last) const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: feesMissing
+              ? SevaCareColors.warningSurface
+              : SevaCareColors.mintSoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: (feesMissing ? SevaCareColors.warning : SevaCareColors.mint)
+                .withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              feesMissing ? Icons.info_outline : Icons.lightbulb_outline,
+              size: 18,
+              color: feesMissing ? SevaCareColors.warning : SevaCareColors.mint,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                feesMissing
+                    ? 'Visits were completed but no revenue is shown — none of these doctors has a fee on file. '
+                          'Set each doctor\'s fee in the Doctors tab and the figure fills in.'
+                    : 'Revenue counts every completed visit at the treating doctor\'s own fee, over '
+                          '${r.fromDate} to ${r.toDate}. Nothing here is estimated.',
+                style: AppTextStyles.bodyText(
+                  feesMissing
+                      ? SevaCareColors.text
+                      : SevaCareColors.mintForeground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  static Color _channelColor(String source) => switch (source) {
+    'PATIENT_APP' => SevaCareColors.primary,
+    'QR_CODE' => SevaCareColors.mint,
+    'IP_STAFF' => SevaCareColors.peach,
+    _ => SevaCareColors.border,
+  };
+}
+
+/// Booked against seen, bucket by bucket — hours for a single day, days for a week
+/// or a month, months for a year. Drawn from the same rows the numbers above count,
+/// so a bar can never disagree with a tile.
+class _TrendBars extends StatelessWidget {
+  final List<ReportDayPoint> points;
+  const _TrendBars({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    final withWork = points.where((p) => p.booked > 0).toList();
+    if (withWork.isEmpty) {
+      return Column(
+        children: [
+          Icon(Icons.bar_chart_rounded, size: 32, color: SevaCareColors.border),
+          const SizedBox(height: 10),
+          Text(
+            'No appointments in this period yet',
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          ),
+        ],
+      );
+    }
+
+    final max = withWork.map((p) => p.booked).reduce((a, b) => a > b ? a : b);
+    // A long month scrolls sideways rather than squeezing every bar into a hairline.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 140,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final p in withWork)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${p.booked}',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                        const SizedBox(height: 4),
+                        Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            Container(
+                              width: 22,
+                              height: (100 * p.booked / max).clamp(6, 100),
+                              decoration: BoxDecoration(
+                                color: SevaCareColors.primary.withValues(
+                                  alpha: 0.25,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            Container(
+                              width: 22,
+                              height: (100 * p.completed / max).clamp(0, 100),
+                              decoration: BoxDecoration(
+                                color: SevaCareColors.mint,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _shortLabel(p.date),
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _swatch(SevaCareColors.mint, 'Seen'),
+            const SizedBox(width: 16),
+            _swatch(SevaCareColors.primary.withValues(alpha: 0.25), 'Booked'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static Widget _swatch(Color c, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 6),
+      Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+    ],
+  );
+
+  /// '2026-07-12' → '12/07', '2026-07' → '07', '14:00' stays as it is.
+  static String _shortLabel(String bucket) {
+    final parts = bucket.split('-');
+    if (parts.length == 3) return '${parts[2]}/${parts[1]}';
+    if (parts.length == 2) return parts[1];
+    return bucket;
+  }
+}
+
+class _DoctorRevenueRow extends StatelessWidget {
+  final ReportDoctorRow row;
+  final String Function(int) money;
+  const _DoctorRevenueRow({required this.row, required this.money});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.lightbulb_outline,
-                size: 18,
-                color: SevaCareColors.mint,
+              Text(
+                row.doctorName,
+                style: AppTextStyles.cardTitle(SevaCareColors.text),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Revenue shown is an estimate. Update each doctor\'s fee in the Doctors tab for accurate reporting.',
-                  style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
-                ),
+              Text(
+                '${row.visits} visit${row.visits == 1 ? '' : 's'} · ${row.completed} seen'
+                '${row.specialty != null && row.specialty!.isNotEmpty ? ' · ${row.specialty}' : ''}',
+                style: AppTextStyles.label(SevaCareColors.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(width: 8),
+        Text(
+          money(row.revenueRupees),
+          style: AppTextStyles.cardTitle(SevaCareColors.text),
+        ),
       ],
     );
   }

@@ -41,6 +41,24 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        // A path built from a missing id collapses an empty segment into the URL
+        // ('/admin//overview'). The server matches no handler and answers 401, which
+        // the error branch below reads as "your token died" and signs the user out —
+        // so one unset id silently destroys a perfectly good session. Refuse to send
+        // it: fail here, loudly and locally, where the caller's bug is visible.
+        final isAbsolute = options.path.startsWith('http');
+        if (!isAbsolute && options.path.contains('//')) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              error: ApiException(0,
+                  'Malformed request: "${options.path}" is missing a path parameter.'),
+              message: 'Malformed request path: ${options.path}',
+            ),
+            true,
+          );
+          return;
+        }
         if (_token != null) {
           options.headers['Authorization'] = 'Bearer $_token';
         }

@@ -8,9 +8,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.shared.dto.ContractResponse;
+import com.sevacare.shared.dto.TermsDtos;
 import com.sevacare.shared.tenant.TenantContext;
 import com.sevacare.tenant.capability.TenantManifest;
 import com.sevacare.tenant.capability.TenantModuleService;
+import com.sevacare.tenant.terms.TermsService;
 
 /**
  * "What is this tenant?" — asked once, right after login, by every client.
@@ -26,17 +28,26 @@ import com.sevacare.tenant.capability.TenantModuleService;
 public class CapabilityController {
 
     private final TenantModuleService tenantModuleService;
+    private final TermsService termsService;
 
-    public CapabilityController(TenantModuleService tenantModuleService) {
+    public CapabilityController(TenantModuleService tenantModuleService, TermsService termsService) {
         this.tenantModuleService = tenantModuleService;
+        this.termsService = termsService;
     }
 
+    /**
+     * @param termsAccepted false when this tenant has never accepted the terms, or
+     *                      accepted an older version. The client asks once, then, rather
+     *                      than an extra round-trip on every login to find out.
+     */
     public record CapabilityResponse(
             String tenantPublicId,
             String tenantName,
             Set<String> modules,
             String pharmacyProfileKey,
-            Set<String> pharmacyFeatures) {
+            Set<String> pharmacyFeatures,
+            String termsVersion,
+            boolean termsAccepted) {
     }
 
     @GetMapping
@@ -46,11 +57,14 @@ public class CapabilityController {
             return ResponseEntity.notFound().build();
         }
         TenantManifest manifest = tenantModuleService.manifestOf(tenantPublicId);
+        TermsDtos.TermsAcceptanceView terms = termsService.acceptance(tenantPublicId);
         return ResponseEntity.ok(ContractResponse.of(new CapabilityResponse(
                 manifest.tenantPublicId(),
                 manifest.tenantName(),
                 manifest.enabledModules(),
                 manifest.pharmacyProfileKey(),
-                manifest.pharmacyFeatures())));
+                manifest.pharmacyFeatures(),
+                terms.currentVersion(),
+                terms.upToDate())));
     }
 }

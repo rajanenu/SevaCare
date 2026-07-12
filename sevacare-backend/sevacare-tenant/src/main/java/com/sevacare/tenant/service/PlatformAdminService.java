@@ -18,6 +18,7 @@ import com.sevacare.tenant.capability.TenantKind;
 import com.sevacare.tenant.capability.TenantModuleService;
 import com.sevacare.tenant.entity.TenantRegistry;
 import com.sevacare.tenant.repository.TenantRegistryRepository;
+import com.sevacare.tenant.terms.TermsService;
 
 @Service
 public class PlatformAdminService {
@@ -29,6 +30,7 @@ public class PlatformAdminService {
     private final TenantRegistryService tenantRegistryService;
 
     private final TenantModuleService tenantModuleService;
+    private final TermsService termsService;
     private final ApplicationEventPublisher events;
 
     public PlatformAdminService(
@@ -36,12 +38,14 @@ public class PlatformAdminService {
             JdbcTemplate jdbcTemplate,
             TenantRegistryService tenantRegistryService,
             TenantModuleService tenantModuleService,
+            TermsService termsService,
             ApplicationEventPublisher events
     ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.tenantRegistryService = tenantRegistryService;
         this.tenantModuleService = tenantModuleService;
+        this.termsService = termsService;
         this.events = events;
     }
 
@@ -167,6 +171,17 @@ public class PlatformAdminService {
                 kind,
                 profileKey
         );
+
+        // The customer read SevaCare's terms and agreed before we opened the account.
+        // Recorded against the tenant so their admin is not asked the same question
+        // again at first sign-in — and so we can still answer, years later, what they
+        // agreed to and when. Left unticked, the app asks them itself.
+        if (request.termsAcceptedAtOnboarding()) {
+            termsService.stampOnboardingAcceptance(
+                    tenant,
+                    defaultContactName(request.contactName(), request.hospitalName()) + " (at onboarding)");
+            tenant = tenantRegistryRepository.save(tenant);
+        }
         return toTenantView(tenant);
     }
 

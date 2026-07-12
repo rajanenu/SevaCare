@@ -11,7 +11,14 @@ public final class DiscoveryDtos {
     private DiscoveryDtos() {
     }
 
-    public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty, String themeKey, String pinCode) {
+    /**
+     * A tenant as the public directory sees it. {@code hasClinical} / {@code hasPharmacy}
+     * mirror the two module switches on {@code tenant_registry}, so a caller that asked
+     * for everything can still tell a hospital from a medical store — and a store that
+     * also runs a clinic shows up truthfully under both.
+     */
+    public record TenantSummary(String tenantPublicId, String hospitalName, String city, String specialty,
+            String themeKey, String pinCode, boolean hasClinical, boolean hasPharmacy) {
     }
 
     /** Hero image for a hospital — base64 payload; fields are null when the tenant has no image. */

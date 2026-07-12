@@ -46,6 +46,10 @@ public final class PlatformAdminDtos {
      *                           set. Null lets the backend pick the sensible default
      *                           — MEDICAL_STORE alone, CLINIC_DISPENSARY beside a
      *                           hospital.
+     * @param termsAccepted      the customer was shown SevaCare's terms and agreed to
+     *                           them at onboarding. Absent means "not recorded", and
+     *                           the tenant's own admin is asked to accept in the app on
+     *                           first sign-in — the question is never simply skipped.
      */
     public record PlatformTenantUpsertRequest(
             @NotBlank String hospitalName,
@@ -58,7 +62,8 @@ public final class PlatformAdminDtos {
             String status,
             Boolean hasClinical,
             Boolean hasPharmacy,
-            String pharmacyProfileKey
+            String pharmacyProfileKey,
+            Boolean termsAccepted
     ) {
         public boolean clinicalEnabled() {
             return hasClinical == null || hasClinical;
@@ -66,6 +71,10 @@ public final class PlatformAdminDtos {
 
         public boolean pharmacyEnabled() {
             return Boolean.TRUE.equals(hasPharmacy);
+        }
+
+        public boolean termsAcceptedAtOnboarding() {
+            return Boolean.TRUE.equals(termsAccepted);
         }
     }
 

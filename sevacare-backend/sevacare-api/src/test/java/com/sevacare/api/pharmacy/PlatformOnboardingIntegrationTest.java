@@ -21,8 +21,10 @@ import com.sevacare.pharmacy.inventory.service.StockLedgerService;
 import com.sevacare.pharmacy.inventory.spi.MovementReason;
 import com.sevacare.pharmacy.inventory.spi.StockMovement;
 import com.sevacare.shared.dto.PlatformAdminDtos;
+import com.sevacare.shared.dto.TermsDtos;
 import com.sevacare.shared.tenant.TenantContext;
 import com.sevacare.tenant.service.PlatformAdminService;
+import com.sevacare.tenant.terms.TermsService;
 
 /**
  * Onboarding as a platform admin actually experiences it: two checkboxes, and a
@@ -42,6 +44,9 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
     @Autowired
     private StockLedgerService stockLedger;
 
+    @Autowired
+    private TermsService termsService;
+
     private final List<PlatformAdminDtos.PlatformTenantView> provisioned = new ArrayList<>();
 
     @AfterEach
@@ -59,7 +64,7 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
         PlatformAdminDtos.PlatformTenantView view = platformAdmin.createTenant(
                 new PlatformAdminDtos.PlatformTenantUpsertRequest(
                         name, "Hyderabad", "500001", "default", "Owner", "9000000098",
-                        "owner@example.com", "active", clinical, pharmacy, profile));
+                        "owner@example.com", "active", clinical, pharmacy, profile, true));
         provisioned.add(view);
         return view;
     }
@@ -124,7 +129,7 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
                 view.tenantPublicId(),
                 new PlatformAdminDtos.PlatformTenantUpsertRequest(
                         "Growing Hospital", "Hyderabad", "500001", "default", "Owner", "9000000098",
-                        "owner@example.com", "active", true, true, null));
+                        "owner@example.com", "active", true, true, null, true));
 
         assertThat(updated.pharmacyProfileKey()).isEqualTo("CLINIC_DISPENSARY");
         assertThat(updated.kindLabel()).isEqualTo("Hospital + Pharmacy");
@@ -211,7 +216,7 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
                 view.tenantPublicId(),
                 new PlatformAdminDtos.PlatformTenantUpsertRequest(
                         "Chain HQ", "Chennai", "600001", "default", "Owner", "9000000098",
-                        "owner@example.com", "active", false, true, null));
+                        "owner@example.com", "active", false, true, null, true));
 
         assertThat(updated.pharmacyProfileKey()).isEqualTo("PHARMACY_CHAIN");
         assertThat(updated.city()).isEqualTo("Chennai");
@@ -227,10 +232,45 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
                 .isEqualTo("Medical store");
     }
 
+    // ── Terms of service ───────────────────────────────────────────────────────
+    //
+    // Consent is a record, not a form field: whichever way it is given, we must be
+    // able to say afterwards what was agreed and when.
+
+    @Test
+    void terms_agreed_at_onboarding_are_recorded_against_the_tenant() {
+        PlatformAdminDtos.PlatformTenantView view = onboard("Consenting Clinic", true, false, null);
+
+        TermsDtos.TermsAcceptanceView terms = termsService.acceptance(view.tenantPublicId());
+
+        assertThat(terms.upToDate()).isTrue();
+        assertThat(terms.acceptedVersion()).isEqualTo(TermsService.CURRENT_VERSION);
+        assertThat(terms.acceptedAt()).isNotNull();
+        assertThat(terms.acceptedBy()).contains("at onboarding");
+    }
+
+    /** Nobody is assumed to have agreed to words they were never shown — the app asks. */
+    @Test
+    void a_tenant_onboarded_without_consent_is_asked_in_the_app() {
+        PlatformAdminDtos.PlatformTenantView view = platformAdmin.createTenant(
+                new PlatformAdminDtos.PlatformTenantUpsertRequest(
+                        "Silent Store", "Hyderabad", "500001", "default", "Owner", "9000000097",
+                        "owner@example.com", "active", false, true, "MEDICAL_STORE", null));
+        provisioned.add(view);
+
+        assertThat(termsService.acceptance(view.tenantPublicId()).upToDate()).isFalse();
+
+        TermsDtos.TermsAcceptanceView accepted = termsService.accept(view.tenantPublicId(), "Suresh (owner)");
+
+        assertThat(accepted.upToDate()).isTrue();
+        assertThat(accepted.acceptedBy()).isEqualTo("Suresh (owner)");
+        assertThat(termsService.document().sections()).isNotEmpty();
+    }
+
     private PlatformAdminDtos.PlatformTenantUpsertRequest upsert(
             String name, Boolean clinical, Boolean pharmacy, String profile) {
         return new PlatformAdminDtos.PlatformTenantUpsertRequest(
                 name, "Hyderabad", "500001", "default", "Owner", "9000000098",
-                "owner@example.com", "active", clinical, pharmacy, profile);
+                "owner@example.com", "active", clinical, pharmacy, profile, true);
     }
 }

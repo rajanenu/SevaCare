@@ -94,14 +94,17 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                       baseDelay: const Duration(milliseconds: 80),
                       child: _PrimaryCard(
                         icon: Icons.local_pharmacy_rounded,
-                        label: 'Pharmacy',
-                        description: 'Open your counter',
+                        label: 'Search Pharmacies',
+                        description: 'Find your medical store',
+                        // Green/teal is the pharmacy's identity all the way to the
+                        // counter — it stays. The onboarding tile beside it moved
+                        // to amber so the two are no longer both "the green one".
                         gradient: const LinearGradient(
                           colors: [Color(0xFF15A66A), Color(0xFF0E9488)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        onTap: () => context.go('/pharmacy-login'),
+                        onTap: () => context.go('/pharmacy-search'),
                       ),
                     ),
                   ),
@@ -114,8 +117,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                         icon: Icons.add_business_rounded,
                         label: 'Onboard Hospital/Pharmacy',
                         description: 'Register on the platform',
+                        // Amber, not the old emerald: it sat next to the pharmacy
+                        // tile's green and the two read as one action. A third hue
+                        // also matches what this tile is — join, not browse.
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF10B981), Color(0xFF059669)],
+                          colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),

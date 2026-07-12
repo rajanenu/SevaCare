@@ -9,6 +9,7 @@ import 'data/models/models.dart';
 import 'providers/app_state.dart';
 import 'screens/welcome/welcome_screen.dart';
 import 'screens/search/hospital_search_screen.dart';
+import 'screens/search/pharmacy_store_search_screen.dart';
 import 'screens/search/explore_doctors_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/pharmacy_login_screen.dart';
@@ -34,6 +35,7 @@ import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/search/global_search_screen.dart';
 import 'screens/staff/staff_dashboard_screen.dart';
+import 'screens/terms/terms_screen.dart';
 import 'screens/pharmacy/pharmacy_help_screen.dart';
 import 'screens/pharmacy/pharmacy_profile_screen.dart';
 import 'screens/pharmacy/pharmacy_search_screen.dart';
@@ -164,7 +166,8 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           final home = _roleHome(auth);
 
           // Authenticated user on a public page → their home
-          if (path == '/' || path == '/login' || path == '/platform-login' || path == '/pharmacy-login') {
+          if (path == '/' || path == '/login' || path == '/platform-login' ||
+              path == '/pharmacy-login' || path == '/pharmacy-search') {
             return home;
           }
 
@@ -212,9 +215,19 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           path: '/platform-login',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const LoginScreen(platformAdminMode: true)),
         ),
+        // Search Pharmacies → pick a store → sign in. The mirror of
+        // /search → /login for hospitals; both doors into a login stay public.
+        GoRoute(
+          path: '/pharmacy-search',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyStoreSearchScreen()),
+        ),
         GoRoute(
           path: '/pharmacy-login',
-          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyLoginScreen()),
+          pageBuilder: (ctx, state) => _slidePage(
+            ctx,
+            state,
+            PharmacyLoginScreen(store: state.extra as TenantSummary?),
+          ),
         ),
         GoRoute(path: '/onboarding', redirect: (ctx, _) => '/platform-login'),
         GoRoute(
@@ -382,6 +395,12 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(
           path: '/global-search',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const GlobalSearchScreen()),
+        ),
+        // Readable by anyone, signed in or not — a hospital deciding whether to join,
+        // and a store checking a year later what it agreed to.
+        GoRoute(
+          path: '/terms',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const TermsScreen()),
         ),
       ],
       errorBuilder: (ctx, state) => Scaffold(

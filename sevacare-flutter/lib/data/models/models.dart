@@ -113,6 +113,12 @@ class TenantSummary {
   final String? distance;
   final String? pinCode;
 
+  /// The tenant's two module switches. The directory is already filtered by the
+  /// server, so these are here to *label* a result (a store that also runs a
+  /// clinic appears in both lists) — not to filter one list into another.
+  final bool hasClinical;
+  final bool hasPharmacy;
+
   const TenantSummary({
     required this.tenantPublicId,
     required this.hospitalName,
@@ -121,6 +127,8 @@ class TenantSummary {
     required this.themeKey,
     this.distance,
     this.pinCode,
+    this.hasClinical = true,
+    this.hasPharmacy = false,
   });
 
   factory TenantSummary.fromJson(Map<String, dynamic> json) => TenantSummary(
@@ -131,6 +139,8 @@ class TenantSummary {
     themeKey: json['themeKey'] as String? ?? 'premium',
     distance: json['distance'] as String?,
     pinCode: json['pinCode'] as String?,
+    hasClinical: json['hasClinical'] as bool? ?? true,
+    hasPharmacy: json['hasPharmacy'] as bool? ?? false,
   );
 }
 
@@ -1277,6 +1287,190 @@ class AdminOverview {
   );
 }
 
+// ── Reports ───────────────────────────────────────────────────────────────────
+//
+// Counted on the server from this hospital's own rows, for the period asked for.
+// Nothing here is estimated or carried over from a previous day.
+
+class ReportDayPoint {
+  /// '2026-07-12' for a day, '14:00' for an hour of today, '2026-07' for a month.
+  final String date;
+  final int booked;
+  final int completed;
+
+  const ReportDayPoint({required this.date, required this.booked, required this.completed});
+
+  factory ReportDayPoint.fromJson(Map<String, dynamic> json) => ReportDayPoint(
+    date: json['date'] as String? ?? '',
+    booked: json['booked'] as int? ?? 0,
+    completed: json['completed'] as int? ?? 0,
+  );
+}
+
+class ReportDoctorRow {
+  final String doctorPublicId;
+  final String doctorName;
+  final String? specialty;
+  final int visits;
+  final int completed;
+  final int revenueRupees;
+
+  const ReportDoctorRow({
+    required this.doctorPublicId,
+    required this.doctorName,
+    this.specialty,
+    required this.visits,
+    required this.completed,
+    required this.revenueRupees,
+  });
+
+  factory ReportDoctorRow.fromJson(Map<String, dynamic> json) => ReportDoctorRow(
+    doctorPublicId: json['doctorPublicId'] as String? ?? '',
+    doctorName: json['doctorName'] as String? ?? '',
+    specialty: json['specialty'] as String?,
+    visits: json['visits'] as int? ?? 0,
+    completed: json['completed'] as int? ?? 0,
+    revenueRupees: (json['revenueRupees'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class HospitalReport {
+  final String tenantPublicId;
+  final String period; // today | week | month | year
+  final String periodLabel;
+  final String fromDate;
+  final String toDate;
+  final int totalVisits;
+  final int completedVisits;
+  final int upcomingVisits;
+  final int cancelledVisits;
+  final int newPatients;
+  final int prescriptionsIssued;
+  final int revenueRupees;
+  final int avgFeeRupees;
+  final int completionRatePct;
+  final String? peakHour;
+  final List<ReportDayPoint> trend;
+  final List<ReportDoctorRow> doctors;
+  final List<BookingSourceCount> channels;
+
+  const HospitalReport({
+    required this.tenantPublicId,
+    required this.period,
+    required this.periodLabel,
+    required this.fromDate,
+    required this.toDate,
+    required this.totalVisits,
+    required this.completedVisits,
+    required this.upcomingVisits,
+    required this.cancelledVisits,
+    required this.newPatients,
+    required this.prescriptionsIssued,
+    required this.revenueRupees,
+    required this.avgFeeRupees,
+    required this.completionRatePct,
+    this.peakHour,
+    required this.trend,
+    required this.doctors,
+    required this.channels,
+  });
+
+  factory HospitalReport.fromJson(Map<String, dynamic> json) => HospitalReport(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    period: json['period'] as String? ?? 'week',
+    periodLabel: json['periodLabel'] as String? ?? '',
+    fromDate: json['fromDate'] as String? ?? '',
+    toDate: json['toDate'] as String? ?? '',
+    totalVisits: json['totalVisits'] as int? ?? 0,
+    completedVisits: json['completedVisits'] as int? ?? 0,
+    upcomingVisits: json['upcomingVisits'] as int? ?? 0,
+    cancelledVisits: json['cancelledVisits'] as int? ?? 0,
+    newPatients: json['newPatients'] as int? ?? 0,
+    prescriptionsIssued: json['prescriptionsIssued'] as int? ?? 0,
+    revenueRupees: (json['revenueRupees'] as num?)?.toInt() ?? 0,
+    avgFeeRupees: (json['avgFeeRupees'] as num?)?.toInt() ?? 0,
+    completionRatePct: json['completionRatePct'] as int? ?? 0,
+    peakHour: json['peakHour'] as String?,
+    trend: json['trend'] != null
+        ? (json['trend'] as List).map((e) => ReportDayPoint.fromJson(e as Map<String, dynamic>)).toList()
+        : const [],
+    doctors: json['doctors'] != null
+        ? (json['doctors'] as List).map((e) => ReportDoctorRow.fromJson(e as Map<String, dynamic>)).toList()
+        : const [],
+    channels: json['channels'] != null
+        ? (json['channels'] as List).map((e) => BookingSourceCount.fromJson(e as Map<String, dynamic>)).toList()
+        : const [],
+  );
+}
+
+// ── Terms of service ──────────────────────────────────────────────────────────
+
+class TermsSection {
+  final String heading;
+  final List<String> paragraphs;
+
+  const TermsSection({required this.heading, required this.paragraphs});
+
+  factory TermsSection.fromJson(Map<String, dynamic> json) => TermsSection(
+    heading: json['heading'] as String? ?? '',
+    paragraphs: json['paragraphs'] != null
+        ? (json['paragraphs'] as List).map((e) => e.toString()).toList()
+        : const [],
+  );
+}
+
+class TermsDocument {
+  final String version;
+  final String effectiveDate;
+  final String summary;
+  final List<TermsSection> sections;
+
+  const TermsDocument({
+    required this.version,
+    required this.effectiveDate,
+    required this.summary,
+    required this.sections,
+  });
+
+  factory TermsDocument.fromJson(Map<String, dynamic> json) => TermsDocument(
+    version: json['version'] as String? ?? '',
+    effectiveDate: json['effectiveDate'] as String? ?? '',
+    summary: json['summary'] as String? ?? '',
+    sections: json['sections'] != null
+        ? (json['sections'] as List).map((e) => TermsSection.fromJson(e as Map<String, dynamic>)).toList()
+        : const [],
+  );
+}
+
+class TermsAcceptance {
+  final String tenantPublicId;
+  final String currentVersion;
+  final String? acceptedVersion;
+  final DateTime? acceptedAt;
+  final String? acceptedBy;
+  final bool upToDate;
+
+  const TermsAcceptance({
+    required this.tenantPublicId,
+    required this.currentVersion,
+    this.acceptedVersion,
+    this.acceptedAt,
+    this.acceptedBy,
+    required this.upToDate,
+  });
+
+  factory TermsAcceptance.fromJson(Map<String, dynamic> json) => TermsAcceptance(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    currentVersion: json['currentVersion'] as String? ?? '',
+    acceptedVersion: json['acceptedVersion'] as String?,
+    acceptedAt: json['acceptedAt'] != null
+        ? DateTime.tryParse(json['acceptedAt'].toString())
+        : null,
+    acceptedBy: json['acceptedBy'] as String?,
+    upToDate: json['upToDate'] as bool? ?? false,
+  );
+}
+
 class AdminUserRecord {
   final String adminPublicId;
   final String tenantPublicId;
@@ -1452,6 +1646,10 @@ class PlatformTenantUpsertRequest {
   /// default — a medical store alone, a clinic dispensary beside a hospital.
   final String? pharmacyProfileKey;
 
+  /// The customer was shown SevaCare's terms and agreed before the account was
+  /// opened. Recorded on the tenant; left false, their own admin is asked in the app.
+  final bool termsAccepted;
+
   const PlatformTenantUpsertRequest({
     required this.hospitalName,
     this.city,
@@ -1464,6 +1662,7 @@ class PlatformTenantUpsertRequest {
     this.hasClinical = true,
     this.hasPharmacy = false,
     this.pharmacyProfileKey,
+    this.termsAccepted = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1478,6 +1677,7 @@ class PlatformTenantUpsertRequest {
     'hasClinical': hasClinical,
     'hasPharmacy': hasPharmacy,
     if (hasPharmacy && pharmacyProfileKey != null) 'pharmacyProfileKey': pharmacyProfileKey,
+    'termsAccepted': termsAccepted,
   };
 }
 
@@ -1849,12 +2049,20 @@ class Capabilities {
   final String? pharmacyProfileKey;
   final Set<String> pharmacyFeatures;
 
+  /// The terms now in force, and whether this tenant has accepted them. The login
+  /// fetch carries both so the app knows to ask without a second round-trip.
+  /// Defaults to "accepted" so an older backend never blocks a login.
+  final String termsVersion;
+  final bool termsAccepted;
+
   const Capabilities({
     required this.tenantPublicId,
     required this.tenantName,
     required this.modules,
     this.pharmacyProfileKey,
     this.pharmacyFeatures = const {},
+    this.termsVersion = '',
+    this.termsAccepted = true,
   });
 
   bool get hasPharmacy => modules.contains('PHARMACY');
@@ -1869,6 +2077,8 @@ class Capabilities {
     modules: ((json['modules'] as List?) ?? []).map((e) => e.toString().toUpperCase()).toSet(),
     pharmacyProfileKey: json['pharmacyProfileKey'] as String?,
     pharmacyFeatures: ((json['pharmacyFeatures'] as List?) ?? []).map((e) => e.toString()).toSet(),
+    termsVersion: json['termsVersion'] as String? ?? '',
+    termsAccepted: json['termsAccepted'] as bool? ?? true,
   );
 }
 

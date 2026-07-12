@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +29,7 @@ import com.sevacare.shared.dto.DiscoveryDtos;
 import com.sevacare.shared.dto.DoctorDtos;
 import com.sevacare.shared.dto.HospitalManagementDtos;
 import com.sevacare.shared.tenant.TenantContext;
+import com.sevacare.tenant.capability.TenantModule;
 import com.sevacare.tenant.service.HospitalManagementService;
 import com.sevacare.tenant.service.ReferenceDataService;
 import com.sevacare.tenant.service.TenantRegistryService;
@@ -61,9 +63,17 @@ public class DiscoveryController {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * The public tenant directory. {@code ?module=clinical} is what "Search Hospitals"
+     * asks for and {@code ?module=pharmacy} is what "Search Pharmacies" asks for; an
+     * unrecognised or absent value lists every tenant, so an older client still works.
+     */
     @GetMapping("/tenants")
-    public ContractResponse<DiscoveryDtos.TenantDirectory> listTenants() {
-        return ContractResponse.of(new DiscoveryDtos.TenantDirectory(tenantRegistryService.listTenantSummaries()));
+    public ContractResponse<DiscoveryDtos.TenantDirectory> listTenants(
+            @RequestParam(value = "module", required = false) String module
+    ) {
+        return ContractResponse.of(new DiscoveryDtos.TenantDirectory(
+                tenantRegistryService.listTenantSummaries(TenantModule.parseOrNull(module))));
     }
 
     /** Hospital hero image for the login-screen background — public because it renders pre-auth. */

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sevacare.shared.dto.DiscoveryDtos;
 import com.sevacare.shared.event.PharmacyEnabledEvent;
 import com.sevacare.tenant.capability.TenantKind;
+import com.sevacare.tenant.capability.TenantModule;
 import com.sevacare.tenant.entity.TenantRegistry;
 import com.sevacare.tenant.repository.TenantRegistryRepository;
 
@@ -35,17 +36,33 @@ public class TenantRegistryService {
         this.events = events;
     }
 
+    /**
+     * The public tenant directory, optionally narrowed to one module.
+     *
+     * <p>"Search Hospitals" must not list medical stores and "Search Pharmacies" must not
+     * list hospitals, so the caller says which shelf it is browsing and the filter runs in
+     * SQL — a directory that fetched every tenant and sieved it in memory would grow with
+     * the platform, not with the answer.
+     *
+     * <p>A null [module] keeps the old "everything" behaviour for callers that don't care.
+     */
     @Transactional(readOnly = true)
-    public List<DiscoveryDtos.TenantSummary> listTenantSummaries() {
-        return tenantRegistryRepository.findByTenantStatus("active")
-                .stream()
+    public List<DiscoveryDtos.TenantSummary> listTenantSummaries(TenantModule module) {
+        List<TenantRegistry> tenants = switch (module) {
+            case null -> tenantRegistryRepository.findByTenantStatus("active");
+            case CLINICAL -> tenantRegistryRepository.findByTenantStatusAndClinicalEnabledTrue("active");
+            case PHARMACY -> tenantRegistryRepository.findByTenantStatusAndPharmacyProfileKeyIsNotNull("active");
+        };
+        return tenants.stream()
                 .map(tenant -> new DiscoveryDtos.TenantSummary(
                         tenant.getTenantPublicId(),
                         tenant.getTenantName(),
                         tenant.getCity().isBlank() ? "Unknown city" : tenant.getCity(),
                         "General medicine",
                         tenant.getTenantThemeKey(),
-                        tenant.getPinCode().isBlank() ? null : tenant.getPinCode()
+                        tenant.getPinCode().isBlank() ? null : tenant.getPinCode(),
+                        tenant.isClinicalEnabled(),
+                        tenant.getPharmacyProfileKey() != null
                 ))
                 .toList();
     }

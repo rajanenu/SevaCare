@@ -85,6 +85,8 @@ class ApiConstants {
 
   // Admin
   static String adminOverview(String tenantId) => '/admin/$tenantId/overview';
+  /// period: today | week | month | year
+  static String adminReport(String tenantId, String period) => '/admin/$tenantId/reports?period=$period';
   static String adminUsers(String tenantId, {bool activeOnly = false}) =>
       '/admin/$tenantId/users${activeOnly ? '?activeOnly=true' : ''}';
   static String adminUser(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId';
@@ -132,6 +134,11 @@ class ApiConstants {
 
   // Capabilities — "what is this tenant?", asked right after login
   static const String capabilities = '/capabilities';
+
+  // Terms of service — the document is public, accepting it is the tenant's own act
+  static const String publicTerms = '/public/terms';
+  static const String termsAcceptance = '/terms/acceptance';
+  static const String acceptTerms = '/terms/accept';
 
   // Pharmacy
   static String pharmacyCatalogSearch(String tenantId, String query, {int limit = 15}) =>
