@@ -51,12 +51,24 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.2
 
+  # Opening a wa.me link to share a receipt
+  url_launcher: ^6.3.1
+
+  # The real WhatsApp brand glyph (Material has no brand icons)
+  font_awesome_flutter: ^10.7.0
+
   # Charts for insights/reports
   fl_chart: ^0.69.2
 
   # Location detection for "Nearby Hospitals"
   geolocator: ^13.0.2
   geocoding: ^3.0.0
+
+  # Picking a supplier's price list off the device (catalog import)
+  file_picker: ^8.1.7
+
+  # Reading .xlsx directly, so a store need not "Save as CSV" first
+  excel: ^4.0.6
 
 dev_dependencies:
   flutter_test:

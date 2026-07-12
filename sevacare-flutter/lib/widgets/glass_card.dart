@@ -12,6 +12,11 @@ class GlassCard extends StatelessWidget {
   final VoidCallback? onTap;
   final double? elevation;
 
+  /// Repeating list rows (invoices, stock tiles) use a hairline ~0.8 so a
+  /// stack of cards reads as a list, not a pile of boxes. Default stays 1.5
+  /// for standalone cards.
+  final double borderWidth;
+
   const GlassCard({
     super.key,
     required this.child,
@@ -21,6 +26,7 @@ class GlassCard extends StatelessWidget {
     this.backgroundColor,
     this.onTap,
     this.elevation,
+    this.borderWidth = 1.5,
   });
 
   @override
@@ -38,7 +44,7 @@ class GlassCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
               color: borderColor ?? SevaCareColors.glassBorder,
-              width: 1.5,
+              width: borderWidth,
             ),
             boxShadow: [
               BoxShadow(

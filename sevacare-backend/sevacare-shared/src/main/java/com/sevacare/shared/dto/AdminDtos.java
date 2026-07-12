@@ -66,6 +66,7 @@ public final class AdminDtos {
             String name,
             String email,
             String mobileNumber,
+            String secondaryMobile,
             boolean active,
             LocalDateTime createdAt,
             boolean isGeneric,
@@ -84,6 +85,7 @@ public final class AdminDtos {
             String name,
             String email,
             String mobileNumber,
+            String secondaryMobile,
             Boolean active,
             String userType
         ) {

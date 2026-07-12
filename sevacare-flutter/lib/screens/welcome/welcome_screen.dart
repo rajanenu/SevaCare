@@ -63,8 +63,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                     style: AppTextStyles.sectionTitle(SevaCareColors.text)),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
+              // IntrinsicHeight gives the Row a bounded height so the three
+              // cards can share one height (stretch) — a bare stretch Row inside
+              // the scrollable AppShell body has unbounded height and renders blank.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   Expanded(
                     child: StaggeredItem(
                       index: 1,
@@ -88,9 +93,27 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                       index: 2,
                       baseDelay: const Duration(milliseconds: 80),
                       child: _PrimaryCard(
+                        icon: Icons.local_pharmacy_rounded,
+                        label: 'Pharmacy',
+                        description: 'Open your counter',
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF15A66A), Color(0xFF0E9488)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        onTap: () => context.go('/pharmacy-login'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StaggeredItem(
+                      index: 3,
+                      baseDelay: const Duration(milliseconds: 80),
+                      child: _PrimaryCard(
                         icon: Icons.add_business_rounded,
-                        label: 'Onboard Hospital',
-                        description: 'Register your clinic',
+                        label: 'Onboard Hospital/Pharmacy',
+                        description: 'Register on the platform',
                         gradient: const LinearGradient(
                           colors: [Color(0xFF10B981), Color(0xFF059669)],
                           begin: Alignment.topLeft,
@@ -100,13 +123,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
               // ── Coming soon ────────────────────────────────────────────────
               StaggeredItem(
-                index: 3,
+                index: 4,
                 baseDelay: const Duration(milliseconds: 80),
                 child: Row(
                   children: [
@@ -130,12 +154,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
               ),
               const SizedBox(height: 12),
               StaggeredItem(
-                index: 4,
+                index: 5,
                 baseDelay: const Duration(milliseconds: 80),
                 child: Row(
                   children: [
-                    // Nearby search and QR booking already shipped — these are
-                    // the genuinely upcoming features.
+                    // Pharmacy has shipped (now a primary action above); these
+                    // are the genuinely upcoming features.
                     Expanded(
                         child: _ComingSoonCard(
                             icon: Icons.health_and_safety_outlined,
@@ -143,13 +167,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                     const SizedBox(width: 10),
                     Expanded(
                         child: _ComingSoonCard(
-                            icon: Icons.local_pharmacy_outlined,
-                            label: 'Pharmacy')),
+                            icon: Icons.videocam_outlined,
+                            label: 'Consult')),
                     const SizedBox(width: 10),
                     Expanded(
                         child: _ComingSoonCard(
-                            icon: Icons.videocam_outlined,
-                            label: 'Consult')),
+                            icon: Icons.science_outlined,
+                            label: 'Lab Tests')),
                   ],
                 ),
               ),

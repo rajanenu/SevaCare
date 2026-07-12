@@ -204,7 +204,14 @@ class _RequestCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _InfoLine(icon: Icons.phone_outlined, text: request.patientMobile),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              const Icon(Icons.phone_outlined, size: 15, color: SevaCareColors.textMuted),
+              const SizedBox(width: 8),
+              MaskedText(request.patientMobile, style: AppTextStyles.bodyText(SevaCareColors.text)),
+            ]),
+          ),
           if (request.preferredDate.isNotEmpty)
             _InfoLine(icon: Icons.event_outlined, text: 'Preferred: ${request.preferredDate}'),
           if (request.symptoms.isNotEmpty)

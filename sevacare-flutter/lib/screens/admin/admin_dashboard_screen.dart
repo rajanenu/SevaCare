@@ -73,6 +73,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     final hospital = ref.watch(hospitalProvider);
     final width = MediaQuery.sizeOf(context).width;
+    final hasPharmacy = ref.watch(authProvider).hasPharmacy;
 
     // Full dashboard for every admin (generic/temp-admin restricted view removed)
     const tabDefs = [
@@ -165,6 +166,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                             ],
                           ),
                         ),
+                        if (hasPharmacy)
+                          Tooltip(
+                            message: 'Open the pharmacy counter',
+                            child: InkWell(
+                              onTap: () => context.push('/pharmacy'),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.20),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(Icons.local_pharmacy_outlined, color: Colors.white, size: 18),
+                                  SizedBox(width: 6),
+                                  Text('Pharmacy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                ]),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -335,7 +356,22 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
   void initState() {
     super.initState();
     _load();
+    _ensureCapabilities();
     startAutoRefresh(() => _load(silent: true));
+  }
+
+  /// Learn what this tenant is, so the Pharmacy shortcut appears when the shop
+  /// has that module — and, for a pharmacy-only tenant reached after a biometric
+  /// restore (which carries no capabilities), hand straight over to the counter.
+  Future<void> _ensureCapabilities() async {
+    final auth = ref.read(authProvider);
+    if (auth.capabilities != null || auth.token == null || auth.tenantPublicId == null) return;
+    try {
+      final caps = await ref.read(repositoryProvider).getCapabilities(auth.tenantPublicId!, auth.token!);
+      if (!mounted) return;
+      ref.read(authProvider.notifier).setCapabilities(caps);
+      if (caps.isPharmacyOnly) context.go('/pharmacy');
+    } catch (_) {/* the shortcut just stays hidden */}
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -1303,7 +1339,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                                 ),
                                 if (admin.mobileNumber != null &&
                                     admin.mobileNumber!.isNotEmpty)
-                                  Text(
+                                  MaskedText(
                                     admin.mobileNumber!,
                                     style: AppTextStyles.bodyText(
                                       SevaCareColors.textMuted,
@@ -3360,7 +3396,7 @@ class _StaffManagementTabState extends ConsumerState<_StaffManagementTab> {
                             style: AppTextStyles.cardTitle(SevaCareColors.text),
                           ),
                           if (stat.mobileNumber != null)
-                            Text(
+                            MaskedText(
                               stat.mobileNumber!,
                               style: AppTextStyles.label(
                                 SevaCareColors.textMuted,
@@ -3488,7 +3524,7 @@ class _StaffTile extends StatelessWidget {
                 if (staff.mobileNumber != null &&
                     staff.mobileNumber!.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
+                  MaskedText(
                     staff.mobileNumber!,
                     style: AppTextStyles.label(SevaCareColors.textMuted),
                   ),

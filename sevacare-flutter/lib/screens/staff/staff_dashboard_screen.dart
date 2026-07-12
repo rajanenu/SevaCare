@@ -46,6 +46,26 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_ensureCapabilities);
+  }
+
+  /// Learn what this tenant is, so the Pharmacy shortcut shows for a store's
+  /// staff and a pharmacy-only tenant reached after a biometric restore hands
+  /// straight over to the counter.
+  Future<void> _ensureCapabilities() async {
+    final auth = ref.read(authProvider);
+    if (auth.capabilities != null || auth.token == null || auth.tenantPublicId == null) return;
+    try {
+      final caps = await ref.read(repositoryProvider).getCapabilities(auth.tenantPublicId!, auth.token!);
+      if (!mounted) return;
+      ref.read(authProvider.notifier).setCapabilities(caps);
+      if (caps.isPharmacyOnly) context.go('/pharmacy');
+    } catch (_) {/* shortcut stays hidden */}
+  }
+
   void _bookForExistingPatient(PatientRecord p) {
     setState(() {
       _prefillPatient = p;
@@ -75,6 +95,8 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
           _StaffHeroBanner(
             name: auth.subjectName.isNotEmpty ? auth.subjectName : 'Staff',
             userId: auth.subjectPublicId ?? '',
+            showPharmacy: auth.hasPharmacy,
+            onPharmacy: () => context.push('/pharmacy'),
           ),
           const SizedBox(height: 16),
           _TabBar(
@@ -125,7 +147,14 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
 class _StaffHeroBanner extends StatelessWidget {
   final String name;
   final String userId;
-  const _StaffHeroBanner({required this.name, required this.userId});
+  final bool showPharmacy;
+  final VoidCallback? onPharmacy;
+  const _StaffHeroBanner({
+    required this.name,
+    required this.userId,
+    this.showPharmacy = false,
+    this.onPharmacy,
+  });
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -216,6 +245,26 @@ class _StaffHeroBanner extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (showPharmacy)
+                    Tooltip(
+                      message: 'Open the pharmacy counter',
+                      child: InkWell(
+                        onTap: onPharmacy,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.20),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.local_pharmacy_outlined, color: Colors.white, size: 18),
+                            SizedBox(width: 6),
+                            Text('Pharmacy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ]),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -2817,7 +2866,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
+                MaskedText(
                   p.mobileNumber,
                   style: AppTextStyles.label(SevaCareColors.textMuted),
                 ),

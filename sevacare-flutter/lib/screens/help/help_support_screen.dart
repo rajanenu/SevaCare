@@ -41,10 +41,12 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
     final auth = ref.watch(authProvider);
     final hospital = ref.watch(hospitalProvider);
     final isPlatformAdmin = auth.role == UserRole.platformAdmin;
+    final isPharmacy = auth.isPharmacyOnly;
     final isAuthenticated = auth.isAuthenticated;
     final hospitalName = (isAuthenticated && !isPlatformAdmin && hospital.hospitalName.isNotEmpty)
         ? hospital.hospitalName
         : 'SevaCare';
+    final entityLabel = isPharmacy ? 'Medical Store' : 'Hospital';
 
     return AppShell(
       hospitalName: isPlatformAdmin ? 'SevaCare' : hospitalName,
@@ -74,7 +76,7 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
           const SizedBox(height: 20),
 
           // Context badge
-          _ContextBanner(isPlatformAdmin: isPlatformAdmin, hospitalName: hospitalName),
+          _ContextBanner(isPlatformAdmin: isPlatformAdmin, isPharmacy: isPharmacy, hospitalName: hospitalName),
           const SizedBox(height: 20),
 
           // Contact details
@@ -101,8 +103,8 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
             ),
           ] else ...[
             _ContactCard(
-              icon: Icons.local_hospital_rounded,
-              label: 'Hospital',
+              icon: isPharmacy ? Icons.storefront_rounded : Icons.local_hospital_rounded,
+              label: entityLabel,
               value: hospitalName,
               color: SevaCareColors.primary,
             ),
@@ -229,8 +231,9 @@ class _AssistantCard extends StatelessWidget {
 
 class _ContextBanner extends StatelessWidget {
   final bool isPlatformAdmin;
+  final bool isPharmacy;
   final String hospitalName;
-  const _ContextBanner({required this.isPlatformAdmin, required this.hospitalName});
+  const _ContextBanner({required this.isPlatformAdmin, this.isPharmacy = false, required this.hospitalName});
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +258,9 @@ class _ContextBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              isPlatformAdmin ? Icons.support_agent_rounded : Icons.local_hospital_rounded,
+              isPlatformAdmin
+                  ? Icons.support_agent_rounded
+                  : (isPharmacy ? Icons.storefront_rounded : Icons.local_hospital_rounded),
               color: Colors.white,
               size: 22,
             ),
@@ -273,7 +278,9 @@ class _ContextBanner extends StatelessWidget {
                 Text(
                   isPlatformAdmin
                       ? 'Platform-level issues, onboarding, and billing'
-                      : 'Hospital services, appointments, and clinical queries',
+                      : (isPharmacy
+                          ? 'Billing, stock and counter queries'
+                          : 'Hospital services, appointments, and clinical queries'),
                   style: AppTextStyles.label(Colors.white.withValues(alpha: 0.85)),
                 ),
               ],

@@ -30,3 +30,4 @@ export 'confirm_dialog.dart';
 export 'doctor_photo.dart';
 export 'staff_photo.dart';
 export 'rating_stars.dart';
+export 'masked_text.dart';

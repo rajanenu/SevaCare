@@ -60,7 +60,10 @@ public class SecurityConfiguration {
         configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        // ETag is not a CORS-safelisted response header: without naming it here the
+        // browser hides it from the web app, and the pharmacy counter can never send
+        // back the If-None-Match that earns it a 304.
+        configuration.setExposedHeaders(List.of("Authorization", "ETag"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

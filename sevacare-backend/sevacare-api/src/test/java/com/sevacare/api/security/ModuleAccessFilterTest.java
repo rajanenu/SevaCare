@@ -26,19 +26,19 @@ class ModuleAccessFilterTest {
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/doctors", STORE)).isTrue();
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/patients/P-0001", STORE)).isTrue();
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/prescriptions", STORE)).isTrue();
-        assertThat(ModuleAccessFilter.isBlocked("/api/pharmacy/skus", STORE)).isFalse();
+        assertThat(ModuleAccessFilter.isBlocked("/api/v1/pharmacy/skus", STORE)).isFalse();
     }
 
     @Test
     void a_hospital_without_a_pharmacy_has_no_pharmacy_endpoints() {
-        assertThat(ModuleAccessFilter.isBlocked("/api/pharmacy/skus", HOSPITAL)).isTrue();
+        assertThat(ModuleAccessFilter.isBlocked("/api/v1/pharmacy/skus", HOSPITAL)).isTrue();
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/doctors", HOSPITAL)).isFalse();
     }
 
     @Test
     void a_clinic_dispensary_reaches_both() {
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/doctors", BOTH)).isFalse();
-        assertThat(ModuleAccessFilter.isBlocked("/api/pharmacy/sales", BOTH)).isFalse();
+        assertThat(ModuleAccessFilter.isBlocked("/api/v1/pharmacy/sales", BOTH)).isFalse();
     }
 
     /**
@@ -65,6 +65,6 @@ class ModuleAccessFilterTest {
     void an_unknown_tenant_reaches_nothing() {
         TenantManifest unknown = new TenantManifest("T-9", null, false, null, Set.of());
         assertThat(ModuleAccessFilter.isBlocked("/api/v1/doctors", unknown)).isTrue();
-        assertThat(ModuleAccessFilter.isBlocked("/api/pharmacy/skus", unknown)).isTrue();
+        assertThat(ModuleAccessFilter.isBlocked("/api/v1/pharmacy/skus", unknown)).isTrue();
     }
 }

@@ -9,6 +9,10 @@ class ApiConstants {
   static const String otpRequest = '/auth/otp/request';
   static const String otpVerify = '/auth/otp/verify';
 
+  // Standalone medical-store login (mobile-first; backend resolves the shop)
+  static const String pharmacyAuthRequestOtp = '/auth/pharmacy/request-otp';
+  static const String pharmacyAuthVerify = '/auth/pharmacy/verify';
+
   // Public
   static const String publicTenants = '/public/tenants';
   static const String publicLookups = '/public/lookups';
@@ -125,6 +129,63 @@ class ApiConstants {
 
   // Admin Messages
   static String adminMessages(String tenantId) => '/$tenantId/admin/messages';
+
+  // Capabilities — "what is this tenant?", asked right after login
+  static const String capabilities = '/capabilities';
+
+  // Pharmacy
+  static String pharmacyCatalogSearch(String tenantId, String query, {int limit = 15}) =>
+      '/pharmacy/$tenantId/catalog/search?q=${Uri.encodeComponent(query)}&limit=$limit';
+  static String pharmacyCatalogStock(String tenantId) => '/pharmacy/$tenantId/catalog/stock';
+  static String pharmacyCatalogImport(String tenantId) => '/pharmacy/$tenantId/catalog/import';
+  static String pharmacyTopMedicines(String tenantId, {String period = 'WEEK', int limit = 15}) =>
+      '/pharmacy/$tenantId/analytics/top-medicines?period=$period&limit=$limit';
+  static String pharmacyCreateSku(String tenantId) => '/pharmacy/$tenantId/catalog/skus';
+  static String pharmacyReceiveStock(String tenantId) => '/pharmacy/$tenantId/stock/receive';
+  static String pharmacyNearExpiry(String tenantId) => '/pharmacy/$tenantId/inventory/near-expiry';
+  static String pharmacyLowStock(String tenantId) => '/pharmacy/$tenantId/inventory/low-stock';
+  static String pharmacySales(String tenantId) => '/pharmacy/$tenantId/sales';
+  static String pharmacyRecentSales(String tenantId, {int limit = 20}) =>
+      '/pharmacy/$tenantId/sales/recent?limit=$limit';
+  static String pharmacyDaySummary(String tenantId, {String? date}) =>
+      '/pharmacy/$tenantId/sales/day-summary${date != null ? '?date=$date' : ''}';
+  static String pharmacyReceipt(String tenantId, String salePublicId) =>
+      '/pharmacy/$tenantId/sales/$salePublicId';
+  static String pharmacySuppliers(String tenantId) => '/pharmacy/$tenantId/suppliers';
+  static String pharmacyGrn(String tenantId) => '/pharmacy/$tenantId/grn';
+  static String pharmacyRecentGrns(String tenantId, {int limit = 20}) =>
+      '/pharmacy/$tenantId/grn/recent?limit=$limit';
+  static String pharmacyReturnable(String tenantId, String salePublicId) =>
+      '/pharmacy/$tenantId/sales/$salePublicId/returnable';
+  static String pharmacyReturns(String tenantId) => '/pharmacy/$tenantId/returns';
+  static String pharmacyMoneyDay(String tenantId, {String? date}) =>
+      '/pharmacy/$tenantId/money/day${date != null ? '?date=$date' : ''}';
+  static String pharmacyDayClose(String tenantId) => '/pharmacy/$tenantId/day-close';
+  static String pharmacySalesRegister(String tenantId, String from, String to) =>
+      '/pharmacy/$tenantId/reports/sales-register?from=$from&to=$to';
+  static String pharmacyRangeSummary(String tenantId, String from, String to) =>
+      '/pharmacy/$tenantId/sales/range-summary?from=$from&to=$to';
+  static String pharmacyDailyTotals(String tenantId, String from, String to) =>
+      '/pharmacy/$tenantId/analytics/daily-totals?from=$from&to=$to';
+  static String pharmacySalesInRange(String tenantId, String from, String to,
+          {String sortBy = 'date', int limit = 100}) =>
+      '/pharmacy/$tenantId/sales/in-range?from=$from&to=$to&sortBy=$sortBy&limit=$limit';
+  static String pharmacyLastSaleForMobile(String tenantId, String mobile) =>
+      '/pharmacy/$tenantId/sales/last-for-mobile?mobile=${Uri.encodeComponent(mobile)}';
+  static String pharmacyVoidSale(String tenantId, String salePublicId) =>
+      '/pharmacy/$tenantId/sales/$salePublicId/void';
+  static String pharmacyRecentReturns(String tenantId, {int limit = 20}) =>
+      '/pharmacy/$tenantId/returns/recent?limit=$limit';
+  static String pharmacyCreditOutstanding(String tenantId) =>
+      '/pharmacy/$tenantId/credit/outstanding';
+  static String pharmacyCreditOutstandingFor(String tenantId, String mobile) =>
+      '/pharmacy/$tenantId/credit/outstanding-for?mobile=${Uri.encodeComponent(mobile)}';
+  static String pharmacyCreditPayments(String tenantId) =>
+      '/pharmacy/$tenantId/credit/payments';
+  static String pharmacyGstSummary(String tenantId, String from, String to) =>
+      '/pharmacy/$tenantId/reports/gst-summary?from=$from&to=$to';
+  static String pharmacyUpdateSku(String tenantId, String skuPublicId) =>
+      '/pharmacy/$tenantId/catalog/skus/$skuPublicId';
 
   // Platform Admin
   static const String platformOverview = '/platform-admin/overview';

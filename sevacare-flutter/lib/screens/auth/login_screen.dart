@@ -45,6 +45,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final TextEditingController _mobileCtrl;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _otpCtrl;
+  // The cursor follows the flow instead of waiting for a tap: mobile on arrival
+  // and on a role switch, OTP the moment the code is sent.
+  final _mobileFocus = FocusNode();
+  final _otpFocus = FocusNode();
   bool _otpVisible = false;
 
   bool _roleSelected = false;
@@ -72,6 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(activeRoleProvider.notifier).state = startRole;
       ref.read(loginFormProvider.notifier).reset();
       _checkBiometric();
+      _mobileFocus.requestFocus();
     });
   }
 
@@ -124,6 +129,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (confirmed == true) await BiometricService.setEnabled(true);
   }
 
+  /// Where to land after authenticating. Normally the role's home, but a tenant
+  /// that is a pharmacy and nothing else opens straight into the counter — its
+  /// owner and staff have no hospital screens to see. Capabilities are an
+  /// enhancement to routing, never a gate: if the lookup fails, login still lands.
+  Future<String> _landingRoute(UserRole role) async {
+    final auth = ref.read(authProvider);
+    final tenantId = auth.tenantPublicId;
+    final token = auth.token;
+    final tenantScoped = role == UserRole.admin || role == UserRole.staff || role == UserRole.doctor;
+    if (tenantScoped && tenantId != null && tenantId.isNotEmpty && token != null && token.isNotEmpty) {
+      try {
+        final caps = await ref.read(repositoryProvider).getCapabilities(tenantId, token);
+        ref.read(authProvider.notifier).setCapabilities(caps);
+        if (caps.isPharmacyOnly) return '/pharmacy';
+      } catch (_) {
+        // No capabilities → fall back to the role home. A store owner can still
+        // reach the counter from the admin dashboard's Pharmacy card.
+      }
+    }
+    return _routeForRole(role);
+  }
+
   /// Unlock using stored biometric credentials.
   Future<void> _loginWithBiometric() async {
     final ok = await BiometricService.authenticate(
@@ -136,7 +163,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (restored) {
       final role = ref.read(authProvider).role;
       if (role != null) {
-        context.go(_routeForRole(role));
+        final dest = await _landingRoute(role);
+        if (mounted) context.go(dest);
         return;
       }
     }
@@ -159,6 +187,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
     _otpCtrl.dispose();
+    _mobileFocus.dispose();
+    _otpFocus.dispose();
     super.dispose();
   }
 
@@ -172,6 +202,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailCtrl.clear();
     _otpCtrl.clear();
     setState(() => _roleSelected = true);
+    _mobileFocus.requestFocus();
   }
 
   Future<void> _sendOtp() async {
@@ -214,6 +245,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Start 120-second countdown for Resend OTP
       setState(() => _resendCountdown = 120);
       _startResendTimer();
+      // The OTP field only exists once the code is sent — focus it after the
+      // frame that builds it, so the user types the code straight away.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _otpFocus.requestFocus();
+      });
     } catch (e) {
       notifier.setError(_friendlyError(e));
     }
@@ -266,7 +302,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         await _promptEnableBiometric();
         final sessionRole = ref.read(authProvider).role ?? role;
-        if (mounted) context.go(_routeForRole(sessionRole));
+        final dest = await _landingRoute(sessionRole);
+        if (mounted) context.go(dest);
       }
     } catch (e) {
       notifier.setError(_friendlyError(e));
@@ -533,6 +570,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   label: 'Mobile Number',
                   placeholder: 'Enter 10-digit mobile number',
                   controller: _mobileCtrl,
+                  focusNode: _mobileFocus,
                   keyboardType: TextInputType.phone,
                   required: true,
                   readOnly: formState.otpSent,
@@ -542,6 +580,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                   onChanged: ref.read(loginFormProvider.notifier).setIdentifier,
                   textInputAction: TextInputAction.next,
+                  onEditingComplete: _sendOtp,
                 ),
                 // ── OTP sent success banner ──────────────────────────────
                 if (formState.otpSent) ...[
@@ -549,24 +588,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
                 ],
                 // ── Email field (optional) ───────────────────────────────
-                AppFormField(
-                  label: 'Email Address',
-                  placeholder: 'Optional — enter your email',
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  required: false,
-                  readOnly: formState.otpSent,
-                  onChanged: ref.read(loginFormProvider.notifier).setEmail,
-                  textInputAction: formState.otpSent
-                      ? TextInputAction.next
-                      : TextInputAction.done,
-                ),
+                // Hidden for now: sign-in is by mobile number alone, for every kind
+                // of user. Nothing behind it changed — the controller, the form
+                // state and the email the server accepts are all still here — so
+                // putting the field back is uncommenting it.
+                // AppFormField(
+                //   label: 'Email Address',
+                //   placeholder: 'Optional — enter your email',
+                //   controller: _emailCtrl,
+                //   keyboardType: TextInputType.emailAddress,
+                //   required: false,
+                //   readOnly: formState.otpSent,
+                //   onChanged: ref.read(loginFormProvider.notifier).setEmail,
+                //   textInputAction: formState.otpSent
+                //       ? TextInputAction.next
+                //       : TextInputAction.done,
+                // ),
                 // ── OTP input field ──────────────────────────────────────
                 if (formState.otpSent)
                   AppFormField(
                     label: 'OTP',
                     placeholder: 'Enter 4-digit code',
                     controller: _otpCtrl,
+                    focusNode: _otpFocus,
                     keyboardType: TextInputType.number,
                     required: true,
                     // Masked so the code is never readable over the user's

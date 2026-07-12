@@ -392,7 +392,14 @@ public class AdminDomainService {
         adminUser.setFullName(resolvedFullName);
         adminUser.setName(resolvedName != null ? resolvedName : resolvedFullName);
         adminUser.setEmail(normalize(request.email()));
-        adminUser.setMobileNumber(normalize(request.mobileNumber()));
+        // Only touch the login mobile when the caller actually sent one — a
+        // profile save that (deliberately) omits it must not null out the
+        // number this account signs in with.
+        String mobile = normalize(request.mobileNumber());
+        if (mobile != null) {
+            adminUser.setMobileNumber(mobile);
+        }
+        adminUser.setSecondaryMobile(normalize(request.secondaryMobile()));
 
         if (request.active() != null) {
             adminUser.setActive(request.active());
@@ -415,6 +422,7 @@ public class AdminDomainService {
                 adminUser.getName(),
                 adminUser.getEmail(),
                 adminUser.getMobileNumber(),
+                adminUser.getSecondaryMobile(),
                 adminUser.isActive(),
                 adminUser.getCreatedAt(),
                 isGeneric,

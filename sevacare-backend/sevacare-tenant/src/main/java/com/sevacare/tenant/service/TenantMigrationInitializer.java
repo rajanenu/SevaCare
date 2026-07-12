@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.sevacare.tenant.entity.TenantRegistry;
@@ -19,10 +20,16 @@ import com.sevacare.tenant.repository.TenantRegistryRepository;
  *
  * <p>Runs after the public-schema Flyway, which Spring Boot's auto-configuration
  * completes during context refresh — {@code tenant_registry} is therefore
- * readable by the time this runner fires.
+ * readable by the time this runner fires. It runs before every other
+ * {@link ApplicationRunner}, because a runner that touches a tenant schema needs
+ * that schema to be at the current version first.
  */
 @Component
+@Order(TenantMigrationInitializer.ORDER)
 public class TenantMigrationInitializer implements ApplicationRunner {
+
+    /** First. Tenant schemas are at the right version before anything reads them. */
+    public static final int ORDER = 0;
 
     private static final Logger log = LoggerFactory.getLogger(TenantMigrationInitializer.class);
 

@@ -11,6 +11,7 @@ import 'screens/welcome/welcome_screen.dart';
 import 'screens/search/hospital_search_screen.dart';
 import 'screens/search/explore_doctors_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/pharmacy_login_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/patient/booking_screen.dart';
 import 'screens/patient/appointments_screen.dart';
@@ -33,6 +34,10 @@ import 'screens/help/help_support_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/search/global_search_screen.dart';
 import 'screens/staff/staff_dashboard_screen.dart';
+import 'screens/pharmacy/pharmacy_help_screen.dart';
+import 'screens/pharmacy/pharmacy_profile_screen.dart';
+import 'screens/pharmacy/pharmacy_search_screen.dart';
+import 'screens/pharmacy/pharmacy_shell_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/cinematic_intro.dart';
 
@@ -146,25 +151,37 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         final isDoctorPath = path.startsWith('/doctor');
         final isPlatformPath = path.startsWith('/platform-admin');
         final isStaffPath = path.startsWith('/staff');
-        final isProtected = isPatientPath || isDoctorPath || path.startsWith('/admin') || isPlatformPath || isStaffPath;
+        // NOT startsWith('/pharmacy') — that would swallow the public
+        // '/pharmacy-login' page and bounce every visitor back to welcome.
+        final isPharmacyPath = path == '/pharmacy' || path.startsWith('/pharmacy/');
+        final isProtected = isPatientPath || isDoctorPath || path.startsWith('/admin') || isPlatformPath || isStaffPath || isPharmacyPath;
 
         // Unauthenticated user hitting a protected page → welcome
         if (isProtected && !isAuthed) return '/';
 
         if (isAuthed) {
           final role = auth.role!;
-          final home = _roleHome(role);
+          final home = _roleHome(auth);
 
           // Authenticated user on a public page → their home
-          if (path == '/' || path == '/login' || path == '/platform-login') {
+          if (path == '/' || path == '/login' || path == '/platform-login' || path == '/pharmacy-login') {
             return home;
           }
 
           // Wrong role accessing a protected path → their correct home
           if (isPatientPath && role != UserRole.patient) return home;
           if (isDoctorPath && role != UserRole.doctor) return home;
+          // A pharmacy-only tenant's admin/staff hold the same UserRole as a
+          // hospital's, but no hospital page is theirs — anything (a stale
+          // link, a shared widget's fallback route) that aims them at the
+          // hospital shell lands back on the counter instead.
+          if (auth.isPharmacyOnly && (path.startsWith('/admin') || path.startsWith('/staff'))) {
+            return '/pharmacy';
+          }
           if (path.startsWith('/admin') && role != UserRole.admin && role != UserRole.staff) return home;
           if (path.startsWith('/staff') && role != UserRole.staff) return home;
+          // The pharmacy counter is run by the tenant's owner (admin) and staff.
+          if (isPharmacyPath && role != UserRole.admin && role != UserRole.staff) return home;
           if (isPlatformPath && role != UserRole.platformAdmin) return home;
         }
 
@@ -194,6 +211,10 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
         GoRoute(
           path: '/platform-login',
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const LoginScreen(platformAdminMode: true)),
+        ),
+        GoRoute(
+          path: '/pharmacy-login',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyLoginScreen()),
         ),
         GoRoute(path: '/onboarding', redirect: (ctx, _) => '/platform-login'),
         GoRoute(
@@ -317,6 +338,24 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
           pageBuilder: (ctx, state) => _slidePage(ctx, state, const ProfileScreen(role: UserRole.staff)),
         ),
 
+        // ── Pharmacy (counter) ────────────────────────────────────────────────
+        GoRoute(
+          path: '/pharmacy',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyShellScreen()),
+        ),
+        GoRoute(
+          path: '/pharmacy/profile',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyProfileScreen()),
+        ),
+        GoRoute(
+          path: '/pharmacy/help',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacyHelpScreen()),
+        ),
+        GoRoute(
+          path: '/pharmacy/search',
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, const PharmacySearchScreen()),
+        ),
+
         // ── Platform Admin ────────────────────────────────────────────────────
         GoRoute(
           path: '/platform-admin',
@@ -374,11 +413,18 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
     );
   }
 
-  static String _roleHome(UserRole r) => switch (r) {
-    UserRole.patient => '/patient',
-    UserRole.doctor => '/doctor',
-    UserRole.admin => '/admin',
-    UserRole.staff => '/staff',
-    UserRole.platformAdmin => '/platform-admin',
-  };
+  // Pharmacy reuses UserRole.admin/staff (no distinct enum value), so a role
+  // switch alone can't tell a pharmacy-only tenant's owner/staff from a
+  // hospital's — check auth.isPharmacyOnly first or this redirect keeps
+  // bouncing them to the hospital admin/staff dashboard instead.
+  static String _roleHome(AuthState auth) {
+    if (auth.isPharmacyOnly) return '/pharmacy';
+    return switch (auth.role!) {
+      UserRole.patient => '/patient',
+      UserRole.doctor => '/doctor',
+      UserRole.admin => '/admin',
+      UserRole.staff => '/staff',
+      UserRole.platformAdmin => '/platform-admin',
+    };
+  }
 }

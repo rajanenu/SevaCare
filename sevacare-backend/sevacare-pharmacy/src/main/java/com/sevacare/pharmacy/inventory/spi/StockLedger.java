@@ -1,6 +1,7 @@
 package com.sevacare.pharmacy.inventory.spi;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The only way stock moves. Inventory is the sole context permitted to append to
@@ -41,4 +42,17 @@ public interface StockLedger {
     long balanceOf(String skuPublicId, String locationId);
 
     long balanceOfBatch(String batchPublicId, String locationId);
+
+    /**
+     * The tenant's default dispensing point (the counter). Where a sale draws
+     * from and a GRN lands, unless a caller names another location.
+     */
+    String defaultLocationId();
+
+    /**
+     * Identity and pricing for a batch a caller named explicitly, if it exists —
+     * so a pharmacist billing off the strip in hand can pick that batch rather
+     * than accept FEFO's choice.
+     */
+    Optional<BatchInfo> findBatch(String batchPublicId);
 }

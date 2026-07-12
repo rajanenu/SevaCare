@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.tenant.TenantContext;
 import com.sevacare.tenant.capability.TenantManifest;
 import com.sevacare.tenant.capability.TenantModuleService;
@@ -39,17 +40,17 @@ public class CapabilityController {
     }
 
     @GetMapping
-    public ResponseEntity<CapabilityResponse> current() {
+    public ResponseEntity<ContractResponse<CapabilityResponse>> current() {
         String tenantPublicId = TenantContext.tenantPublicId();
         if (tenantPublicId == null || tenantPublicId.isBlank()) {
             return ResponseEntity.notFound().build();
         }
         TenantManifest manifest = tenantModuleService.manifestOf(tenantPublicId);
-        return ResponseEntity.ok(new CapabilityResponse(
+        return ResponseEntity.ok(ContractResponse.of(new CapabilityResponse(
                 manifest.tenantPublicId(),
                 manifest.tenantName(),
                 manifest.enabledModules(),
                 manifest.pharmacyProfileKey(),
-                manifest.pharmacyFeatures()));
+                manifest.pharmacyFeatures())));
     }
 }

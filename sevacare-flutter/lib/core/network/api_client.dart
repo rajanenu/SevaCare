@@ -11,6 +11,17 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message';
 }
 
+/// The result of a conditional GET: either a fresh body with the tag it carries,
+/// or word that the tag the caller sent is still current and it should use what it
+/// already has.
+class Revalidated<T> {
+  final T? data;
+  final String? etag;
+  final bool notModified;
+
+  const Revalidated({this.data, this.etag, this.notModified = false});
+}
+
 class ApiClient {
   late final Dio _dio;
   String? _token;
@@ -83,6 +94,37 @@ class ApiClient {
     final envelope = response.data as Map<String, dynamic>;
     final data = envelope['data'];
     return fromJson != null ? fromJson(data) : data as T;
+  }
+
+  /// A conditional GET: sends the [etag] the caller already holds and lets the
+  /// server answer "still current" instead of resending the body.
+  ///
+  /// Needs its own method because Dio counts any non-2xx as a failure, and a 304
+  /// is the opposite of a failure — it is the cheapest possible success.
+  Future<Revalidated<T>> getIfChanged<T>(String path, {
+    T Function(dynamic)? fromJson,
+    String? etag,
+    Map<String, String>? extraHeaders,
+  }) async {
+    final headers = <String, String>{...?extraHeaders};
+    if (etag != null) headers['If-None-Match'] = etag;
+
+    final response = await _dio.get(
+      path,
+      options: Options(
+        headers: headers,
+        validateStatus: (s) => s != null && ((s >= 200 && s < 300) || s == 304),
+      ),
+    );
+    if (response.statusCode == 304) {
+      return Revalidated<T>(notModified: true, etag: etag);
+    }
+    final envelope = response.data as Map<String, dynamic>;
+    final data = envelope['data'];
+    return Revalidated<T>(
+      data: fromJson != null ? fromJson(data) : data as T,
+      etag: response.headers.value('etag'),
+    );
   }
 
   Future<T> post<T>(String path, {

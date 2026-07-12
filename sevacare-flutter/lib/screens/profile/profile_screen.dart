@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/app_snack.dart';
 import '../../core/utils/error_utils.dart';
+import '../../core/utils/mobile_input_formatter.dart';
 import '../../core/utils/profile_storage.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
@@ -26,6 +27,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _mobileCtrl;
+  late final TextEditingController _secondaryMobileCtrl;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _addressCtrl;
   late final TextEditingController _ageCtrl;
@@ -60,6 +62,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     _nameCtrl   = TextEditingController();
     _mobileCtrl = TextEditingController(text: ref.read(loginMobileProvider));
+    _secondaryMobileCtrl = TextEditingController();
     _emailCtrl  = TextEditingController();
     _addressCtrl = TextEditingController();
     _ageCtrl    = TextEditingController();
@@ -74,6 +77,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
+    _secondaryMobileCtrl.dispose();
     _emailCtrl.dispose();
     _addressCtrl.dispose();
     _ageCtrl.dispose();
@@ -236,6 +240,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           setState(() {
             _nameCtrl.text = record.fullName.isNotEmpty ? record.fullName : local.name;
             _emailCtrl.text = record.email ?? local.email;
+            // The login identity itself — shown read-only below, never sent back.
+            _mobileCtrl.text = record.mobileNumber ?? '';
+            _secondaryMobileCtrl.text = record.secondaryMobile ?? '';
+            _addressCtrl.text = local.address;
+            _gender = local.gender;
             _bloodGroup = local.bloodGroup;
             _savedPhotoB64 = local.photoB64;
             _loading = false;
@@ -441,8 +450,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     }
 
-    // For admin/staff: also push name/email to the shared admin_user backend
-    // record (mobile intentionally excluded — it's the login identity).
+    // For admin/staff: also push name/email/secondary mobile to the shared
+    // admin_user backend record (primary mobile intentionally excluded — it's
+    // the login identity).
     if (widget.role == UserRole.admin || widget.role == UserRole.staff) {
       try {
         final repo = ref.read(repositoryProvider);
@@ -453,6 +463,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           AdminUserUpsertRequest(
             fullName: data.name,
             email: data.email.isNotEmpty ? data.email : null,
+            secondaryMobile: _secondaryMobileCtrl.text.trim().isNotEmpty
+                ? _secondaryMobileCtrl.text.trim()
+                : null,
           ),
         );
       } catch (e) {
@@ -890,7 +903,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         controller: _mobileCtrl,
                         keyboardType: TextInputType.phone,
                         placeholder: 'Mobile number',
+                        // Admin/staff log in with this number — changing it here
+                        // would break OTP sign-in, so it's shown, not editable.
+                        readOnly: widget.role == UserRole.admin || widget.role == UserRole.staff,
                       ),
+                      if (widget.role == UserRole.admin || widget.role == UserRole.staff)
+                        AppFormField(
+                          label: 'Secondary Mobile (optional)',
+                          controller: _secondaryMobileCtrl,
+                          keyboardType: TextInputType.phone,
+                          placeholder: 'An alternate number, if you have one',
+                          inputFormatters: [MobileInputFormatter()],
+                          onChanged: (_) => setState(() => _saved = false),
+                        ),
                       if (widget.role == UserRole.doctor) ...[
                         AppFormField(
                           label: 'Years of Experience',
@@ -937,7 +962,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           maxLines: 2,
                           onChanged: (_) => setState(() => _saved = false),
                         ),
-                        if (widget.role == UserRole.patient || widget.role == UserRole.staff)
+                        if (widget.role == UserRole.patient ||
+                            widget.role == UserRole.staff ||
+                            widget.role == UserRole.admin)
                           AppDropdown<String>(
                             label: 'Blood Group',
                             value: _bloodGroup,

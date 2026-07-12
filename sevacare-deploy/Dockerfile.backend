@@ -9,6 +9,7 @@ COPY sevacare-patient/pom.xml sevacare-patient/
 COPY sevacare-doctor/pom.xml sevacare-doctor/
 COPY sevacare-admin/pom.xml sevacare-admin/
 COPY sevacare-tenant/pom.xml sevacare-tenant/
+COPY sevacare-pharmacy/pom.xml sevacare-pharmacy/
 RUN mvn dependency:go-offline -q -pl sevacare-api -am
 # Build
 COPY . .

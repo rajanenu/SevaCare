@@ -21,6 +21,10 @@ public class AdminUser {
     @Column(name = "mobile_number", length = 24)
     private String mobileNumber;
 
+    /** An optional alternate number — the login identity stays {@code mobileNumber}. */
+    @Column(name = "secondary_mobile", length = 24)
+    private String secondaryMobile;
+
     @Column(name = "email", length = 160)
     private String email;
 
@@ -99,6 +103,14 @@ public class AdminUser {
 
     public void setMobileNumber(String mobileNumber) {
         this.mobileNumber = mobileNumber;
+    }
+
+    public String getSecondaryMobile() {
+        return secondaryMobile;
+    }
+
+    public void setSecondaryMobile(String secondaryMobile) {
+        this.secondaryMobile = secondaryMobile;
     }
 
     public String getEmail() {

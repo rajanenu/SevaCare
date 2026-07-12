@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../core/network/api_client.dart';
 import '../core/constants/api_constants.dart';
 import '../data/models/models.dart';
@@ -75,6 +79,27 @@ class SevaCareRepository {
     return _client.post<AuthenticatedSession>(
       ApiConstants.otpVerify,
       body: req.toJson(),
+      fromJson: (d) => AuthenticatedSession.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  // ── Standalone pharmacy login ────────────────────────────────────────────
+
+  /// Resolve which medical store(s) a mobile number can sign into. Throws with a
+  /// friendly message if the number isn't registered at any store.
+  Future<PharmacyOtpResponse> pharmacyRequestOtp(String mobileNumber) async {
+    return _client.post<PharmacyOtpResponse>(
+      ApiConstants.pharmacyAuthRequestOtp,
+      body: {'mobileNumber': mobileNumber},
+      fromJson: (d) => PharmacyOtpResponse.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  Future<AuthenticatedSession> pharmacyVerify(
+      String mobileNumber, String otp, String tenantPublicId) async {
+    return _client.post<AuthenticatedSession>(
+      ApiConstants.pharmacyAuthVerify,
+      body: {'mobileNumber': mobileNumber, 'otp': otp, 'tenantPublicId': tenantPublicId},
       fromJson: (d) => AuthenticatedSession.fromJson(d as Map<String, dynamic>),
     );
   }
@@ -1072,6 +1097,346 @@ class SevaCareRepository {
         'targetSpecialty': ?targetSpecialty,
       },
       fromJson: (d) => d.toString(),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── Capabilities & Pharmacy ───────────────────────────────────────────────────
+
+  Future<Capabilities> getCapabilities(String tenantId, String token) async {
+    return _client.get<Capabilities>(
+      ApiConstants.capabilities,
+      fromJson: (d) => Capabilities.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<PharmacySku>> searchCatalog(String tenantId, String token, String query, {int limit = 15}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyCatalogSearch(tenantId, query, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => PharmacySku.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// The whole active catalog with live on-hand + MRP. The counter holds this and
+  /// searches it locally, so every keystroke is instant and offline.
+  ///
+  /// Kept on the device between sessions and revalidated with the tag the server
+  /// stamps it with. Opening the till usually costs a 304 and no download; the
+  /// moment a colleague rings up a sale the tag moves and the new shelf arrives.
+  /// If the network is down we serve the shelf we hold rather than an empty
+  /// counter — stale stock a pharmacist can sanity-check beats no medicines at all.
+  Future<List<PharmacySku>> catalogStock(String tenantId, String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bodyKey = 'pharmacy_catalog_body_$tenantId';
+    final etagKey = 'pharmacy_catalog_etag_$tenantId';
+    final held = prefs.getString(bodyKey);
+
+    try {
+      final result = await _client.getIfChanged<List<dynamic>>(
+        ApiConstants.pharmacyCatalogStock(tenantId),
+        fromJson: (d) => d as List<dynamic>,
+        etag: held == null ? null : prefs.getString(etagKey),
+        extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+      );
+
+      if (result.notModified && held != null) {
+        return _decodeCatalog(held);
+      }
+      final list = result.data ?? const <dynamic>[];
+      if (result.etag != null) {
+        await prefs.setString(bodyKey, jsonEncode(list));
+        await prefs.setString(etagKey, result.etag!);
+      }
+      return list.map((e) => PharmacySku.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      if (held != null) return _decodeCatalog(held);
+      rethrow;
+    }
+  }
+
+  List<PharmacySku> _decodeCatalog(String body) => (jsonDecode(body) as List<dynamic>)
+      .map((e) => PharmacySku.fromJson(e as Map<String, dynamic>))
+      .toList();
+
+  Future<Map<String, dynamic>> importCatalog(
+      String tenantId, String token, List<Map<String, dynamic>> rows) async {
+    return _client.post<Map<String, dynamic>>(
+      ApiConstants.pharmacyCatalogImport(tenantId),
+      body: {'rows': rows},
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<TopMedicine>> topMedicines(String tenantId, String token,
+      {String period = 'WEEK', int limit = 15}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyTopMedicines(tenantId, period: period, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => TopMedicine.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<PharmacySku> createSku(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<PharmacySku>(
+      ApiConstants.pharmacyCreateSku(tenantId),
+      body: body,
+      fromJson: (d) => PharmacySku.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<GrnReceipt> receiveStock(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<GrnReceipt>(
+      ApiConstants.pharmacyReceiveStock(tenantId),
+      body: body,
+      fromJson: (d) => GrnReceipt.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<SaleReceipt> getReceipt(String tenantId, String token, String salePublicId) async {
+    return _client.get<SaleReceipt>(
+      ApiConstants.pharmacyReceipt(tenantId, salePublicId),
+      fromJson: (d) => SaleReceipt.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<SaleReceipt> createSale(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<SaleReceipt>(
+      ApiConstants.pharmacySales(tenantId),
+      body: body,
+      fromJson: (d) => SaleReceipt.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<SaleSummary>> recentSales(String tenantId, String token, {int limit = 20}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyRecentSales(tenantId, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<SalesRegisterLine>> salesRegister(
+      String tenantId, String token, String fromIso, String toIso) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacySalesRegister(tenantId, fromIso, toIso),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => SalesRegisterLine.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<DaySummary> daySummary(String tenantId, String token, {String? date}) async {
+    return _client.get<DaySummary>(
+      ApiConstants.pharmacyDaySummary(tenantId, date: date),
+      fromJson: (d) => DaySummary.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<DaySummary> rangeSummary(String tenantId, String token, String fromIso, String toIso) async {
+    return _client.get<DaySummary>(
+      ApiConstants.pharmacyRangeSummary(tenantId, fromIso, toIso),
+      fromJson: (d) => DaySummary.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<DailyTotal>> dailyTotals(String tenantId, String token, String fromIso, String toIso) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyDailyTotals(tenantId, fromIso, toIso),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => DailyTotal.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<SaleSummary>> salesInRange(
+      String tenantId, String token, String fromIso, String toIso,
+      {String sortBy = 'date', int limit = 100}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacySalesInRange(tenantId, fromIso, toIso, sortBy: sortBy, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<SaleReceipt?> lastSaleForMobile(String tenantId, String token, String mobile) async {
+    try {
+      return await _client.get<SaleReceipt>(
+        ApiConstants.pharmacyLastSaleForMobile(tenantId, mobile),
+        fromJson: (d) => SaleReceipt.fromJson(d as Map<String, dynamic>),
+        extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> voidSale(String tenantId, String token, String salePublicId) async {
+    await _client.post(
+      ApiConstants.pharmacyVoidSale(tenantId, salePublicId),
+      body: const {},
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<RecentReturn>> recentReturns(String tenantId, String token, {int limit = 20}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyRecentReturns(tenantId, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => RecentReturn.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<CreditOutstanding>> creditOutstanding(String tenantId, String token) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyCreditOutstanding(tenantId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => CreditOutstanding.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<CreditOutstanding?> creditOutstandingFor(String tenantId, String token, String mobile) async {
+    try {
+      return await _client.get<CreditOutstanding>(
+        ApiConstants.pharmacyCreditOutstandingFor(tenantId, mobile),
+        fromJson: (d) => CreditOutstanding.fromJson(d as Map<String, dynamic>),
+        extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+      );
+    } catch (_) {
+      return null; // 404 = no credit history, not an error worth surfacing
+    }
+  }
+
+  Future<CreditOutstanding> recordCreditPayment(
+      String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<CreditOutstanding>(
+      ApiConstants.pharmacyCreditPayments(tenantId),
+      body: body,
+      fromJson: (d) => CreditOutstanding.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<GstSlabTotal>> gstSummary(
+      String tenantId, String token, String fromIso, String toIso) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyGstSummary(tenantId, fromIso, toIso),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => GstSlabTotal.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<PharmacySku> updateSku(
+      String tenantId, String token, String skuPublicId, Map<String, dynamic> body) async {
+    return _client.post<PharmacySku>(
+      ApiConstants.pharmacyUpdateSku(tenantId, skuPublicId),
+      body: body,
+      fromJson: (d) => PharmacySku.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<NearExpiryBatch>> nearExpiry(String tenantId, String token) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyNearExpiry(tenantId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => NearExpiryBatch.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<LowStockItem>> lowStock(String tenantId, String token) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyLowStock(tenantId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => LowStockItem.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<Supplier>> listSuppliers(String tenantId, String token) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacySuppliers(tenantId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => Supplier.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Supplier> createSupplier(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<Supplier>(
+      ApiConstants.pharmacySuppliers(tenantId),
+      body: body,
+      fromJson: (d) => Supplier.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<PostedGrn> postGrn(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<PostedGrn>(
+      ApiConstants.pharmacyGrn(tenantId),
+      body: body,
+      fromJson: (d) => PostedGrn.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<GrnSummary>> recentGrns(String tenantId, String token, {int limit = 20}) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyRecentGrns(tenantId, limit: limit),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => GrnSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ReturnableLine>> returnableLines(
+      String tenantId, String token, String salePublicId) async {
+    final list = await _client.get<List<dynamic>>(
+      ApiConstants.pharmacyReturnable(tenantId, salePublicId),
+      fromJson: (d) => d as List<dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    return list.map((e) => ReturnableLine.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<PostedReturn> postReturn(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<PostedReturn>(
+      ApiConstants.pharmacyReturns(tenantId),
+      body: body,
+      fromJson: (d) => PostedReturn.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<MoneyView> moneyView(String tenantId, String token, {String? date}) async {
+    return _client.get<MoneyView>(
+      ApiConstants.pharmacyMoneyDay(tenantId, date: date),
+      fromJson: (d) => MoneyView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<MoneyView> closeDay(String tenantId, String token, Map<String, dynamic> body) async {
+    return _client.post<MoneyView>(
+      ApiConstants.pharmacyDayClose(tenantId),
+      body: body,
+      fromJson: (d) => MoneyView.fromJson(d as Map<String, dynamic>),
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }

@@ -4,11 +4,13 @@ import java.util.List;
 import java.util.Locale;
 
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.shared.dto.DiscoveryDtos;
+import com.sevacare.shared.event.PharmacyEnabledEvent;
 import com.sevacare.tenant.capability.TenantKind;
 import com.sevacare.tenant.entity.TenantRegistry;
 import com.sevacare.tenant.repository.TenantRegistryRepository;
@@ -19,15 +21,18 @@ public class TenantRegistryService {
     private final TenantRegistryRepository tenantRegistryRepository;
     private final JdbcTemplate jdbcTemplate;
     private final TenantMigrationService tenantMigrationService;
+    private final ApplicationEventPublisher events;
 
     public TenantRegistryService(
             TenantRegistryRepository tenantRegistryRepository,
             JdbcTemplate jdbcTemplate,
-            TenantMigrationService tenantMigrationService
+            TenantMigrationService tenantMigrationService,
+            ApplicationEventPublisher events
     ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.tenantMigrationService = tenantMigrationService;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -198,12 +203,21 @@ public class TenantRegistryService {
         // request rather than after the next boot sweep. Flyway commits on its own
         // connection: if the save below rolls back, an empty schema is left behind,
         // which the next attempt reuses rather than trips over.
+        //
+        // The corollary is that a migration cannot ask what modules this tenant has
+        // — from Flyway's connection the registry row does not exist yet. Anything
+        // that depends on the answer must wait for the commit, which is what the
+        // event below is for.
         tenantMigrationService.migrate(tenant);
 
         tenantRegistryRepository.save(tenant);
 
         if (contactMobile != null && !contactMobile.isBlank()) {
             seedHospitalAdmin(schemaName, tenantPublicId, contactName, contactMobile, contactEmail);
+        }
+
+        if (pharmacyProfileKey != null) {
+            events.publishEvent(new PharmacyEnabledEvent(tenantPublicId, schemaName));
         }
 
         return tenant;

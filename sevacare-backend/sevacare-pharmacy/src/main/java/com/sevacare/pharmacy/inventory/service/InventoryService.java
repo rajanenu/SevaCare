@@ -10,6 +10,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sevacare.pharmacy.inventory.spi.BatchIntake;
+import com.sevacare.pharmacy.inventory.spi.GrnReceipt;
+import com.sevacare.pharmacy.inventory.spi.LowStockItem;
+import com.sevacare.pharmacy.inventory.spi.MovementReason;
+import com.sevacare.pharmacy.inventory.spi.NearExpiryBatch;
+import com.sevacare.pharmacy.inventory.spi.NewBatch;
+import com.sevacare.pharmacy.inventory.spi.StockLedger;
+import com.sevacare.pharmacy.inventory.spi.StockMovement;
 import com.sevacare.shared.tenant.TenantContext;
 import com.sevacare.tenant.support.TenantSchemas;
 
@@ -18,17 +26,105 @@ import com.sevacare.tenant.support.TenantSchemas;
  * live nowhere in this class; they are only ever a sum of ledger rows.
  */
 @Service
-public class InventoryService {
+public class InventoryService implements BatchIntake {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
     private final JdbcTemplate jdbcTemplate;
+    private final StockLedger stockLedger;
     private final int nearExpiryDays;
 
     public InventoryService(JdbcTemplate jdbcTemplate,
+                            StockLedger stockLedger,
                             @Value("${sevacare.pharmacy.near-expiry-days:90}") int nearExpiryDays) {
         this.jdbcTemplate = jdbcTemplate;
+        this.stockLedger = stockLedger;
         this.nearExpiryDays = nearExpiryDays;
+    }
+
+    /**
+     * Receiving stock: the batch (created if new) and the ledger entry that puts
+     * quantity into it, in one transaction. This is the only inbound counterpart
+     * to a sale, and like a sale it writes stock only through the ledger.
+     */
+    @Transactional
+    public GrnReceipt receiveStock(CreateBatchCommand batch, int qtyBaseUnits, String actor) {
+        if (qtyBaseUnits <= 0) {
+            throw new IllegalArgumentException("Received quantity must be positive");
+        }
+        String location = stockLedger.defaultLocationId();
+        String batchPublicId = findOrCreateBatch(batch);
+        long ledgerId = stockLedger.append(StockMovement.of(
+                batch.skuPublicId(), batchPublicId, location, qtyBaseUnits,
+                MovementReason.GRN, "GRN", batchPublicId, actor));
+        long balance = stockLedger.balanceOfBatch(batchPublicId, location);
+        return new GrnReceipt(batchPublicId, batch.skuPublicId(), qtyBaseUnits, balance, ledgerId);
+    }
+
+    /**
+     * Batches with stock on hand that expire within the near-expiry window (or
+     * already have). The queue that gets money back from a supplier before the
+     * claim window closes; ordered soonest-to-expire first.
+     */
+    @Transactional(readOnly = true)
+    public List<NearExpiryBatch> nearExpiryBatches() {
+        String schema = TenantSchemas.require(TenantContext.tenantSchema());
+        return jdbcTemplate.query(
+                "SELECT b.sku_public_id, s.brand_name, b.batch_public_id, b.batch_no, " +
+                "       b.expiry_date, b.batch_status, COALESCE(SUM(bb.qty), 0) AS on_hand " +
+                "FROM " + schema + ".batch b " +
+                "JOIN " + schema + ".medicine_sku s ON s.sku_public_id = b.sku_public_id " +
+                "LEFT JOIN " + schema + ".batch_balance bb ON bb.batch_public_id = b.batch_public_id " +
+                "WHERE b.expiry_date IS NOT NULL " +
+                "  AND b.expiry_date <= CURRENT_DATE + (? * INTERVAL '1 day') " +
+                "  AND b.batch_status IN ('ACTIVE', 'NEAR_EXPIRY', 'EXPIRED') " +
+                "GROUP BY b.sku_public_id, s.brand_name, b.batch_public_id, b.batch_no, b.expiry_date, b.batch_status " +
+                "HAVING COALESCE(SUM(bb.qty), 0) > 0 " +
+                "ORDER BY b.expiry_date",
+                (rs, i) -> new NearExpiryBatch(
+                        rs.getString("sku_public_id"),
+                        rs.getString("brand_name"),
+                        rs.getString("batch_public_id"),
+                        rs.getString("batch_no"),
+                        rs.getDate("expiry_date") == null ? null : rs.getDate("expiry_date").toLocalDate(),
+                        rs.getLong("on_hand"),
+                        rs.getString("batch_status")),
+                nearExpiryDays);
+    }
+
+    /**
+     * SKUs whose on-hand quantity has fallen to or below the reorder level the
+     * tenant set. Only tracked SKUs appear — an untracked one has no opinion about
+     * when it is low, so listing it would be noise, not a shopping list.
+     */
+    @Transactional(readOnly = true)
+    public List<LowStockItem> lowStockItems() {
+        String schema = TenantSchemas.require(TenantContext.tenantSchema());
+        return jdbcTemplate.query(
+                "SELECT s.sku_public_id, s.brand_name, s.reorder_level, s.reorder_qty, " +
+                "       COALESCE(SUM(bb.qty), 0) AS on_hand " +
+                "FROM " + schema + ".medicine_sku s " +
+                "LEFT JOIN " + schema + ".batch_balance bb ON bb.sku_public_id = s.sku_public_id " +
+                "WHERE s.active AND s.reorder_level IS NOT NULL " +
+                "GROUP BY s.sku_public_id, s.brand_name, s.reorder_level, s.reorder_qty " +
+                "HAVING COALESCE(SUM(bb.qty), 0) <= s.reorder_level " +
+                "ORDER BY COALESCE(SUM(bb.qty), 0)",
+                (rs, i) -> new LowStockItem(
+                        rs.getString("sku_public_id"),
+                        rs.getString("brand_name"),
+                        rs.getLong("on_hand"),
+                        rs.getInt("reorder_level"),
+                        (Integer) rs.getObject("reorder_qty")),
+                new Object[] {});
+    }
+
+    /** The {@link BatchIntake} SPI: how procurement and returns create batches. */
+    @Override
+    @Transactional
+    public String findOrCreateBatch(NewBatch batch) {
+        return findOrCreateBatch(new CreateBatchCommand(
+                batch.skuPublicId(), batch.batchNo(), batch.expiryDate(),
+                batch.mrpPaise(), batch.purchasePricePaise(), batch.supplierPublicId()));
     }
 
     /**

@@ -1283,6 +1283,7 @@ class AdminUserRecord {
   final String fullName;
   final String? email;
   final String? mobileNumber;
+  final String? secondaryMobile;
   final bool active;
   final String? createdAt;
   final String userType;
@@ -1293,6 +1294,7 @@ class AdminUserRecord {
     required this.fullName,
     this.email,
     this.mobileNumber,
+    this.secondaryMobile,
     required this.active,
     this.createdAt,
     this.userType = 'ADMIN',
@@ -1306,6 +1308,7 @@ class AdminUserRecord {
     fullName: json['fullName'] as String? ?? json['name'] as String? ?? '',
     email: json['email'] as String?,
     mobileNumber: json['mobileNumber'] as String?,
+    secondaryMobile: json['secondaryMobile'] as String?,
     active: json['active'] as bool? ?? true,
     createdAt: json['createdAt'] as String?,
     userType: json['userType'] as String? ?? 'ADMIN',
@@ -1316,6 +1319,7 @@ class AdminUserUpsertRequest {
   final String fullName;
   final String? email;
   final String? mobileNumber;
+  final String? secondaryMobile;
   final bool? active;
   final String? userType;
 
@@ -1323,6 +1327,7 @@ class AdminUserUpsertRequest {
     required this.fullName,
     this.email,
     this.mobileNumber,
+    this.secondaryMobile,
     this.active,
     this.userType,
   });
@@ -1331,6 +1336,7 @@ class AdminUserUpsertRequest {
     'fullName': fullName,
     if (email != null && email!.isNotEmpty) 'email': email,
     if (mobileNumber != null && mobileNumber!.isNotEmpty) 'mobileNumber': mobileNumber,
+    if (secondaryMobile != null) 'secondaryMobile': secondaryMobile,
     if (active != null) 'active': active,
     if (userType != null) 'userType': userType,
   };
@@ -1828,5 +1834,774 @@ class AppointmentRequestCollection {
     requests: json['requests'] != null
         ? (json['requests'] as List).map((e) => AppointmentRequest.fromJson(e as Map<String, dynamic>)).toList()
         : [],
+  );
+}
+
+// ── Pharmacy ──────────────────────────────────────────────────────────────────
+
+/// What this tenant is, as the server sees it — the app builds its navigation
+/// from this rather than from the user's role, so a medical store shows a
+/// pharmacy app and never a Doctors tab that 404s.
+class Capabilities {
+  final String tenantPublicId;
+  final String tenantName;
+  final Set<String> modules;
+  final String? pharmacyProfileKey;
+  final Set<String> pharmacyFeatures;
+
+  const Capabilities({
+    required this.tenantPublicId,
+    required this.tenantName,
+    required this.modules,
+    this.pharmacyProfileKey,
+    this.pharmacyFeatures = const {},
+  });
+
+  bool get hasPharmacy => modules.contains('PHARMACY');
+  bool get hasClinical => modules.contains('CLINICAL');
+  bool get isPharmacyOnly => hasPharmacy && !hasClinical;
+
+  factory Capabilities.fromJson(Map<String, dynamic> json) => Capabilities(
+    tenantPublicId: json['tenantPublicId'] as String? ?? '',
+    tenantName: json['tenantName'] as String? ?? '',
+    // Server emits module names lower-case ("pharmacy"/"clinical"); normalise so
+    // the hasPharmacy/hasClinical checks are case-insensitive.
+    modules: ((json['modules'] as List?) ?? []).map((e) => e.toString().toUpperCase()).toSet(),
+    pharmacyProfileKey: json['pharmacyProfileKey'] as String?,
+    pharmacyFeatures: ((json['pharmacyFeatures'] as List?) ?? []).map((e) => e.toString()).toSet(),
+  );
+}
+
+/// One medical store a mobile number can sign into (standalone pharmacy login).
+class PharmacyLoginOption {
+  final String tenantPublicId;
+  final String shopName;
+  final String userType; // ADMIN | STAFF
+
+  const PharmacyLoginOption({
+    required this.tenantPublicId,
+    required this.shopName,
+    required this.userType,
+  });
+
+  factory PharmacyLoginOption.fromJson(Map<String, dynamic> json) => PharmacyLoginOption(
+        tenantPublicId: json['tenantPublicId'] as String? ?? '',
+        shopName: (json['shopName'] as String?)?.trim().isNotEmpty == true
+            ? json['shopName'] as String
+            : 'Medical Store',
+        userType: json['userType'] as String? ?? 'ADMIN',
+      );
+}
+
+/// The store(s) resolved for a mobile before the OTP step.
+class PharmacyOtpResponse {
+  final List<PharmacyLoginOption> shops;
+
+  const PharmacyOtpResponse({required this.shops});
+
+  factory PharmacyOtpResponse.fromJson(Map<String, dynamic> json) => PharmacyOtpResponse(
+        shops: ((json['shops'] as List?) ?? [])
+            .map((e) => PharmacyLoginOption.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// A product in the pharmacy catalog, as counter search returns it.
+class PharmacySku {
+  final String skuPublicId;
+  final String brandName;
+  final String? manufacturer;
+  final String? strength;
+  final String? dosageForm;
+  final String baseUnit;
+  final String? scheduleClass;
+  final int gstRateBp;
+  final String? rackLocation;
+  /// Live base units on hand (from the counter/stock endpoints). 0 when unknown.
+  final int qtyOnHand;
+  /// MRP per base unit of the batch FEFO would pick; 0 when nothing is in stock.
+  final int mrpPaise;
+
+  const PharmacySku({
+    required this.skuPublicId,
+    required this.brandName,
+    this.manufacturer,
+    this.strength,
+    this.dosageForm,
+    this.baseUnit = 'UNIT',
+    this.scheduleClass,
+    this.gstRateBp = 0,
+    this.rackLocation,
+    this.qtyOnHand = 0,
+    this.mrpPaise = 0,
+  });
+
+  bool get isPrescriptionOnly {
+    final s = scheduleClass?.toUpperCase();
+    return s == 'H' || s == 'H1' || s == 'X';
+  }
+
+  /// A copy with a locally-adjusted on-hand — used to keep the counter's cached
+  /// list in step as items are added to a bill, before the server is refreshed.
+  PharmacySku withQtyOnHand(int qty) => PharmacySku(
+        skuPublicId: skuPublicId,
+        brandName: brandName,
+        manufacturer: manufacturer,
+        strength: strength,
+        dosageForm: dosageForm,
+        baseUnit: baseUnit,
+        scheduleClass: scheduleClass,
+        gstRateBp: gstRateBp,
+        rackLocation: rackLocation,
+        qtyOnHand: qty,
+        mrpPaise: mrpPaise,
+      );
+
+  factory PharmacySku.fromJson(Map<String, dynamic> json) => PharmacySku(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    manufacturer: json['manufacturer'] as String?,
+    strength: json['strength'] as String?,
+    dosageForm: json['dosageForm'] as String?,
+    baseUnit: json['baseUnit'] as String? ?? 'UNIT',
+    scheduleClass: json['scheduleClass'] as String?,
+    gstRateBp: (json['gstRateBp'] as num?)?.toInt() ?? 0,
+    rackLocation: json['rackLocation'] as String?,
+    qtyOnHand: (json['qtyOnHand'] as num?)?.toInt() ?? 0,
+    mrpPaise: (json['mrpPaise'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class TopMedicine {
+  final String skuPublicId;
+  final String brandName;
+  final String? dosageForm;
+  final int qtySold;
+  final int revenuePaise;
+  final int billCount;
+
+  const TopMedicine({
+    required this.skuPublicId,
+    required this.brandName,
+    this.dosageForm,
+    required this.qtySold,
+    required this.revenuePaise,
+    required this.billCount,
+  });
+
+  factory TopMedicine.fromJson(Map<String, dynamic> json) => TopMedicine(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    dosageForm: json['dosageForm'] as String?,
+    qtySold: (json['qtySold'] as num?)?.toInt() ?? 0,
+    revenuePaise: (json['revenuePaise'] as num?)?.toInt() ?? 0,
+    billCount: (json['billCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// One row of the line-level sales/audit register — every line, unaggregated,
+/// for a downloadable date-ranged report.
+class SalesRegisterLine {
+  final String saleDate;
+  final String invoiceNo;
+  final String itemName;
+  final String? batchNo;
+  final int qtyBaseUnits;
+  final int grossPaise;
+  final int gstPaise;
+  final int totalPaise;
+
+  const SalesRegisterLine({
+    required this.saleDate,
+    required this.invoiceNo,
+    required this.itemName,
+    this.batchNo,
+    required this.qtyBaseUnits,
+    required this.grossPaise,
+    required this.gstPaise,
+    required this.totalPaise,
+  });
+
+  factory SalesRegisterLine.fromJson(Map<String, dynamic> json) => SalesRegisterLine(
+    saleDate: json['saleDate'] as String? ?? '',
+    invoiceNo: json['invoiceNo'] as String? ?? '',
+    itemName: json['itemName'] as String? ?? '',
+    batchNo: json['batchNo'] as String?,
+    qtyBaseUnits: (json['qtyBaseUnits'] as num?)?.toInt() ?? 0,
+    grossPaise: (json['grossPaise'] as num?)?.toInt() ?? 0,
+    gstPaise: (json['gstPaise'] as num?)?.toInt() ?? 0,
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class GrnReceipt {
+  final String batchPublicId;
+  final String skuPublicId;
+  final int qtyBaseUnits;
+  final int balanceAfter;
+
+  const GrnReceipt({
+    required this.batchPublicId,
+    required this.skuPublicId,
+    required this.qtyBaseUnits,
+    required this.balanceAfter,
+  });
+
+  factory GrnReceipt.fromJson(Map<String, dynamic> json) => GrnReceipt(
+    batchPublicId: json['batchPublicId'] as String? ?? '',
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    qtyBaseUnits: (json['qtyBaseUnits'] as num?)?.toInt() ?? 0,
+    balanceAfter: (json['balanceAfter'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class SaleReceiptLine {
+  final String skuPublicId;
+  final String brandName;
+  final String batchPublicId;
+  final String? expiryDate;
+  final int qtyBaseUnits;
+  final int mrpPaise;
+  final int grossPaise;
+  final int gstPaise;
+
+  const SaleReceiptLine({
+    required this.skuPublicId,
+    required this.brandName,
+    required this.batchPublicId,
+    this.expiryDate,
+    required this.qtyBaseUnits,
+    required this.mrpPaise,
+    required this.grossPaise,
+    required this.gstPaise,
+  });
+
+  factory SaleReceiptLine.fromJson(Map<String, dynamic> json) => SaleReceiptLine(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    batchPublicId: json['batchPublicId'] as String? ?? '',
+    expiryDate: json['expiryDate'] as String?,
+    qtyBaseUnits: (json['qtyBaseUnits'] as num?)?.toInt() ?? 0,
+    mrpPaise: (json['mrpPaise'] as num?)?.toInt() ?? 0,
+    grossPaise: (json['grossPaise'] as num?)?.toInt() ?? 0,
+    gstPaise: (json['gstPaise'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class SaleReceipt {
+  final String salePublicId;
+  final String invoiceNo;
+  final String? customerName;
+  final String? customerMobile;
+  final String paymentMode;
+  final int grossPaise;
+  final int discountPaise;
+  final int taxablePaise;
+  final int gstPaise;
+  final int totalPaise;
+  final List<SaleReceiptLine> lines;
+  final List<String> warnings;
+  final String? waLink;
+
+  const SaleReceipt({
+    required this.salePublicId,
+    required this.invoiceNo,
+    this.customerName,
+    this.customerMobile,
+    required this.paymentMode,
+    required this.grossPaise,
+    required this.discountPaise,
+    required this.taxablePaise,
+    required this.gstPaise,
+    required this.totalPaise,
+    this.lines = const [],
+    this.warnings = const [],
+    this.waLink,
+  });
+
+  factory SaleReceipt.fromJson(Map<String, dynamic> json) => SaleReceipt(
+    salePublicId: json['salePublicId'] as String? ?? '',
+    invoiceNo: json['invoiceNo'] as String? ?? '',
+    customerName: json['customerName'] as String?,
+    customerMobile: json['customerMobile'] as String?,
+    paymentMode: json['paymentMode'] as String? ?? 'CASH',
+    grossPaise: (json['grossPaise'] as num?)?.toInt() ?? 0,
+    discountPaise: (json['discountPaise'] as num?)?.toInt() ?? 0,
+    taxablePaise: (json['taxablePaise'] as num?)?.toInt() ?? 0,
+    gstPaise: (json['gstPaise'] as num?)?.toInt() ?? 0,
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+    lines: ((json['lines'] as List?) ?? []).map((e) => SaleReceiptLine.fromJson(e as Map<String, dynamic>)).toList(),
+    warnings: ((json['warnings'] as List?) ?? []).map((e) => e.toString()).toList(),
+    waLink: json['waLink'] as String?,
+  );
+}
+
+class SaleSummary {
+  final String salePublicId;
+  final String invoiceNo;
+  final String? soldAt;
+  final String? customerName;
+  final String? customerMobile;
+  final String paymentMode;
+  final int itemCount;
+  final int totalPaise;
+  final String status;
+
+  const SaleSummary({
+    required this.salePublicId,
+    required this.invoiceNo,
+    this.soldAt,
+    this.customerName,
+    this.customerMobile,
+    required this.paymentMode,
+    required this.itemCount,
+    required this.totalPaise,
+    this.status = 'COMPLETED',
+  });
+
+  bool get isVoid => status == 'VOID';
+
+  factory SaleSummary.fromJson(Map<String, dynamic> json) => SaleSummary(
+    salePublicId: json['salePublicId'] as String? ?? '',
+    invoiceNo: json['invoiceNo'] as String? ?? '',
+    soldAt: json['soldAt'] as String?,
+    customerName: json['customerName'] as String?,
+    customerMobile: json['customerMobile'] as String?,
+    paymentMode: json['paymentMode'] as String? ?? 'CASH',
+    itemCount: (json['itemCount'] as num?)?.toInt() ?? 0,
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+    status: json['status'] as String? ?? 'COMPLETED',
+  );
+}
+
+class DailyTotal {
+  final String saleDate;
+  final int totalPaise;
+  final int saleCount;
+
+  const DailyTotal({required this.saleDate, required this.totalPaise, required this.saleCount});
+
+  factory DailyTotal.fromJson(Map<String, dynamic> json) => DailyTotal(
+    saleDate: json['saleDate'] as String? ?? '',
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+    saleCount: (json['saleCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// One customer's khata position — outstanding is derived server-side from
+/// credit sales − refunds − payments, never stored.
+class CreditOutstanding {
+  final String customerMobile;
+  final String? customerName;
+  final int creditPaise;
+  final int refundedPaise;
+  final int paidPaise;
+  final int outstandingPaise;
+  final String? lastCreditAt;
+
+  const CreditOutstanding({
+    required this.customerMobile,
+    this.customerName,
+    required this.creditPaise,
+    required this.refundedPaise,
+    required this.paidPaise,
+    required this.outstandingPaise,
+    this.lastCreditAt,
+  });
+
+  factory CreditOutstanding.fromJson(Map<String, dynamic> json) => CreditOutstanding(
+    customerMobile: json['customerMobile'] as String? ?? '',
+    customerName: json['customerName'] as String?,
+    creditPaise: (json['creditPaise'] as num?)?.toInt() ?? 0,
+    refundedPaise: (json['refundedPaise'] as num?)?.toInt() ?? 0,
+    paidPaise: (json['paidPaise'] as num?)?.toInt() ?? 0,
+    outstandingPaise: (json['outstandingPaise'] as num?)?.toInt() ?? 0,
+    lastCreditAt: json['lastCreditAt'] as String?,
+  );
+}
+
+/// One GST slab's totals for a date range — rate in basis points.
+class GstSlabTotal {
+  final int gstRateBp;
+  final int taxablePaise;
+  final int gstPaise;
+  final int grossPaise;
+  final int lineCount;
+
+  const GstSlabTotal({
+    required this.gstRateBp,
+    required this.taxablePaise,
+    required this.gstPaise,
+    required this.grossPaise,
+    required this.lineCount,
+  });
+
+  factory GstSlabTotal.fromJson(Map<String, dynamic> json) => GstSlabTotal(
+    gstRateBp: (json['gstRateBp'] as num?)?.toInt() ?? 0,
+    taxablePaise: (json['taxablePaise'] as num?)?.toInt() ?? 0,
+    gstPaise: (json['gstPaise'] as num?)?.toInt() ?? 0,
+    grossPaise: (json['grossPaise'] as num?)?.toInt() ?? 0,
+    lineCount: (json['lineCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class RecentReturn {
+  final String returnPublicId;
+  final String salePublicId;
+  final String invoiceNo;
+  final int refundPaise;
+  final String refundMode;
+  final String? reason;
+  final String returnedAt;
+  final int lineCount;
+
+  const RecentReturn({
+    required this.returnPublicId,
+    required this.salePublicId,
+    required this.invoiceNo,
+    required this.refundPaise,
+    required this.refundMode,
+    this.reason,
+    required this.returnedAt,
+    required this.lineCount,
+  });
+
+  factory RecentReturn.fromJson(Map<String, dynamic> json) => RecentReturn(
+    returnPublicId: json['returnPublicId'] as String? ?? '',
+    salePublicId: json['salePublicId'] as String? ?? '',
+    invoiceNo: json['invoiceNo'] as String? ?? '',
+    refundPaise: (json['refundPaise'] as num?)?.toInt() ?? 0,
+    refundMode: json['refundMode'] as String? ?? 'CASH',
+    reason: json['reason'] as String?,
+    returnedAt: json['returnedAt'] as String? ?? '',
+    lineCount: (json['lineCount'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class PaymentTotal {
+  final String paymentMode;
+  final int saleCount;
+  final int totalPaise;
+
+  const PaymentTotal({required this.paymentMode, required this.saleCount, required this.totalPaise});
+
+  factory PaymentTotal.fromJson(Map<String, dynamic> json) => PaymentTotal(
+    paymentMode: json['paymentMode'] as String? ?? 'CASH',
+    saleCount: (json['saleCount'] as num?)?.toInt() ?? 0,
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class DaySummary {
+  final String saleDate;
+  final int saleCount;
+  final int grossPaise;
+  final int discountPaise;
+  final int taxablePaise;
+  final int gstPaise;
+  final int totalPaise;
+  final List<PaymentTotal> byPaymentMode;
+
+  const DaySummary({
+    required this.saleDate,
+    required this.saleCount,
+    required this.grossPaise,
+    required this.discountPaise,
+    required this.taxablePaise,
+    required this.gstPaise,
+    required this.totalPaise,
+    this.byPaymentMode = const [],
+  });
+
+  factory DaySummary.fromJson(Map<String, dynamic> json) => DaySummary(
+    saleDate: json['saleDate'] as String? ?? '',
+    saleCount: (json['saleCount'] as num?)?.toInt() ?? 0,
+    grossPaise: (json['grossPaise'] as num?)?.toInt() ?? 0,
+    discountPaise: (json['discountPaise'] as num?)?.toInt() ?? 0,
+    taxablePaise: (json['taxablePaise'] as num?)?.toInt() ?? 0,
+    gstPaise: (json['gstPaise'] as num?)?.toInt() ?? 0,
+    totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
+    byPaymentMode: ((json['byPaymentMode'] as List?) ?? []).map((e) => PaymentTotal.fromJson(e as Map<String, dynamic>)).toList(),
+  );
+}
+
+class NearExpiryBatch {
+  final String skuPublicId;
+  final String brandName;
+  final String batchPublicId;
+  final String batchNo;
+  final String? expiryDate;
+  final int qtyOnHand;
+  final String batchStatus;
+
+  const NearExpiryBatch({
+    required this.skuPublicId,
+    required this.brandName,
+    required this.batchPublicId,
+    required this.batchNo,
+    this.expiryDate,
+    required this.qtyOnHand,
+    required this.batchStatus,
+  });
+
+  factory NearExpiryBatch.fromJson(Map<String, dynamic> json) => NearExpiryBatch(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    batchPublicId: json['batchPublicId'] as String? ?? '',
+    batchNo: json['batchNo'] as String? ?? '',
+    expiryDate: json['expiryDate'] as String?,
+    qtyOnHand: (json['qtyOnHand'] as num?)?.toInt() ?? 0,
+    batchStatus: json['batchStatus'] as String? ?? '',
+  );
+}
+
+class LowStockItem {
+  final String skuPublicId;
+  final String brandName;
+  final int qtyOnHand;
+  final int reorderLevel;
+  final int? reorderQty;
+
+  const LowStockItem({
+    required this.skuPublicId,
+    required this.brandName,
+    required this.qtyOnHand,
+    required this.reorderLevel,
+    this.reorderQty,
+  });
+
+  factory LowStockItem.fromJson(Map<String, dynamic> json) => LowStockItem(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    qtyOnHand: (json['qtyOnHand'] as num?)?.toInt() ?? 0,
+    reorderLevel: (json['reorderLevel'] as num?)?.toInt() ?? 0,
+    reorderQty: (json['reorderQty'] as num?)?.toInt(),
+  );
+}
+
+class Supplier {
+  final String supplierPublicId;
+  final String supplierName;
+  final String? mobileNumber;
+  final String? email;
+  final String? gstin;
+  final String? city;
+  final int returnWindowDays;
+
+  const Supplier({
+    required this.supplierPublicId,
+    required this.supplierName,
+    this.mobileNumber,
+    this.email,
+    this.gstin,
+    this.city,
+    required this.returnWindowDays,
+  });
+
+  factory Supplier.fromJson(Map<String, dynamic> json) => Supplier(
+    supplierPublicId: json['supplierPublicId'] as String? ?? '',
+    supplierName: json['supplierName'] as String? ?? '',
+    mobileNumber: json['mobileNumber'] as String?,
+    email: json['email'] as String?,
+    gstin: json['gstin'] as String?,
+    city: json['city'] as String?,
+    returnWindowDays: (json['returnWindowDays'] as num?)?.toInt() ?? 90,
+  );
+}
+
+class PostedGrnLine {
+  final String brandName;
+  final String batchNo;
+  final int qtyBaseUnits;
+  final int freeQtyBaseUnits;
+  final int balanceAfter;
+
+  const PostedGrnLine({
+    required this.brandName,
+    required this.batchNo,
+    required this.qtyBaseUnits,
+    required this.freeQtyBaseUnits,
+    required this.balanceAfter,
+  });
+
+  factory PostedGrnLine.fromJson(Map<String, dynamic> json) => PostedGrnLine(
+    brandName: json['brandName'] as String? ?? '',
+    batchNo: json['batchNo'] as String? ?? '',
+    qtyBaseUnits: (json['qtyBaseUnits'] as num?)?.toInt() ?? 0,
+    freeQtyBaseUnits: (json['freeQtyBaseUnits'] as num?)?.toInt() ?? 0,
+    balanceAfter: (json['balanceAfter'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class PostedGrn {
+  final String grnPublicId;
+  final int lineCount;
+  final int totalQtyBase;
+  final int totalCostPaise;
+  final List<PostedGrnLine> lines;
+
+  const PostedGrn({
+    required this.grnPublicId,
+    required this.lineCount,
+    required this.totalQtyBase,
+    required this.totalCostPaise,
+    this.lines = const [],
+  });
+
+  factory PostedGrn.fromJson(Map<String, dynamic> json) => PostedGrn(
+    grnPublicId: json['grnPublicId'] as String? ?? '',
+    lineCount: (json['lineCount'] as num?)?.toInt() ?? 0,
+    totalQtyBase: (json['totalQtyBase'] as num?)?.toInt() ?? 0,
+    totalCostPaise: (json['totalCostPaise'] as num?)?.toInt() ?? 0,
+    lines: ((json['lines'] as List?) ?? [])
+        .map((e) => PostedGrnLine.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
+class GrnSummary {
+  final String grnPublicId;
+  final String? supplierName;
+  final String? supplierInvoiceNo;
+  final int lineCount;
+  final int totalQtyBase;
+  final int totalCostPaise;
+  final String receivedAt;
+
+  const GrnSummary({
+    required this.grnPublicId,
+    this.supplierName,
+    this.supplierInvoiceNo,
+    required this.lineCount,
+    required this.totalQtyBase,
+    required this.totalCostPaise,
+    required this.receivedAt,
+  });
+
+  factory GrnSummary.fromJson(Map<String, dynamic> json) => GrnSummary(
+    grnPublicId: json['grnPublicId'] as String? ?? '',
+    supplierName: json['supplierName'] as String?,
+    supplierInvoiceNo: json['supplierInvoiceNo'] as String?,
+    lineCount: (json['lineCount'] as num?)?.toInt() ?? 0,
+    totalQtyBase: (json['totalQtyBase'] as num?)?.toInt() ?? 0,
+    totalCostPaise: (json['totalCostPaise'] as num?)?.toInt() ?? 0,
+    receivedAt: json['receivedAt'] as String? ?? '',
+  );
+}
+
+class ReturnableLine {
+  final String skuPublicId;
+  final String brandName;
+  final String batchPublicId;
+  final int qtySold;
+  final int qtyAlreadyReturned;
+  final int netPaise;
+  final int perUnitPaise;
+
+  const ReturnableLine({
+    required this.skuPublicId,
+    required this.brandName,
+    required this.batchPublicId,
+    required this.qtySold,
+    required this.qtyAlreadyReturned,
+    required this.netPaise,
+    required this.perUnitPaise,
+  });
+
+  int get qtyReturnable => (qtySold - qtyAlreadyReturned).clamp(0, qtySold);
+
+  factory ReturnableLine.fromJson(Map<String, dynamic> json) => ReturnableLine(
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    batchPublicId: json['batchPublicId'] as String? ?? '',
+    qtySold: (json['qtySold'] as num?)?.toInt() ?? 0,
+    qtyAlreadyReturned: (json['qtyAlreadyReturned'] as num?)?.toInt() ?? 0,
+    netPaise: (json['netPaise'] as num?)?.toInt() ?? 0,
+    perUnitPaise: (json['perUnitPaise'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class PostedReturn {
+  final String returnPublicId;
+  final String salePublicId;
+  final int refundPaise;
+  final String refundMode;
+
+  const PostedReturn({
+    required this.returnPublicId,
+    required this.salePublicId,
+    required this.refundPaise,
+    required this.refundMode,
+  });
+
+  factory PostedReturn.fromJson(Map<String, dynamic> json) => PostedReturn(
+    returnPublicId: json['returnPublicId'] as String? ?? '',
+    salePublicId: json['salePublicId'] as String? ?? '',
+    refundPaise: (json['refundPaise'] as num?)?.toInt() ?? 0,
+    refundMode: json['refundMode'] as String? ?? 'CASH',
+  );
+}
+
+class DayCloseInfo {
+  final String closeDate;
+  final int expectedCashPaise;
+  final int countedCashPaise;
+  final int variancePaise;
+  final String? note;
+  final String? closedBy;
+
+  const DayCloseInfo({
+    required this.closeDate,
+    required this.expectedCashPaise,
+    required this.countedCashPaise,
+    required this.variancePaise,
+    this.note,
+    this.closedBy,
+  });
+
+  factory DayCloseInfo.fromJson(Map<String, dynamic> json) => DayCloseInfo(
+    closeDate: json['closeDate'] as String? ?? '',
+    expectedCashPaise: (json['expectedCashPaise'] as num?)?.toInt() ?? 0,
+    countedCashPaise: (json['countedCashPaise'] as num?)?.toInt() ?? 0,
+    variancePaise: (json['variancePaise'] as num?)?.toInt() ?? 0,
+    note: json['note'] as String?,
+    closedBy: json['closedBy'] as String?,
+  );
+}
+
+/// The owner's day in money: the sales summary plus true cost, margin, refunds
+/// and what cash the drawer should hold — and the day-close once it happened.
+class MoneyView {
+  final DaySummary summary;
+  final int costPaise;
+  final int marginPaise;
+  final int unknownCostLines;
+  final int refundsPaise;
+  final int cashRefundsPaise;
+  final int expectedCashPaise;
+  final DayCloseInfo? dayClose;
+
+  const MoneyView({
+    required this.summary,
+    required this.costPaise,
+    required this.marginPaise,
+    required this.unknownCostLines,
+    required this.refundsPaise,
+    required this.cashRefundsPaise,
+    required this.expectedCashPaise,
+    this.dayClose,
+  });
+
+  factory MoneyView.fromJson(Map<String, dynamic> json) => MoneyView(
+    summary: DaySummary.fromJson((json['summary'] as Map<String, dynamic>?) ?? {}),
+    costPaise: (json['costPaise'] as num?)?.toInt() ?? 0,
+    marginPaise: (json['marginPaise'] as num?)?.toInt() ?? 0,
+    unknownCostLines: (json['unknownCostLines'] as num?)?.toInt() ?? 0,
+    refundsPaise: (json['refundsPaise'] as num?)?.toInt() ?? 0,
+    cashRefundsPaise: (json['cashRefundsPaise'] as num?)?.toInt() ?? 0,
+    expectedCashPaise: (json['expectedCashPaise'] as num?)?.toInt() ?? 0,
+    dayClose: json['dayClose'] == null
+        ? null
+        : DayCloseInfo.fromJson(json['dayClose'] as Map<String, dynamic>),
   );
 }

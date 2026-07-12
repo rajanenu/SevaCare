@@ -80,13 +80,22 @@ abstract class PharmacyIntegrationTestBase {
         // TRUNCATE rather than DELETE: row-level triggers do not fire for it, so
         // the batch_balance tripwire does not have to be disarmed to reset state.
         jdbcTemplate.execute(
-                "TRUNCATE " + TENANT_SCHEMA + ".stock_ledger, " + TENANT_SCHEMA + ".batch_balance, " +
+                "TRUNCATE " + TENANT_SCHEMA + ".customer_return_line, " + TENANT_SCHEMA + ".customer_return, " +
+                TENANT_SCHEMA + ".credit_payment, " +
+                TENANT_SCHEMA + ".day_close, " + TENANT_SCHEMA + ".grn_line, " +
+                TENANT_SCHEMA + ".goods_receipt, " + TENANT_SCHEMA + ".supplier, " +
+                TENANT_SCHEMA + ".sale_line, " + TENANT_SCHEMA + ".sale, " +
+                TENANT_SCHEMA + ".stock_ledger, " + TENANT_SCHEMA + ".batch_balance, " +
                 TENANT_SCHEMA + ".batch, " + TENANT_SCHEMA + ".sku_pack, " + TENANT_SCHEMA + ".sku_alias, " +
                 TENANT_SCHEMA + ".medicine_sku, " + TENANT_SCHEMA + ".pharmacy_config, " +
                 TENANT_SCHEMA + ".outbox_event, " + TENANT_SCHEMA + ".outbox_event_consumption " +
                 "RESTART IDENTITY CASCADE");
         jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".sku_public_id_seq RESTART WITH 1");
         jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".batch_public_id_seq RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".sale_public_id_seq RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".supplier_public_id_seq RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".grn_public_id_seq RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE " + TENANT_SCHEMA + ".customer_return_public_id_seq RESTART WITH 1");
     }
 
     @AfterEach

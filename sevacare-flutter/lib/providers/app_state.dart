@@ -55,6 +55,12 @@ class AuthState {
   final String subjectName;
   final String userType;
 
+  /// What the tenant is (hospital, pharmacy, or both). Fetched right after login
+  /// and not persisted — navigation is built from this, not from the role, so a
+  /// store shows a pharmacy app and never a Doctors tab. Null until fetched (e.g.
+  /// just after a biometric session restore), which callers treat as "unknown".
+  final Capabilities? capabilities;
+
   const AuthState({
     this.token,
     this.tenantPublicId,
@@ -63,10 +69,14 @@ class AuthState {
     this.isGenericAdmin = false,
     this.subjectName = '',
     this.userType = 'ADMIN',
+    this.capabilities,
   });
 
   bool get isAuthenticated =>
       token != null && token!.isNotEmpty && subjectPublicId != null;
+
+  bool get hasPharmacy => capabilities?.hasPharmacy ?? false;
+  bool get isPharmacyOnly => capabilities?.isPharmacyOnly ?? false;
 
   static const unauthenticated = AuthState();
 }
@@ -268,8 +278,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       isGenericAdmin: state.isGenericAdmin,
       subjectName: name,
       userType: state.userType,
+      capabilities: state.capabilities,
     );
     await _storage.write(key: _kSubjectName, value: name);
+  }
+
+  /// Records what the tenant is, once fetched from `/capabilities`. Not persisted:
+  /// it is cheap to re-fetch and a stale module flag must never outlive a session.
+  void setCapabilities(Capabilities capabilities) {
+    state = AuthState(
+      token: state.token,
+      tenantPublicId: state.tenantPublicId,
+      subjectPublicId: state.subjectPublicId,
+      role: state.role,
+      isGenericAdmin: state.isGenericAdmin,
+      subjectName: state.subjectName,
+      userType: state.userType,
+      capabilities: capabilities,
+    );
   }
 
   Future<bool> restore() async {

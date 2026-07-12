@@ -78,6 +78,27 @@ column — `TenantKind` is only the onboarding question, translated once and dis
 the tenant lacks answers **404, not 403** — 403 leaks that it exists. A standalone
 medical store is a first-class customer, not a hospital with the doctors deleted.
 
+**A migration cannot ask what modules a tenant has.** `provisionTenant` migrates the
+schema on Flyway's own connection *before* it commits the `tenant_registry` row, so from
+inside a tenant migration that row does not exist yet. A migration that gates on it reads
+NULL and silently does nothing — which is exactly what the old starter-catalog seed (V6)
+did for every tenant onboarded through the app, leaving every new pharmacy with an empty
+search box. Anything that depends on a tenant's modules belongs in a service that runs
+after the commit. The starter catalog is now `PharmacyCatalogSeeder`, driven by the
+after-commit `PharmacyEnabledEvent` and by a boot sweep that heals stores onboarded
+before the fix. It seeds only a store whose catalog *and* ledger are both empty, and its
+rows are marked `ref_type = 'SEED'` so `TenantModuleService` still counts an
+only-ever-seeded pharmacy as unused and lets it be switched back off.
+
+**The counter's catalog is versioned, not timed.** `/catalog/stock` is stamped with a
+version read from the data — SKU count, newest SKU edit, highest `ledger_id`, newest batch
+edit — which is the server's cache key *and* the HTTP ETag. The client holds the catalog
+and revalidates with `If-None-Match`, so reopening the till is a 304 and a sale on another
+device is visible at once. Do not put a TTL back: the old 12-hour cache was invalidated
+only by catalog writes (so a sale left on-hand stale) and only on the one Cloud Run
+instance that served the write. `ETag` must stay in the CORS `exposedHeaders` or the
+browser hides it from the web app.
+
 **Stock is a ledger, never a quantity.** `stock_ledger` is append-only and
 `batch_balance` is a cache of its sum. Postgres triggers enforce both: the ledger raises
 on UPDATE/DELETE, and the balance raises on any write that did not `SET LOCAL
@@ -90,6 +111,27 @@ Quantities are base units (tablets, ml); money is integer paise; GST is basis po
 `EXPIRED_BATCH_DISPENSE` is the one knob with no OFF. A negative balance is information
 (a receipt was never entered), not corruption — only ENFORCE refuses it. Pharmacy is off
 for a tenant whose `tenant_registry.pharmacy_profile_key` is NULL.
+
+**The counter sale prices at MRP, and backs GST out of it.** Indian retail MRP is
+GST-inclusive: a ₹105 line at 5% is ₹100 taxable + ₹5 GST, not ₹105 + ₹5.25. The one
+extraction rule lives in `CounterSaleService.taxableFromInclusive` (public, unit-tested).
+The client sends *what* and *how many*, never a price — billing charges the batch's
+printed MRP (the deliberate exception is `mrpOverridePaise`, honoured only when
+`PRICE_EDIT_AT_BILLING` isn't OFF). One sale line per (sku, batch) because a recall must
+find which customer got which batch, so a FEFO split across two batches is two lines and
+two ledger rows. Sale + `sale_line` + the ledger append commit in one transaction: a
+receipt without a dispense, or the reverse, cannot exist.
+
+**Pharmacy REST is `/api/v1/pharmacy/**`** (not `/api/pharmacy` — that was an early
+inconsistency), gated by `ModuleAccessFilter` (404 for a tenant without pharmacy) and
+`@PreAuthorize("hasAnyRole('ADMIN','STAFF')")` — the owner and the counter pharmacist, not
+doctors. Every response is a `ContractResponse` envelope (`data`), because the Flutter
+`ApiClient` always unwraps `data` — a controller returning a bare record breaks the client.
+
+**The Flutter app builds its shell from `/api/v1/capabilities`, not the role.** Login (and
+biometric restore) fetch capabilities into `AuthState.capabilities`; a pharmacy-only tenant
+lands on `/pharmacy`, and admin/staff of a hospital-with-pharmacy get a Pharmacy shortcut in
+their dashboard hero. The counter itself is `PharmacyShellScreen` (Sell / Stock / Today).
 
 **One appointment queue.** Every booking — slot or token, from any of the four channels
 (patient app, IP-Staff, QR portal, chatbot) — draws a token from the same

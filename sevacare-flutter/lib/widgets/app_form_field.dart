@@ -23,6 +23,10 @@ class AppFormField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final VoidCallback? onEditingComplete;
 
+  /// Puts the cursor here the moment the field appears, so a screen whose job
+  /// is "type this one thing" needs no tap to start typing.
+  final bool autofocus;
+
   const AppFormField({
     super.key,
     required this.label,
@@ -42,6 +46,7 @@ class AppFormField extends StatelessWidget {
     this.focusNode,
     this.textInputAction,
     this.onEditingComplete,
+    this.autofocus = false,
   });
 
   @override
@@ -67,6 +72,7 @@ class AppFormField extends StatelessWidget {
           validator: validator,
           inputFormatters: inputFormatters,
           focusNode: focusNode,
+          autofocus: autofocus,
           textInputAction: textInputAction,
           onEditingComplete: onEditingComplete,
           style: AppTextStyles.inputText(SevaCareColors.text),

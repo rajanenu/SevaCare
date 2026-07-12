@@ -46,7 +46,7 @@ public class ModuleAccessFilter extends OncePerRequestFilter {
     private static final List<String> CLINICAL_PREFIXES =
             List.of("/api/v1/doctors", "/api/v1/patients", "/api/v1/prescriptions");
 
-    private static final String PHARMACY_PREFIX = "/api/pharmacy";
+    private static final String PHARMACY_PREFIX = "/api/v1/pharmacy";
 
     private final TenantModuleService tenantModuleService;
 

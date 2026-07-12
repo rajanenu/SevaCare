@@ -7,11 +7,13 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sevacare.shared.dto.PlatformAdminDtos;
+import com.sevacare.shared.event.PharmacyEnabledEvent;
 import com.sevacare.tenant.capability.TenantKind;
 import com.sevacare.tenant.capability.TenantModuleService;
 import com.sevacare.tenant.entity.TenantRegistry;
@@ -27,17 +29,20 @@ public class PlatformAdminService {
     private final TenantRegistryService tenantRegistryService;
 
     private final TenantModuleService tenantModuleService;
+    private final ApplicationEventPublisher events;
 
     public PlatformAdminService(
             TenantRegistryRepository tenantRegistryRepository,
             JdbcTemplate jdbcTemplate,
             TenantRegistryService tenantRegistryService,
-            TenantModuleService tenantModuleService
+            TenantModuleService tenantModuleService,
+            ApplicationEventPublisher events
     ) {
         this.tenantRegistryRepository = tenantRegistryRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.tenantRegistryService = tenantRegistryService;
         this.tenantModuleService = tenantModuleService;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -199,6 +204,14 @@ public class PlatformAdminService {
 
         TenantRegistry saved = tenantRegistryRepository.save(tenant);
         syncHospitalAdmin(saved, request.contactName(), request.contactMobile(), request.contactEmail());
+
+        // The hospital that just bought a pharmacy needs a shelf, same as a store
+        // that opened with one. Re-announcing it for a tenant that already had
+        // pharmacy on is harmless — the seeder leaves a stocked store alone.
+        if (profileKey != null) {
+            events.publishEvent(new PharmacyEnabledEvent(
+                    saved.getTenantPublicId(), saved.getTenantSchemaName()));
+        }
         return toTenantView(saved);
     }
 

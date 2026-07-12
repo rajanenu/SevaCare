@@ -129,7 +129,7 @@ public class TenantModuleService {
         }
 
         if (current.pharmacyEnabled() && !pharmacyWanted) {
-            long movements = countIn(schema, "stock_ledger");
+            long movements = countLedgerMovements(schema);
             if (movements > 0) {
                 throw new IllegalStateException(
                         "This pharmacy already has " + movements + " stock movements on its ledger, which is a "
@@ -163,6 +163,27 @@ public class TenantModuleService {
         TenantSchemas.require(schema);
         Long count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM " + schema + "." + table, Long.class);
+        return count == null ? 0L : count;
+    }
+
+    /**
+     * Excludes rows the platform itself seeded — a starter catalog's opening stock.
+     * Those are demo data, reproducible by re-running onboarding, not a business
+     * record an inspector could ask for. A pharmacy that has only ever held seed data
+     * is exactly as "unused" as one with an empty ledger, and must stay as easy to
+     * switch back off.
+     *
+     * <p>Two markers, because the seed has had two homes. {@code SEED} is what
+     * PharmacyCatalogSeeder writes; {@code MIGRATION} is what tenant migration V6
+     * wrote for the handful of stores it reached before seeding moved out of Flyway.
+     * Both are the platform stocking a shelf, and neither is a sale.
+     */
+    private long countLedgerMovements(String schema) {
+        String safeSchema = TenantSchemas.require(schema);
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + safeSchema + ".stock_ledger "
+                + "WHERE ref_type NOT IN ('SEED', 'MIGRATION') OR ref_type IS NULL",
+                Long.class);
         return count == null ? 0L : count;
     }
 

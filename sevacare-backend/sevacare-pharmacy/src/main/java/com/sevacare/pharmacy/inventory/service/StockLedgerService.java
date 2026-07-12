@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import com.sevacare.pharmacy.capability.spi.CapabilityPolicies;
 import com.sevacare.pharmacy.capability.spi.PolicyKey;
 import com.sevacare.pharmacy.capability.spi.PolicyMode;
 import com.sevacare.pharmacy.inventory.spi.BatchAllocation;
+import com.sevacare.pharmacy.inventory.spi.BatchInfo;
 import com.sevacare.pharmacy.inventory.spi.InsufficientStockException;
 import com.sevacare.pharmacy.inventory.spi.InventoryEvents;
 import com.sevacare.pharmacy.inventory.spi.MovementReason;
@@ -192,6 +194,35 @@ public class StockLedgerService implements StockLedger {
                 "WHERE batch_public_id = ? AND location_id = ?",
                 Long.class, batchPublicId, locationId);
         return qty == null ? 0L : qty;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String defaultLocationId() {
+        String schema = TenantSchemas.require(TenantContext.tenantSchema());
+        List<String> rows = jdbcTemplate.queryForList(
+                "SELECT location_id FROM " + schema + ".stock_location WHERE is_default AND active",
+                String.class);
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("Tenant has no default stock location");
+        }
+        return rows.get(0);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<BatchInfo> findBatch(String batchPublicId) {
+        String schema = TenantSchemas.require(TenantContext.tenantSchema());
+        return jdbcTemplate.query(
+                "SELECT batch_public_id, sku_public_id, mrp_paise, expiry_date, batch_status " +
+                "FROM " + schema + ".batch WHERE batch_public_id = ?",
+                (rs, i) -> new BatchInfo(
+                        rs.getString("batch_public_id"),
+                        rs.getString("sku_public_id"),
+                        rs.getLong("mrp_paise"),
+                        rs.getDate("expiry_date") == null ? null : rs.getDate("expiry_date").toLocalDate(),
+                        rs.getString("batch_status")),
+                batchPublicId).stream().findFirst();
     }
 
     /**

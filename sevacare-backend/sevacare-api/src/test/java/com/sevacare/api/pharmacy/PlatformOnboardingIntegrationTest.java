@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.sevacare.pharmacy.catalog.service.CatalogService;
 import com.sevacare.pharmacy.catalog.service.CreateSkuCommand;
 import com.sevacare.pharmacy.catalog.spi.BaseUnit;
+import com.sevacare.pharmacy.catalog.spi.CounterSku;
 import com.sevacare.pharmacy.inventory.service.CreateBatchCommand;
 import com.sevacare.pharmacy.inventory.service.InventoryService;
 import com.sevacare.pharmacy.inventory.service.StockLedgerService;
@@ -163,6 +164,42 @@ class PlatformOnboardingIntegrationTest extends PharmacyIntegrationTestBase {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("retained record")
                 .hasMessageContaining("Deactivate the tenant instead");
+    }
+
+    /**
+     * The one that would have caught the empty shelf. A store onboarded through the
+     * app must be able to search for a medicine the moment its owner signs in — the
+     * starter catalog is not a nicety, it is the difference between a working counter
+     * and a search box that answers nothing.
+     *
+     * <p>Seeding used to be tenant migration V6, gated on {@code tenant_registry}
+     * reporting pharmacy enabled. Onboarding migrates the schema before it commits
+     * that row, so the gate read nothing and the seed never once ran for a real
+     * customer. It is a service now, and it runs after the commit.
+     */
+    @Test
+    void a_newly_onboarded_pharmacy_can_search_for_medicines_on_day_one() {
+        PlatformAdminDtos.PlatformTenantView view = onboard("Fresh Medicals", false, true, null);
+
+        TenantContext.set(view.tenantPublicId(), view.schemaName());
+        try {
+            assertThat(catalog.counterCatalog().items()).isNotEmpty();
+            assertThat(catalog.searchForCounter("paracetamol", 10))
+                    .extracting(CounterSku::brandName)
+                    .anyMatch(brand -> brand.toLowerCase().startsWith("paracetamol"));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /** A hospital that never bought a pharmacy gets no pharmacy stock, seeded or otherwise. */
+    @Test
+    void a_hospital_without_pharmacy_gets_no_starter_catalog() {
+        PlatformAdminDtos.PlatformTenantView view = onboard("Bare Hospital", true, false, null);
+
+        Long skus = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM " + view.schemaName() + ".medicine_sku", Long.class);
+        assertThat(skus).isZero();
     }
 
     /** Editing a tenant's city must not silently demote its pharmacy profile. */

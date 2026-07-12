@@ -48,6 +48,20 @@ class AppShell extends StatelessWidget {
   /// tablet/desktop than the shell's default (e.g. data-heavy dashboards).
   final double? maxContentWidthOverride;
 
+  /// Where the header's "?" leads. Pharmacy screens point it at their own
+  /// support page; everyone else gets the shared one.
+  final String helpRoute;
+
+  /// Where the header's magnifier leads. The default hunts doctors and
+  /// patients, which is meaningless behind a shop counter — the pharmacy
+  /// points it at its own medicine/supplier/invoice search.
+  final String searchRoute;
+
+  /// Overrides the role-derived "home" the hardware back button falls back
+  /// to. Pharmacy needs this: its users hold the hospital admin/staff roles,
+  /// so the role lookup alone would send them to a hospital dashboard.
+  final String? homeRoute;
+
   const AppShell({
     super.key,
     required this.body,
@@ -64,6 +78,9 @@ class AppShell extends StatelessWidget {
     this.scrollController,
     this.backgroundImageBytes,
     this.maxContentWidthOverride,
+    this.helpRoute = '/help',
+    this.searchRoute = '/global-search',
+    this.homeRoute,
   });
 
   String _homeFor(UserRole r) => switch (r) {
@@ -88,7 +105,7 @@ class AppShell extends StatelessWidget {
           return;
         }
         if (role != null) {
-          final home = _homeFor(role!);
+          final home = homeRoute ?? _homeFor(role!);
           final currentPath = GoRouterState.of(context).uri.path;
           if (currentPath != home) {
             router.go(home);
@@ -154,6 +171,8 @@ class AppShell extends StatelessWidget {
                                   actions: headerActions,
                                   showBackButton: showBackButton,
                                   onBack: onBack,
+                                  helpRoute: helpRoute,
+                                  searchRoute: searchRoute,
                                 ),
                                 const ConnectivityBanner(),
                               ],
@@ -347,6 +366,8 @@ class _TopBar extends ConsumerWidget {
   final List<Widget>? actions;
   final bool showBackButton;
   final VoidCallback? onBack;
+  final String helpRoute;
+  final String searchRoute;
 
   const _TopBar({
     required this.hospitalName,
@@ -354,6 +375,8 @@ class _TopBar extends ConsumerWidget {
     this.actions,
     this.showBackButton = false,
     this.onBack,
+    this.helpRoute = '/help',
+    this.searchRoute = '/global-search',
   });
 
   @override
@@ -476,13 +499,13 @@ class _TopBar extends ConsumerWidget {
           if (role != null && role != UserRole.platformAdmin) ...[
             const SizedBox(width: 2),
             Semantics(
-              label: 'Search doctors and patients',
+              label: 'Search',
               button: true,
               child: SizedBox(
                 width: 44,
                 height: 44,
                 child: GestureDetector(
-                  onTap: () => context.push('/global-search'),
+                  onTap: () => context.push(searchRoute),
                   behavior: HitTestBehavior.opaque,
                   child: Center(
                     child: Container(
@@ -529,7 +552,7 @@ class _TopBar extends ConsumerWidget {
               width: 44,
               height: 44,
               child: GestureDetector(
-                onTap: () => context.go('/help'),
+                onTap: () => context.push(helpRoute),
                 behavior: HitTestBehavior.opaque,
                 child: Center(
                   child: Container(

@@ -31,7 +31,8 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
     final tabs = [
       SegmentItem<int>(value: 0, label: 'Overview'),
       SegmentItem<int>(value: 1, label: 'Hospitals'),
-      SegmentItem<int>(value: 2, label: 'Admins'),
+      SegmentItem<int>(value: 2, label: 'Pharmacy'),
+      SegmentItem<int>(value: 3, label: 'Admins'),
     ];
 
     // Fixed-frame layout: the page header and tab bar are pinned; each tab
@@ -80,6 +81,7 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
               children: [
                 _tabPage(_OverviewTab(token: auth.token ?? '')),
                 _tabPage(_HospitalsTab(token: auth.token ?? '')),
+                _tabPage(_PharmacyTab(token: auth.token ?? '')),
                 _tabPage(_PlatformAdminsTab(token: auth.token ?? '')),
               ],
             ),
@@ -113,6 +115,7 @@ class _OverviewTab extends ConsumerStatefulWidget {
 class _OverviewTabState extends ConsumerState<_OverviewTab> {
   PlatformAdminOverview? _overview;
   List<PlatformOnboardingRequestRecord> _requests = [];
+  List<PlatformTenantRecord> _tenants = [];
   bool _loading = true;
   String? _error;
 
@@ -132,11 +135,13 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
       final results = await Future.wait([
         repo.getPlatformOverview(widget.token),
         repo.listOnboardingRequests(widget.token),
+        repo.listPlatformTenants(widget.token),
       ]);
       if (mounted) {
         setState(() {
           _overview = results[0] as PlatformAdminOverview;
           _requests = results[1] as List<PlatformOnboardingRequestRecord>;
+          _tenants = results[2] as List<PlatformTenantRecord>;
           _loading = false;
         });
       }
@@ -173,6 +178,12 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
 
     final ov = _overview;
 
+    // Module split, computed from the tenant list — no extra endpoint needed.
+    final hospitals = _tenants.where((t) => t.clinicalEnabled).toList();
+    final pharmacies = _tenants.where((t) => t.hasPharmacy).toList();
+    int activeOf(List<PlatformTenantRecord> l) =>
+        l.where((t) => t.status.toLowerCase() == 'active').length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,6 +218,37 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               variant: MetricVariant.primary,
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+
+        // By module — hospitals and pharmacies at a glance, active vs total.
+        Text('By Module', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        const SizedBox(height: 12),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _ModuleStatCard(
+                  icon: Icons.local_hospital_rounded,
+                  label: 'Hospitals',
+                  active: activeOf(hospitals),
+                  total: hospitals.length,
+                  accent: SevaCareColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ModuleStatCard(
+                  icon: Icons.local_pharmacy_rounded,
+                  label: 'Pharmacies',
+                  active: activeOf(pharmacies),
+                  total: pharmacies.length,
+                  accent: const Color(0xFF15A66A),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 24),
 
@@ -295,87 +337,9 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
   String? _formError;
   String? _formSuccess;
 
-  // What this business has. Pharmacy is never on by default: a hospital with no
-  // medicine counter must never be handed a pharmacy it did not ask for.
-  bool _hasClinical = true;
-  bool _hasPharmacy = false;
-  String? _pharmacyProfileKey;
-  bool _profileChosenByHand = false;
-  List<PharmacyProfileOption> _pharmacyProfiles = [];
-  bool _profilesLoading = false;
-
   static const _cityOptions = [
     'Bangalore', 'Chennai', 'Hyderabad', 'Visakhapatnam', 'Proddatur', 'Kadapa',
   ];
-
-  /// A pharmacy standing alone is a shop; one beside a hospital dispenses what
-  /// the hospital's doctors prescribe. Two different products, so two defaults.
-  String get _defaultPharmacyProfile => _hasClinical ? 'CLINIC_DISPENSARY' : 'MEDICAL_STORE';
-
-  String get _kindLabel {
-    if (_hasClinical && _hasPharmacy) return 'Hospital + Pharmacy';
-    if (_hasClinical) return 'Hospital only';
-    if (_hasPharmacy) return 'Pharmacy only';
-    return 'Nothing selected';
-  }
-
-  /// "Hospital Name" is the wrong prompt for a medical store.
-  String get _nameLabel => _hasClinical ? 'Hospital Name' : 'Pharmacy Name';
-
-  /// The chosen profile's own words, straight from the database.
-  String get _selectedProfileDescription {
-    final key = _pharmacyProfileKey ?? _defaultPharmacyProfile;
-    for (final profile in _pharmacyProfiles) {
-      if (profile.profileKey == key && profile.description.isNotEmpty) {
-        return profile.description;
-      }
-    }
-    return 'Stock, billing and GST for the medicine counter.';
-  }
-
-  /// Fetched only once the box is ticked — most tenants are hospitals with no
-  /// pharmacy, and they should not pay for a request they never use.
-  Future<void> _ensurePharmacyProfilesLoaded() async {
-    if (_pharmacyProfiles.isNotEmpty || _profilesLoading) return;
-    setState(() => _profilesLoading = true);
-    try {
-      final profiles = await ref.read(repositoryProvider).listPharmacyProfiles(widget.token);
-      if (mounted) {
-        setState(() {
-          _pharmacyProfiles = profiles;
-          _profilesLoading = false;
-        });
-      }
-    } catch (_) {
-      // The dropdown is a convenience: with no options the server still picks the
-      // right default from the two checkboxes, so onboarding must not be blocked.
-      if (mounted) setState(() => _profilesLoading = false);
-    }
-  }
-
-  void _onPharmacyToggled(bool value) {
-    setState(() {
-      _hasPharmacy = value;
-      _formError = null;
-      if (value) {
-        _pharmacyProfileKey ??= _defaultPharmacyProfile;
-      }
-    });
-    if (value) _ensurePharmacyProfilesLoaded();
-  }
-
-  void _onClinicalToggled(bool value) {
-    setState(() {
-      _hasClinical = value;
-      _formError = null;
-      // Following the default keeps "a clinic that dispenses" and "a shop" apart
-      // without the admin having to know our profile names — unless they picked
-      // one themselves, in which case we do not overrule them.
-      if (_hasPharmacy && !_profileChosenByHand) {
-        _pharmacyProfileKey = _defaultPharmacyProfile;
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -430,23 +394,14 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         _contactEmailCtrl.clear();
         _selectedTheme = 'premium';
         _selectedCity = '';
-        _hasClinical = true;
-        _hasPharmacy = false;
-        _pharmacyProfileKey = null;
-        _profileChosenByHand = false;
       }
     });
   }
 
   Future<void> _createTenant() async {
-    if (!_hasClinical && !_hasPharmacy) {
-      setState(() => _formError =
-          'Select at least one: Hospital, Pharmacy, or both. A tenant with neither has nothing to log in to.');
-      return;
-    }
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _formError = '$_nameLabel is required.');
+      setState(() => _formError = 'Hospital Name is required.');
       return;
     }
     final contactMobile = _contactMobileCtrl.text.trim();
@@ -456,8 +411,8 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
     }
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Create $_kindLabel',
-      message: 'Create "$name" as $_kindLabel?',
+      title: 'Create Hospital',
+      message: 'Create "$name" as a hospital?',
       confirmLabel: 'Create',
       isDanger: false,
     );
@@ -479,17 +434,16 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           contactMobile: contactMobile,
           contactEmail:
               _contactEmailCtrl.text.trim().isNotEmpty ? _contactEmailCtrl.text.trim() : null,
-          hasClinical: _hasClinical,
-          hasPharmacy: _hasPharmacy,
-          pharmacyProfileKey: _hasPharmacy ? _pharmacyProfileKey : null,
+          hasClinical: true,
+          hasPharmacy: false,
+          pharmacyProfileKey: null,
         ),
         widget.token,
       );
       if (mounted) {
-        final created = _kindLabel;
         setState(() {
           _saving = false;
-          _formSuccess = '$created created successfully.';
+          _formSuccess = 'Hospital created successfully.';
           _showAddForm = false;
         });
         await _loadTenants();
@@ -685,6 +639,9 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
 
   @override
   Widget build(BuildContext context) {
+    // The platform list carries every tenant; the Hospitals tab shows only the
+    // ones running the clinical module — pharmacies live in their own tab.
+    final hospitals = _tenants.where((t) => t.clinicalEnabled).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -727,57 +684,13 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New $_kindLabel', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('New Hospital', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
                 const SizedBox(height: 12),
-
-                // This question comes first because it changes what the rest of
-                // the form means: a medical store has no "Hospital Name".
-                _ModulePicker(
-                  hasClinical: _hasClinical,
-                  hasPharmacy: _hasPharmacy,
-                  onClinicalChanged: _onClinicalToggled,
-                  onPharmacyChanged: _onPharmacyToggled,
-                ),
-                if (_hasPharmacy) ...[
-                  if (_profilesLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: SizedBox(
-                        height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-                    )
-                  else if (_pharmacyProfiles.isNotEmpty)
-                    AppDropdown<String>(
-                      label: 'What kind of pharmacy?',
-                      value: _pharmacyProfileKey ?? _defaultPharmacyProfile,
-                      items: _pharmacyProfiles
-                          .map((p) => DropdownMenuItem(value: p.profileKey, child: Text(p.displayName)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() {
-                            _pharmacyProfileKey = v;
-                            _profileChosenByHand = true;
-                          });
-                        }
-                      },
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      _selectedProfileDescription,
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-
                 AppFormField(
-                  label: _nameLabel,
+                  label: 'Hospital Name',
                   controller: _nameCtrl,
                   required: true,
-                  placeholder: _hasClinical
-                      ? 'e.g. City General Hospital'
-                      : 'e.g. Sri Balaji Medicals',
+                  placeholder: 'e.g. City General Hospital',
                 ),
                 AppDropdown<String>(
                   label: 'City',
@@ -883,7 +796,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
               ],
             ),
           )
-        else if (_tenants.isEmpty)
+        else if (hospitals.isEmpty)
           AppCard(
             child: Text(
               'No hospitals found. Add your first hospital above.',
@@ -893,7 +806,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         else
           Column(
             children: [
-              for (final (i, tenant) in _tenants.take(_visibleCount).indexed) ...[
+              for (final (i, tenant) in hospitals.take(_visibleCount).indexed) ...[
                 StaggeredItem(
                   index: i,
                   child: _HospitalCard(
@@ -919,7 +832,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (_visibleCount < _tenants.length)
+              if (_visibleCount < hospitals.length)
                 GestureDetector(
                   onTap: () => setState(() => _visibleCount += 2),
                   child: Container(
@@ -936,7 +849,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                         const Icon(Icons.expand_more, size: 16, color: SevaCareColors.textMuted),
                         const SizedBox(width: 6),
                         Text(
-                          'Load More (${_tenants.length - _visibleCount} remaining)',
+                          'Load More (${hospitals.length - _visibleCount} remaining)',
                           style: AppTextStyles.label(SevaCareColors.textMuted),
                         ),
                       ],
@@ -1126,7 +1039,514 @@ class _HospitalCard extends StatelessWidget {
   }
 }
 
-// ── TAB 2: Platform Admins ────────────────────────────────────────────────────
+// ── TAB 2: Pharmacy ───────────────────────────────────────────────────────────
+
+/// Onboarding for standalone medical stores — fully independent of the Hospitals
+/// tab. It creates pharmacy-only tenants (no clinical module) and lists only the
+/// stores, so a pharmacy is never tangled up with hospital onboarding.
+class _PharmacyTab extends ConsumerStatefulWidget {
+  final String token;
+  const _PharmacyTab({required this.token});
+
+  @override
+  ConsumerState<_PharmacyTab> createState() => _PharmacyTabState();
+}
+
+class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
+  // Pharmacy identity — green/teal, matching the store login and counter.
+  static const Color _accent = Color(0xFF15A66A);
+
+  List<PlatformTenantRecord> _tenants = [];
+  bool _loading = false;
+  String? _error;
+  bool _showAddForm = false;
+  int _visibleCount = 4;
+  final Set<String> _expanded = {};
+
+  final _nameCtrl = TextEditingController();
+  final _pinCodeCtrl = TextEditingController();
+  final _contactNameCtrl = TextEditingController();
+  final _contactMobileCtrl = TextEditingController();
+  final _contactEmailCtrl = TextEditingController();
+  String _selectedCity = '';
+  bool _saving = false;
+  String? _formError;
+  String? _formSuccess;
+
+  // What kind of store — a plain medical shop, a chemist-and-druggist, etc.
+  // Loaded from the platform's capability profiles; MEDICAL_STORE is the default.
+  String _profileKey = 'MEDICAL_STORE';
+  List<PharmacyProfileOption> _profiles = [];
+
+  static const _cityOptions = [
+    'Bangalore', 'Chennai', 'Hyderabad', 'Visakhapatnam', 'Proddatur', 'Kadapa',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTenants();
+    _loadProfiles();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _pinCodeCtrl.dispose();
+    _contactNameCtrl.dispose();
+    _contactMobileCtrl.dispose();
+    _contactEmailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTenants() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = await ref.read(repositoryProvider).listPlatformTenants(widget.token);
+      if (mounted) setState(() { _tenants = list; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _loadProfiles() async {
+    try {
+      final profiles = await ref.read(repositoryProvider).listPharmacyProfiles(widget.token);
+      if (mounted && profiles.isNotEmpty) setState(() => _profiles = profiles);
+    } catch (_) {
+      // The dropdown is a convenience; the server still defaults to MEDICAL_STORE.
+    }
+  }
+
+  String get _profileDescription {
+    for (final p in _profiles) {
+      if (p.profileKey == _profileKey && p.description.isNotEmpty) return p.description;
+    }
+    return 'Stock, counter billing, GST and expiry tracking.';
+  }
+
+  void _toggleAddForm() {
+    setState(() {
+      _showAddForm = !_showAddForm;
+      _formError = null;
+      _formSuccess = null;
+      if (_showAddForm) {
+        _nameCtrl.clear();
+        _pinCodeCtrl.clear();
+        _contactNameCtrl.clear();
+        _contactMobileCtrl.clear();
+        _contactEmailCtrl.clear();
+        _selectedCity = '';
+        _profileKey = 'MEDICAL_STORE';
+      }
+    });
+  }
+
+  Future<void> _createPharmacy() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _formError = 'Pharmacy Name is required.');
+      return;
+    }
+    final contactMobile = _contactMobileCtrl.text.trim();
+    if (contactMobile.isEmpty) {
+      setState(() => _formError = 'Contact mobile is required — it becomes the store admin login.');
+      return;
+    }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Create Pharmacy',
+      message: 'Create "$name" as a standalone pharmacy?',
+      confirmLabel: 'Create',
+      isDanger: false,
+    );
+    if (!confirmed) return;
+    setState(() {
+      _saving = true;
+      _formError = null;
+      _formSuccess = null;
+    });
+    try {
+      await ref.read(repositoryProvider).createPlatformTenant(
+        PlatformTenantUpsertRequest(
+          hospitalName: name,
+          city: _selectedCity.isNotEmpty ? _selectedCity : null,
+          pinCode: _pinCodeCtrl.text.trim().isNotEmpty ? _pinCodeCtrl.text.trim() : null,
+          themeKey: 'premium',
+          contactName: _contactNameCtrl.text.trim().isNotEmpty ? _contactNameCtrl.text.trim() : null,
+          contactMobile: contactMobile,
+          contactEmail: _contactEmailCtrl.text.trim().isNotEmpty ? _contactEmailCtrl.text.trim() : null,
+          hasClinical: false,
+          hasPharmacy: true,
+          pharmacyProfileKey: _profileKey,
+        ),
+        widget.token,
+      );
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _formSuccess = 'Pharmacy created successfully.';
+          _showAddForm = false;
+        });
+        await _loadTenants();
+      }
+    } catch (e) {
+      if (mounted) setState(() { _saving = false; _formError = e.toString(); });
+    }
+  }
+
+  Future<void> _deletePharmacy(String tenantId, String name) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete Pharmacy',
+      message: 'Delete "$name"? This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+    try {
+      await ref.read(repositoryProvider).deletePlatformTenant(tenantId, widget.token);
+      await _loadTenants();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleStatus(PlatformTenantRecord t) async {
+    final newStatus = t.status.toLowerCase() == 'active' ? 'inactive' : 'active';
+    try {
+      await ref.read(repositoryProvider).updatePlatformTenant(
+        t.tenantPublicId,
+        PlatformTenantUpsertRequest(hospitalName: t.hospitalName, themeKey: t.themeKey, status: newStatus),
+        widget.token,
+      );
+      await _loadTenants();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: SevaCareColors.danger),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pharmacies = _tenants.where((t) => t.hasPharmacy).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pharmacy Management', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              const SizedBox(height: 4),
+              Text(
+                'Onboard and manage standalone medical stores on the platform.',
+                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  PrimaryButton(
+                    label: _showAddForm ? 'Cancel' : 'Add Pharmacy',
+                    icon: _showAddForm ? Icons.close : Icons.add,
+                    compact: true,
+                    onPressed: _toggleAddForm,
+                  ),
+                  const SizedBox(width: 8),
+                  IconBtn(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _loading ? null : _loadTenants,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        if (_showAddForm) ...[
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('New Pharmacy', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                const SizedBox(height: 12),
+                if (_profiles.isNotEmpty)
+                  AppDropdown<String>(
+                    label: 'What kind of pharmacy?',
+                    value: _profileKey,
+                    items: _profiles
+                        .map((p) => DropdownMenuItem(value: p.profileKey, child: Text(p.displayName)))
+                        .toList(),
+                    onChanged: (v) { if (v != null) setState(() => _profileKey = v); },
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(_profileDescription, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ),
+                AppFormField(
+                  label: 'Pharmacy Name',
+                  controller: _nameCtrl,
+                  required: true,
+                  placeholder: 'e.g. Sri Balaji Medicals',
+                ),
+                AppDropdown<String>(
+                  label: 'City',
+                  value: _selectedCity,
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('Select city…')),
+                    ..._cityOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                  ],
+                  onChanged: (v) => setState(() => _selectedCity = v ?? ''),
+                ),
+                AppFormField(
+                  label: 'Pin Code',
+                  controller: _pinCodeCtrl,
+                  placeholder: 'e.g. 516360',
+                  keyboardType: TextInputType.number,
+                ),
+                AppFormField(
+                  label: 'Owner / Contact Name',
+                  controller: _contactNameCtrl,
+                  placeholder: 'Store owner name',
+                ),
+                AppFormField(
+                  label: 'Contact Mobile',
+                  controller: _contactMobileCtrl,
+                  required: true,
+                  placeholder: '+91 XXXXXXXXXX',
+                  keyboardType: TextInputType.phone,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: Text(
+                    'This number becomes the store admin login. They can add counter staff after signing in.',
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+                ),
+                AppFormField(
+                  label: 'Contact Email',
+                  controller: _contactEmailCtrl,
+                  placeholder: 'owner@store.com',
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                if (_formError != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.errorSurface,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (_formSuccess != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.successSurface,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(_formSuccess!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                PrimaryButton(
+                  label: 'Create',
+                  isLoading: _saving,
+                  onPressed: _saving ? null : _createPharmacy,
+                  fullWidth: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        if (_loading)
+          const ShimmerList(count: 3)
+        else if (_error != null)
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Error loading pharmacies', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                const SizedBox(height: 8),
+                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                const SizedBox(height: 12),
+                PrimaryButton(label: 'Retry', onPressed: _loadTenants),
+              ],
+            ),
+          )
+        else if (pharmacies.isEmpty)
+          AppCard(
+            child: Text(
+              'No pharmacies yet. Add your first medical store above.',
+              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (final (i, t) in pharmacies.take(_visibleCount).indexed) ...[
+                StaggeredItem(
+                  index: i,
+                  child: _PharmacyCard(
+                    tenant: t,
+                    accent: _accent,
+                    isExpanded: _expanded.contains(t.tenantPublicId),
+                    onTap: () => setState(() {
+                      if (!_expanded.remove(t.tenantPublicId)) _expanded.add(t.tenantPublicId);
+                    }),
+                    onDelete: () => _deletePharmacy(t.tenantPublicId, t.hospitalName),
+                    onToggleStatus: () => _toggleStatus(t),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (_visibleCount < pharmacies.length)
+                GestureDetector(
+                  onTap: () => setState(() => _visibleCount += 4),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: SevaCareColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SevaCareColors.border, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.expand_more, size: 16, color: SevaCareColors.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Load More (${pharmacies.length - _visibleCount} remaining)',
+                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+// ── Pharmacy Card ─────────────────────────────────────────────────────────────
+
+class _PharmacyCard extends StatelessWidget {
+  final PlatformTenantRecord tenant;
+  final Color accent;
+  final bool isExpanded;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final VoidCallback onToggleStatus;
+
+  const _PharmacyCard({
+    required this.tenant,
+    required this.accent,
+    required this.isExpanded,
+    required this.onTap,
+    required this.onDelete,
+    required this.onToggleStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = tenant.status.toLowerCase() == 'active';
+    return GestureDetector(
+      onTap: onTap,
+      child: AppCard(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.storefront_outlined, size: 20, color: accent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tenant.hospitalName,
+                        style: AppTextStyles.cardTitle(SevaCareColors.text),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (tenant.city.isNotEmpty)
+                        Text(
+                          '${tenant.city}${tenant.pinCode.isNotEmpty ? ' · ${tenant.pinCode}' : ''}',
+                          style: AppTextStyles.label(accent),
+                        ),
+                      Text(tenant.tenantPublicId, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    ],
+                  ),
+                ),
+                StatusBadge(status: tenant.status),
+                const SizedBox(width: 6),
+                Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: SevaCareColors.textMuted,
+                ),
+              ],
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  IconBtn(
+                    icon: Icons.delete_outline,
+                    iconColor: SevaCareColors.danger,
+                    bgColor: SevaCareColors.errorSurface,
+                    tooltip: 'Delete pharmacy',
+                    onPressed: onDelete,
+                  ),
+                  const SizedBox(width: 8),
+                  IconBtn(
+                    icon: isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                    iconColor: isActive ? SevaCareColors.peachForeground : SevaCareColors.mintForeground,
+                    bgColor: isActive ? SevaCareColors.peachSoft : SevaCareColors.mintSoft,
+                    tooltip: isActive ? 'Deactivate' : 'Activate',
+                    onPressed: onToggleStatus,
+                  ),
+                  const Spacer(),
+                  const _ModuleChip(icon: Icons.medication_outlined, label: 'Pharmacy'),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── TAB 3: Platform Admins ────────────────────────────────────────────────────
 
 class _PlatformAdminsTab extends ConsumerStatefulWidget {
   final String token;
@@ -1539,117 +1959,6 @@ class _QrDialogContentState extends State<_QrDialogContent> {
   }
 }
 
-// ── Module picker ─────────────────────────────────────────────────────────────
-
-/// The onboarding question, in the words a shop owner would use.
-///
-/// Two checkboxes rather than one "type" dropdown, because a business *has* a
-/// hospital, a pharmacy, or both — asking it to pick a single identity would
-/// make a lot of Indian clinics answer wrongly. Pharmacy starts unticked: it is
-/// never a hospital's default, and a hospital with no medicine counter should
-/// never be handed a pharmacy it did not ask for.
-class _ModulePicker extends StatelessWidget {
-  final bool hasClinical;
-  final bool hasPharmacy;
-  final ValueChanged<bool> onClinicalChanged;
-  final ValueChanged<bool> onPharmacyChanged;
-
-  const _ModulePicker({
-    required this.hasClinical,
-    required this.hasPharmacy,
-    required this.onClinicalChanged,
-    required this.onPharmacyChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final nothingSelected = !hasClinical && !hasPharmacy;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('What does this business have?',
-            style: AppTextStyles.label(SevaCareColors.text)),
-        const SizedBox(height: 6),
-        _ModuleTile(
-          icon: Icons.local_hospital_outlined,
-          title: 'Hospital / Clinic',
-          subtitle: 'Doctors, appointments and patient records',
-          value: hasClinical,
-          onChanged: onClinicalChanged,
-        ),
-        _ModuleTile(
-          icon: Icons.medication_outlined,
-          title: 'Pharmacy',
-          subtitle: 'Stock, counter billing, GST and expiry tracking',
-          value: hasPharmacy,
-          onChanged: onPharmacyChanged,
-        ),
-        if (nothingSelected)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 4),
-            child: Text(
-              'Pick at least one — a tenant with neither has nothing to log in to.',
-              style: AppTextStyles.label(SevaCareColors.danger),
-            ),
-          ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-}
-
-/// A checkbox that explains itself. The subtitle is what stops a platform admin
-/// from having to guess what "Pharmacy" turns on.
-class _ModuleTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ModuleTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Checkbox(
-              value: value,
-              onChanged: (v) => onChanged(v ?? false),
-            ),
-            Icon(icon, size: 20, color: value ? SevaCareColors.primary : SevaCareColors.textMuted),
-            const SizedBox(width: 10),
-            // Expanded, not a fixed width: the subtitle wraps on a phone instead
-            // of overflowing the row.
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: AppTextStyles.bodyText(SevaCareColors.text)),
-                  Text(subtitle, style: AppTextStyles.label(SevaCareColors.textMuted)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Which modules a tenant runs, at a glance in the tenant list.
 class _ModuleChip extends StatelessWidget {
   final IconData icon;
@@ -1671,6 +1980,73 @@ class _ModuleChip extends StatelessWidget {
           Icon(icon, size: 12, color: SevaCareColors.primary),
           const SizedBox(width: 4),
           Text(label, style: AppTextStyles.label(SevaCareColors.primary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// One module's headline on the Overview: how many are live out of how many
+/// exist. Accent colours the whole card so hospitals and pharmacies read apart.
+class _ModuleStatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int active;
+  final int total;
+  final Color accent;
+
+  const _ModuleStatCard({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.total,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.22), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: accent),
+              ),
+              const Spacer(),
+              Text('$total', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.textMuted)),
+              const SizedBox(width: 2),
+              Text('total', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('$active', style: AppTextStyles.body(size: 26, weight: FontWeight.w800, color: accent)),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text('active', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: AppTextStyles.cardTitle(SevaCareColors.text)),
         ],
       ),
     );
