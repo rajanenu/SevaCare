@@ -11,7 +11,7 @@ Secrets live in **Secret Manager** and in the gitignored local **`.env.productio
 | Backend health | …/actuator/health |
 
 ## Architecture
-- **Cloud Run** `sevacare-backend` — always-warm (min=1, max=1), 1 vCPU / 1 GiB, profile `production`, connects to Cloud SQL via the built-in socket + `postgres-socket-factory`. Secrets from Secret Manager: `SEVACARE_DB_URL`, `SEVACARE_DB_USERNAME`, `SEVACARE_DB_PASSWORD`, `SEVACARE_AUTH_SECRET`. CORS locked to the frontend origin via `SEVACARE_CORS_ORIGINS`.
+- **Cloud Run** `sevacare-backend` — always-warm (min=1, max=20 — see "Scaling" below), 1 vCPU / 1 GiB, profile `production`, connects to Cloud SQL via the built-in socket + `postgres-socket-factory`. Secrets from Secret Manager: `SEVACARE_DB_URL`, `SEVACARE_DB_USERNAME`, `SEVACARE_DB_PASSWORD`, `SEVACARE_AUTH_SECRET`. CORS locked to the frontend origin via `SEVACARE_CORS_ORIGINS`.
 - **Cloud Run** `sevacare-frontend` — scale-to-zero (min=0, max=2), 256 MiB, nginx serving Flutter web built with `API_BASE_URL=<backend>/api/v1`.
 - **Cloud SQL** `sevacare-db` — PostgreSQL 16, **db-g1-small**, Enterprise edition, single zone (no HA), 10 GB SSD. Single tenant: **T-1013 "Lakshmi Kishore"**.
 - **Artifact Registry** `asia-south1-docker.pkg.dev/sevacareapp/sevacare/{backend,frontend}`.
@@ -47,14 +47,51 @@ or `&`) when both changed.
 source .env.production
 IMG=asia-south1-docker.pkg.dev/sevacareapp/sevacare/backend
 gcloud builds submit --config=sevacare-deploy/cb-backend.yaml .   # or the scratch config
-gcloud run deploy sevacare-backend --image=$IMG:latest --region=asia-south1
+gcloud run deploy sevacare-backend --image=$IMG:latest --region=asia-south1 \
+  --min-instances=1 --max-instances=20
 ```
+
+## Scaling & the connection-pool ceiling
+
+The number that can take the platform down is **instances × pool size vs the
+Cloud SQL connection limit**. Each backend instance opens up to
+`SEVACARE_DB_POOL_MAX` (default **5**) connections; db-g1-small allows ~200.
+Unbounded Cloud Run autoscaling would sail past that and turn a traffic spike
+into connection-refused errors — a hard outage, not a slowdown. Hence:
+
+- `--max-instances=20` → worst case 100 connections, safely under the ceiling.
+  Requests queue briefly at the limit; a queue is survivable, exhaustion is not.
+  **20, not 30**: the project's `CpuAllocPerProjectRegion` quota in
+  `asia-south1` is 20 vCPU total (1 vCPU/instance here), and `gcloud run
+  deploy` refuses a `--max-instances` that could exceed it. Request a quota
+  increase before raising this further.
+- `--min-instances=1` → no 10–20 s Spring Boot cold start for the unlucky first
+  request. (Virtual threads are on, so per-instance concurrency is limited by
+  the DB pool, not by threads.)
+- Before real load: size the DB up (e.g. `db-custom-2-7680`, ~800 connections),
+  **then** raise `SEVACARE_DB_POOL_MAX` and `--max-instances` together (and
+  the CPU quota if still capped), keeping the product under the new limit.
 
 ## Redeploy frontend (after UI change or backend URL change)
 ```bash
 gcloud builds submit --config=sevacare-deploy/cb-frontend.yaml .  # bakes API_BASE_URL
 gcloud run deploy sevacare-frontend --image=asia-south1-docker.pkg.dev/sevacareapp/sevacare/frontend:latest --region=asia-south1
 ```
+
+## Android release signing
+
+Release builds are signed with a real upload key, not the debug key. The
+keystore lives **outside the repo** at `~/sevacare-keys/upload-keystore.jks`
+(so neither git nor `gcloud builds submit`, which uploads the working tree,
+can ever ship it); `sevacare-flutter/android/key.properties` (git-ignored)
+holds the passwords and points at it. On a machine without `key.properties`
+the build silently falls back to debug signing — fine for testing, not
+shippable.
+
+**Back the keystore + key.properties up somewhere safe.** Losing them means
+losing the ability to update the app on the Play Store. When enrolling in
+Play App Signing, this key becomes the *upload* key and Google holds the app
+signing key — that is the recommended path.
 
 ## Direct DB access (Cloud SQL Auth Proxy)
 ```bash

@@ -237,11 +237,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (choice == null || choice == 'cancel' || !context.mounted) return;
       if (choice == 'hard') {
         await BiometricService.setEnabled(false);
+        await ref.read(authProvider.notifier).logoutEverywhere();
         await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
       } else {
+        // Soft sign-out keeps the stored session live for biometric restore —
+        // no server-side revocation, or the fingerprint would unlock a corpse.
         await ref.read(authProvider.notifier).clearSession(wipeStorage: false);
       }
     } else {
+      await ref.read(authProvider.notifier).logoutEverywhere();
       await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
     }
 

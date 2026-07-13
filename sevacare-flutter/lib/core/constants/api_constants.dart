@@ -8,10 +8,17 @@ class ApiConstants {
   // Auth
   static const String otpRequest = '/auth/otp/request';
   static const String otpVerify = '/auth/otp/verify';
+  static const String authRefresh = '/auth/refresh';
+  static const String authLogout = '/auth/logout';
 
   // Standalone medical-store login (mobile-first; backend resolves the shop)
   static const String pharmacyAuthRequestOtp = '/auth/pharmacy/request-otp';
   static const String pharmacyAuthVerify = '/auth/pharmacy/verify';
+
+  // Own login passcode (self-set 4-digit code; tenant-free, resolved from the token)
+  static const String accountPasscode = '/account/passcode';
+  static String adminPasscodeReset(String tenantId) => '/admin/$tenantId/passcode-reset';
+  static const String platformPasscodeReset = '/platform-admin/passcode-reset';
 
   // Public
   static const String publicTenants = '/public/tenants';

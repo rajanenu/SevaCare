@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sevacare.api.security.RefreshTokenService;
 import com.sevacare.api.security.TokenService;
 import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.security.TokenClaims;
@@ -40,21 +41,24 @@ public class PharmacyAuthService {
     private static final Logger log = LoggerFactory.getLogger(PharmacyAuthService.class);
 
     private final JdbcTemplate jdbcTemplate;
-    private final OtpService otpService;
+    private final PasscodeService passcodeService;
     private final TokenService tokenService;
+    private final RefreshTokenService refreshTokenService;
     private final TenantModuleService tenantModuleService;
     private final TenantRegistryService tenantRegistryService;
 
     public PharmacyAuthService(
             JdbcTemplate jdbcTemplate,
-            OtpService otpService,
+            PasscodeService passcodeService,
             TokenService tokenService,
+            RefreshTokenService refreshTokenService,
             TenantModuleService tenantModuleService,
             TenantRegistryService tenantRegistryService
     ) {
         this.jdbcTemplate = jdbcTemplate;
-        this.otpService = otpService;
+        this.passcodeService = passcodeService;
         this.tokenService = tokenService;
+        this.refreshTokenService = refreshTokenService;
         this.tenantModuleService = tenantModuleService;
         this.tenantRegistryService = tenantRegistryService;
     }
@@ -91,9 +95,7 @@ public class PharmacyAuthService {
     public AuthDtos.AuthenticatedSession verify(String mobileNumber, String otp, String tenantPublicId) {
         String mobile = mobileNumber == null ? "" : mobileNumber.trim();
 
-        if (!otpService.matches(mobile, otp)) {
-            throw new IllegalArgumentException("Invalid OTP.");
-        }
+        passcodeService.verify(mobile, otp);
 
         TenantManifest manifest = tenantModuleService.manifestOf(tenantPublicId);
         if (!manifest.pharmacyEnabled()) {
@@ -116,11 +118,13 @@ public class PharmacyAuthService {
         // pharmacy security gates (hasAnyRole ADMIN,STAFF) pass, while userType keeps
         // the distinction the UI needs.
         String jwtRole = "admin";
-        String token = tokenService.issue(new TokenClaims(tenantPublicId, jwtRole, subjectPublicId));
+        TokenClaims claims = new TokenClaims(tenantPublicId, jwtRole, subjectPublicId);
+        String token = tokenService.issue(claims);
+        String refreshToken = refreshTokenService.issue(claims);
 
         log.info("pharmacy_login tenantPublicId={} subject={} userType={}", tenantPublicId, subjectPublicId, userType);
         return new AuthDtos.AuthenticatedSession(
-                tenantPublicId, jwtRole, subjectPublicId, token, false, subjectName, userType);
+                tenantPublicId, jwtRole, subjectPublicId, token, false, subjectName, userType, refreshToken);
     }
 
     private String adminUserType(String schema, String mobile) {

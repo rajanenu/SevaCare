@@ -33,8 +33,16 @@ cd sevacare-backend && mvn -pl sevacare-api -am test
 # Flutter — analyze must stay at zero errors/warnings (16 pre-existing infos are fine)
 cd sevacare-flutter && flutter analyze
 
-# Android APK, built against the local backend
-flutter build apk --release --dart-define=LOCAL_BACKEND_HOST=<this Mac's LAN IP>
+# Android APK, built against the local backend.
+# --target-platform is not optional: a bare `flutter build apk --release` bundles all
+# three ABIs (arm, arm64, x86_64) — three whole copies of the engine and of your Dart —
+# and weighs 65MB. arm64 alone, obfuscated, is 22.8MB and is what every real phone runs.
+flutter build apk --release --target-platform android-arm64 \
+  --obfuscate --split-debug-info=build/symbols \
+  --dart-define=LOCAL_BACKEND_HOST=<this Mac's LAN IP>
+
+# For the Play Store, ship the bundle and let Play slice it per device — never a universal APK:
+flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
 ```
 
 Detect the LAN IP yourself (`ipconfig getifaddr en0`) rather than asking. The APK must
@@ -50,7 +58,77 @@ Do not invoke `scripts/start-backend.sh` directly — it blocks on a trailing `w
 `T-1013` → schema `tenant_t_1013`. Public endpoints (QR booking, chatbot quick-booking)
 carry no tenant context, so they set it explicitly and restore the previous value.
 Cross-tenant tables (`tenant_registry`, `appointment_request`, `whatsapp_outbox`,
-`user_otp_override`) live in `public`.
+`user_passcode`, `auth_refresh_token`, `revoked_access_token`, `audit_log`,
+`idempotency_key`) live in `public`.
+
+**A session may only ever touch its own tenant, and the token is what says which.**
+`X-Tenant-Id` is typed by the client, and `TenantHeaderFilter` turns it straight into the
+schema every query runs against — so it is an *input*, never the answer. `TenantAccessFilter`
+pins it to the tenant claim in the bearer token and answers **403** on a mismatch. Until it
+existed, a real admin token from one hospital, replayed with another hospital's id in the
+header, returned that hospital's patient list — names, mobiles, ages, visit history. The
+`"Tenant mismatch"` guard copy-pasted through ~100 controller methods does *not* close this:
+it compares the path variable with `TenantContext`, i.e. the header against the path, both
+chosen by the caller, so it only ever checked that the client agreed with itself. Keep those
+guards as a second wall; never let them be the first. Never take the tenant, role or subject
+from anywhere but the signed token. The full chain, in order:
+`TenantHeaderFilter` → `TokenAuthenticationFilter` → `TenantAccessFilter` → `ModuleAccessFilter`
+→ `@PreAuthorize`.
+
+**Login is a passcode, not an SMS.** Nothing is ever sent to a phone. Every user starts on
+the shared default OTP `0000` and can set their own 4-digit passcode (Profile → Login
+Passcode); the moment they do, `0000` stops working for them. `public.user_passcode` holds
+only BCrypt hashes, keyed by mobile — one passcode per person across roles and tenants.
+`PasscodeService.verify` is the single entry point: **5 wrong attempts lock the account for
+15 minutes** (DB-persisted, so it holds across Cloud Run instances → 429), and an unreadable
+credential store **fails closed** (503) — never a silent fall back to `0000`. `0000` itself
+is rejected as a chosen passcode. Resets clear the row (back to `0000`): a tenant admin can
+reset own-tenant users (`POST /admin/{t}/passcode-reset`, gated on the mobile being known to
+that tenant), a platform admin anyone. `/auth/otp/request` returns `credentialMode`
+(`DEFAULT_OTP`|`PASSCODE`) so the login screen asks for the right thing — "OTP sent" copy for
+default users, "Enter your 4-digit passcode" once they've set one. `RateLimitFilter` caps
+auth and public-booking POSTs at 30/min/IP (sized for a clinic behind one shared WiFi IP; the
+DB lockout, not the rate limit, is what stops a guesser).
+
+**A token expires; the session survives it.** Access tokens are real JWTs (60 min,
+`sub`/`tenant`/`role`/`iat`/`exp`/`jti`, HS256 over SHA-256 of `SEVACARE_AUTH_SECRET`) — the
+previous format had **no expiry at all**, so one captured token was valid forever. Sessions
+outlive the hour via an opaque rotating refresh token (`/auth/refresh`, 30 days, only its
+SHA-256 stored in `auth_refresh_token`): every refresh rotates, and a rotated-out token
+presented again is treated as a replayed theft and refused. `/auth/logout` revokes the
+refresh token *and* the bearer's `jti` (checked via a 60s cache over
+`revoked_access_token` — deliberately fail-open, the window is bounded by `exp`). The
+Flutter `ApiClient` refreshes on 401 (single-flight — parallel refreshes would revoke each
+other) and retries once; only an unrescuable 401 wipes the session. Client rule: hard
+sign-out and account deletion call `logoutEverywhere()` first; **soft sign-out (keeping
+biometric) must not** — the fingerprint has to restore a live session.
+
+**Every PHI touch leaves a row.** `AuditLogInterceptor` (registered in `WebConfiguration`)
+matches patient-data routes and appends who/what/when/IP to `public.audit_log`, whose
+UPDATE/DELETE trigger makes it append-only like the stock ledger. The actor comes from the
+token claims, never the request. New controller exposing patient data → add its path to the
+interceptor's rule table. An audit failure logs ERROR but never fails the request it records.
+
+**A retried POST must not book or dispense twice.** Booking and counter-sale POSTs accept an
+`Idempotency-Key` header; `IdempotencyService.execute` claims the key, runs the operation and
+stores its response *in one transaction*, so a crash rolls back claim and work together, a
+racer blocks on the PK and then replays the stored response, and a rolled-back operation
+leaves the key spendable again. The Flutter side generates one key per attempt
+(`newIdempotencyKey()`), reuses it across retries, and clears it **only on success**. Keys
+prune after 48h. No header → runs untouched (old clients keep their old risk).
+
+**A cached tenant is a tenant you cannot cut off.** `resolveTenantSchema` is `@Cacheable`
+and its query only ever matches an *active* tenant — so the cache is the only thing that can
+keep a suspended one alive. It used to sit in an unbounded `ConcurrentMapCacheManager` with
+no TTL and no `@CacheEvict` anywhere in the codebase, which meant marking a tenant `inactive`
+did nothing at all: their admin kept reading patient records until the process restarted. It
+is now Caffeine with a **60s TTL** and a size bound, plus `@CacheEvict` on `updateTenant` /
+`deleteTenant`. The TTL is the correctness guarantee and the evict is only the fast path — an
+evict clears one Cloud Run instance's map, so without the TTL every *other* instance keeps
+serving the suspended tenant forever. This is not the TTL that was banned from the pharmacy
+catalog: that was a staleness cache over data that changes on every sale, this is the ceiling
+on how long a cut-off customer keeps working. `TenantModuleService` stays deliberately
+uncached — read its class comment before changing that.
 
 **Tenant schemas are versioned.** Migrations in `sevacare-tenant/.../db/tenant` run once
 per tenant schema, tracked in that schema's own `flyway_tenant_history`, driven by

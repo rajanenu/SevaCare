@@ -11,13 +11,19 @@ const ROLE_IDENTIFIERS = {
   admin: '9000000003',
 } as const;
 
+// The ROLE_IDENTIFIERS mobiles are seeded only on this tenant; the directory
+// lists whatever was onboarded most recently first, so "tenants[0]" broke the
+// moment a second tenant existed.
+const SEEDED_TENANT = process.env.E2E_TENANT ?? 'T-1013';
+
 async function getActiveTenant(request: import('@playwright/test').APIRequestContext) {
   const response = await request.get(`${API}/public/tenants`);
   expect(response.ok()).toBe(true);
   const body = await response.json();
-  const tenant = body.data.tenants[0];
+  const tenants = body.data.tenants as Array<{ tenantPublicId: string; hospitalName: string }>;
+  const tenant = tenants.find((t) => t.tenantPublicId === SEEDED_TENANT) ?? tenants[0];
   expect(tenant).toBeDefined();
-  return tenant as { tenantPublicId: string; hospitalName: string };
+  return tenant;
 }
 
 async function requestOtp(

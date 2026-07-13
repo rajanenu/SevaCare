@@ -25,6 +25,7 @@ import '../../widgets/gradient_button.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/masked_text.dart';
 import '../terms/terms_screen.dart';
+import '../../repositories/sevacare_repository.dart' show newIdempotencyKey;
 
 String _rupees(int paise) => '₹${(paise / 100).toStringAsFixed(2)}';
 
@@ -467,6 +468,11 @@ class _SellTabState extends ConsumerState<_SellTab> {
   bool _submitting = false;
   bool _showCustomer = true;
 
+  // One key per checkout attempt: a Complete Sale retried after a timeout
+  // reuses it, so the server replays the first receipt instead of dispensing
+  // the cart twice. Cleared only when the sale succeeds.
+  String? _saleIdemKey;
+
   // Repeat last purchase — a regular's mobile suggests their last bill.
   SaleReceipt? _lastPurchase;
   String _lastPurchaseCheckedFor = '';
@@ -666,7 +672,11 @@ class _SellTabState extends ConsumerState<_SellTab> {
             ? {'manualLabel': c.manualLabel, 'manualAmountPaise': c.manualAmountPaise, 'qtyBaseUnits': 1}
             : {'skuPublicId': c.sku!.skuPublicId, 'qtyBaseUnits': c.qty}).toList(),
       };
-      final receipt = await ref.read(repositoryProvider).createSale(auth.tenantPublicId!, auth.token!, body);
+      _saleIdemKey ??= newIdempotencyKey();
+      final receipt = await ref.read(repositoryProvider).createSale(
+          auth.tenantPublicId!, auth.token!, body,
+          idempotencyKey: _saleIdemKey);
+      _saleIdemKey = null; // consumed — the next cart is a new attempt
       if (!mounted) return;
       // Reflect the dispense in the cached on-hand so "remaining" stays honest
       // until the next full refresh.

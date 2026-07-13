@@ -55,6 +55,7 @@ import com.sevacare.pharmacy.returns.service.PostReturnCommand;
 import com.sevacare.pharmacy.returns.spi.PostedReturn;
 import com.sevacare.pharmacy.returns.spi.RecentReturn;
 import com.sevacare.pharmacy.returns.spi.ReturnableLine;
+import com.sevacare.api.service.IdempotencyService;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.PharmacyDtos;
 import com.sevacare.shared.tenant.TenantContext;
@@ -84,6 +85,7 @@ public class PharmacyController {
     private final CustomerReturnService customerReturnService;
     private final DayCloseService dayCloseService;
     private final CreditService creditService;
+    private final IdempotencyService idempotencyService;
 
     public PharmacyController(CatalogService catalogService,
                              InventoryService inventoryService,
@@ -93,7 +95,8 @@ public class PharmacyController {
                              GrnService grnService,
                              CustomerReturnService customerReturnService,
                              DayCloseService dayCloseService,
-                             CreditService creditService) {
+                             CreditService creditService,
+                             IdempotencyService idempotencyService) {
         this.catalogService = catalogService;
         this.inventoryService = inventoryService;
         this.counterSaleService = counterSaleService;
@@ -103,6 +106,7 @@ public class PharmacyController {
         this.customerReturnService = customerReturnService;
         this.dayCloseService = dayCloseService;
         this.creditService = creditService;
+        this.idempotencyService = idempotencyService;
     }
 
     // ---- Catalog --------------------------------------------------------
@@ -230,6 +234,7 @@ public class PharmacyController {
 
     @PostMapping("/{tenantPublicId}/sales")
     public ContractResponse<SaleReceipt> sell(@PathVariable String tenantPublicId,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
                                               @Valid @RequestBody PharmacyDtos.SaleRequest request,
                                               Principal principal) {
         requireTenant(tenantPublicId);
@@ -241,7 +246,11 @@ public class PharmacyController {
         CreateSaleCommand command = new CreateSaleCommand(
                 request.customerName(), request.customerMobile(), request.prescriberName(),
                 PaymentMode.parse(request.paymentMode()), actorOf(principal), request.note(), lines);
-        return ContractResponse.of(counterSaleService.sell(command));
+        // A sale retried on a flaky network must not dispense twice: the ledger
+        // would faithfully record both. The retry replays the first receipt.
+        return ContractResponse.of(idempotencyService.execute(
+                tenantPublicId, idempotencyKey, "counter-sale", SaleReceipt.class,
+                () -> counterSaleService.sell(command)));
     }
 
     @GetMapping("/{tenantPublicId}/sales/recent")

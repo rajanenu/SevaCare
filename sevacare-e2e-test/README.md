@@ -1,32 +1,18 @@
 # SevaCare E2E Test
 
-Playwright smoke tests are configured for local end-to-end validation.
+API-level Playwright tests against a locally running backend (`:8081`).
+The old browser UI specs targeted a frontend that no longer exists and were
+removed — `api.spec.ts` and `qr-appointment-request.spec.ts` are the suite.
 
-## Smoke Test Command
-
-Run from this folder:
-
-```bash
-npm run smoke
-```
-
-This suite auto-starts the frontend on http://localhost:8087 and validates:
-
-- tenant entry to login
-- patient booking to appointments
-
-## Useful Commands
+## Run
 
 ```bash
-npm test
-npm run smoke:headed
+npm test        # backend must already be running
 npm run report
 ```
 
 Suggested direction for the next phase:
 
-- Maestro or Detox for mobile E2E
-- smoke flows for tenant selection and login
-- patient booking regression suite
-- doctor consultation regression suite
-- admin dashboard smoke coverage
+- Maestro or Patrol for Flutter mobile E2E
+- API assertions + screenshots against the deployed Flutter web build
+  (element selectors are impractical against CanvasKit)

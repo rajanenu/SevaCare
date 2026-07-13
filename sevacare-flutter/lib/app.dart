@@ -96,8 +96,23 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
             'intro_last_shown_ms', DateTime.now().millisecondsSinceEpoch),
       );
     }
-    // Wire 401 auto-logout: any unauthorised response clears the session and
-    // sends the user back to the welcome screen.
+    // Wire the silent session refresh: on a 401 the ApiClient asks here for a
+    // new access token before giving up. Success is invisible to the user —
+    // the failed call is retried with the fresh token.
+    apiClient.onTokenRefresh = () async {
+      final notifier = ref.read(authProvider.notifier);
+      final refresh = notifier.refreshToken;
+      if (refresh == null || refresh.isEmpty) return null;
+      try {
+        final rotated = await ref.read(repositoryProvider).refreshSession(refresh);
+        await notifier.updateTokens(rotated.token, rotated.refreshToken);
+        return rotated.token;
+      } catch (_) {
+        return null; // Session truly over → onUnauthorized signs the user out.
+      }
+    };
+    // Wire 401 auto-logout: an unauthorised response that a refresh could not
+    // rescue clears the session and sends the user back to the welcome screen.
     apiClient.onUnauthorized = () {
       if (mounted) {
         // 401 = token is genuinely expired — always wipe storage

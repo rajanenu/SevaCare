@@ -147,6 +147,48 @@ public class ApiExceptionHandler {
         ));
     }
 
+    /** Passcode lockout — the caller must wait, not retry. */
+    @ExceptionHandler(com.sevacare.api.service.TooManyAttemptsException.class)
+    public ResponseEntity<ApiError> handleTooManyAttempts(com.sevacare.api.service.TooManyAttemptsException ex) {
+        log.warn("api_too_many_attempts message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "TOO_MANY_ATTEMPTS",
+                ex.getMessage(),
+                List.of()
+        ));
+    }
+
+    /** The same Idempotency-Key arrived while its original is still executing. */
+    @ExceptionHandler(com.sevacare.api.service.DuplicateRequestException.class)
+    public ResponseEntity<ApiError> handleDuplicateRequest(com.sevacare.api.service.DuplicateRequestException ex) {
+        log.warn("api_duplicate_request message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.CONFLICT.value(),
+                "DUPLICATE_REQUEST",
+                ex.getMessage(),
+                List.of()
+        ));
+    }
+
+    /**
+     * The credential store could not be read. Authentication fails closed — 503,
+     * never a silent fallback to the default OTP.
+     */
+    @ExceptionHandler(com.sevacare.api.service.AuthUnavailableException.class)
+    public ResponseEntity<ApiError> handleAuthUnavailable(com.sevacare.api.service.AuthUnavailableException ex) {
+        log.error("api_auth_unavailable message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ApiError(
+                Instant.now().toString(),
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "AUTH_UNAVAILABLE",
+                ex.getMessage(),
+                List.of()
+        ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
         log.error("api_unexpected_error", ex);

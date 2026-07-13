@@ -26,7 +26,10 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
             String path = request.getRequestURI();
-            if (path.startsWith("/api/v1/public") || path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/platform-admin") || path.startsWith("/actuator")) {
+            // /api/v1/account is tenant-free on purpose: it resolves the caller's
+            // tenant from the signed token, so a platform admin (whose sentinel
+            // tenant matches no schema) can use it too.
+            if (path.startsWith("/api/v1/public") || path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/platform-admin") || path.startsWith("/api/v1/account") || path.startsWith("/actuator")) {
                 filterChain.doFilter(request, response);
                 return;
             }

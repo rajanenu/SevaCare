@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.admin.service.AdminDomainService;
+import com.sevacare.api.service.AccountMobileResolver;
+import com.sevacare.api.service.PasscodeService;
 import com.sevacare.shared.dto.AdminDtos;
+import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.shared.tenant.TenantContext;
@@ -28,10 +31,39 @@ public class AdminController {
 
     private final AdminDomainService adminDomainService;
     private final TenantRegistryService tenantRegistryService;
+    private final AccountMobileResolver accountMobileResolver;
+    private final PasscodeService passcodeService;
 
-    public AdminController(AdminDomainService adminDomainService, TenantRegistryService tenantRegistryService) {
+    public AdminController(AdminDomainService adminDomainService, TenantRegistryService tenantRegistryService,
+            AccountMobileResolver accountMobileResolver, PasscodeService passcodeService) {
         this.adminDomainService = adminDomainService;
         this.tenantRegistryService = tenantRegistryService;
+        this.accountMobileResolver = accountMobileResolver;
+        this.passcodeService = passcodeService;
+    }
+
+    /**
+     * Recovery for a forgotten passcode: clears it, so the default OTP applies
+     * again until the user sets a new code. Gated to mobile numbers that belong
+     * to this tenant (admin/staff, doctor or patient) so one hospital cannot
+     * reset a stranger's code by guessing numbers. The passcode is keyed by
+     * mobile, so if the same person also uses another tenant the reset frees
+     * them there too — same human, same phone.
+     */
+    @PostMapping("/{tenantPublicId}/passcode-reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<AuthDtos.PasscodeStatus> resetPasscode(
+            @PathVariable String tenantPublicId,
+            @Valid @RequestBody AuthDtos.PasscodeResetRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        if (!accountMobileResolver.mobileKnownToTenant(tenantPublicId, request.mobileNumber())) {
+            throw new IllegalArgumentException("No user with this mobile number in this hospital or store.");
+        }
+        passcodeService.resetPasscode(request.mobileNumber(), "admin:" + tenantPublicId);
+        return ContractResponse.of(new AuthDtos.PasscodeStatus(PasscodeService.CredentialMode.DEFAULT_OTP.name()));
     }
 
     // Hospital-level support email — separate from any admin's personal profile email

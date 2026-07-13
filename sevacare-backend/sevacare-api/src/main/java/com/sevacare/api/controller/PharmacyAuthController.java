@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.PasscodeService;
 import com.sevacare.api.service.PharmacyAuthService;
 import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.dto.ContractResponse;
@@ -28,9 +29,11 @@ import jakarta.validation.Valid;
 public class PharmacyAuthController {
 
     private final PharmacyAuthService pharmacyAuthService;
+    private final PasscodeService passcodeService;
 
-    public PharmacyAuthController(PharmacyAuthService pharmacyAuthService) {
+    public PharmacyAuthController(PharmacyAuthService pharmacyAuthService, PasscodeService passcodeService) {
         this.pharmacyAuthService = pharmacyAuthService;
+        this.passcodeService = passcodeService;
     }
 
     @PostMapping("/request-otp")
@@ -42,9 +45,11 @@ public class PharmacyAuthController {
                     "This mobile number isn't registered to any medical store. "
                     + "Ask your store owner to add you, or onboard your store first.");
         }
-        // OTP delivery would fire here per store; locally every number accepts the
-        // platform default. Never echo the OTP back — the client just shows the step.
-        return ContractResponse.of(new AuthDtos.PharmacyOtpResponse(shops, null));
+        // Nothing is sent by SMS: the credential is the default OTP until this
+        // number sets its own passcode. credentialMode tells the client which
+        // message to show. Never echo the code back.
+        return ContractResponse.of(new AuthDtos.PharmacyOtpResponse(
+                shops, null, passcodeService.mode(request.mobileNumber()).name()));
     }
 
     @PostMapping("/verify")

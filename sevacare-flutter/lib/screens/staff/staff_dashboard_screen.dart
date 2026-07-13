@@ -14,6 +14,7 @@ import '../../core/utils/app_snack.dart';
 import '../../core/utils/auto_refresh.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
+import '../../repositories/sevacare_repository.dart' show newIdempotencyKey;
 import '../../providers/app_state.dart';
 import '../../widgets/widgets.dart';
 
@@ -1322,6 +1323,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
   String? _error;
   String? _success;
 
+  // One key per booking attempt: a retry after a timeout reuses it, so the
+  // server dedupes instead of issuing a second token. Cleared only on success.
+  String? _bookingIdemKey;
+
   bool get _hasPrefill => widget.prefill != null;
 
   @override
@@ -1701,10 +1706,12 @@ class _BookTabState extends ConsumerState<_BookTab> {
         }
       }
 
+      _bookingIdemKey ??= newIdempotencyKey();
       await repo.bookAppointment(
         tenantId,
         patientId,
         auth.token ?? '',
+        idempotencyKey: _bookingIdemKey,
         AppointmentBookingRequest(
           tenantPublicId: tenantId,
           patientPublicId: patientId,
@@ -1733,6 +1740,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
         ),
       );
 
+      _bookingIdemKey = null; // consumed — the next booking is a new attempt
       if (mounted) {
         widget.onClearPrefill();
         final sessionLabel = _tokenSession == 'EVENING' ? 'Evening' : 'Morning';

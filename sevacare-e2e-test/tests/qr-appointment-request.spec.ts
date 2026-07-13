@@ -4,29 +4,32 @@ import { expect, test } from '@playwright/test';
 const API = 'http://localhost:8081/api/v1';
 const QR_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
-const DB_CONTAINER = process.env.DB_CONTAINER ?? 'sevacare-db';
+// Local Postgres runs natively; set DB_CONTAINER to route psql through
+// `docker exec` when the database lives in a container instead.
+const DB_CONTAINER = process.env.DB_CONTAINER;
 const DB_USER = process.env.DB_USER ?? 'postgres';
 const DB_NAME = process.env.DB_NAME ?? 'seva_care';
 
 function runSql(query: string): string {
-  return execFileSync(
-    'docker',
-    ['exec', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', DB_NAME, '-t', '-A', '-c', query],
-    { encoding: 'utf8' },
-  ).trim();
+  const psqlArgs = ['-U', DB_USER, '-d', DB_NAME, '-t', '-A', '-c', query];
+  return DB_CONTAINER
+    ? execFileSync('docker', ['exec', DB_CONTAINER, 'psql', ...psqlArgs], { encoding: 'utf8' }).trim()
+    : execFileSync('psql', psqlArgs, { encoding: 'utf8' }).trim();
 }
 
 test.describe('QR appointment request flow with DB assertion', () => {
   test('submits QR appointment request and persists to public.appointment_request', async ({ request }) => {
     const runId = Date.now();
-    const doctorEnrollmentId = `DQR${String(runId).slice(-8)}`;
+    const doctorPublicId = `D-QR${String(runId).slice(-6)}`;
 
+    // The QR form lists the tenant's REAL doctors (its schema's doctor table),
+    // not public.doctor_hospital_enrollment — enrollment ids never matched a
+    // logged-in doctor, so QR bookings could not reach a doctor's inbox.
     runSql(`
-      INSERT INTO public.doctor_hospital_enrollment
-      (doctor_enrollment_public_id, tenant_public_id, doctor_mobile, doctor_name, specialty, enrolled_at, active)
-      VALUES ('${doctorEnrollmentId}', 'T-2001', '91${String(runId).slice(-8)}', 'Dr. QR ${runId}', 'Cardiologist', NOW(), true)
-      ON CONFLICT (tenant_public_id, doctor_mobile)
-      DO UPDATE SET doctor_name = EXCLUDED.doctor_name, specialty = EXCLUDED.specialty, active = true;
+      INSERT INTO tenant_t_2001.doctor
+      (doctor_public_id, tenant_public_id, full_name, mobile_number, specialty, active)
+      VALUES ('${doctorPublicId}', 'T-2001', 'Dr. QR ${runId}', '91${String(runId).slice(-8)}', 'Cardiologist', true)
+      ON CONFLICT (doctor_public_id) DO NOTHING;
     `);
 
     const beforeCount = Number.parseInt(
@@ -41,13 +44,15 @@ test.describe('QR appointment request flow with DB assertion', () => {
     expect(Array.isArray(doctors)).toBe(true);
     expect(doctors.length).toBeGreaterThan(0);
 
-    const selectedDoctorId = doctorEnrollmentId;
+    const selectedDoctorId = doctorPublicId;
     const preferredDate = new Date().toISOString().slice(0, 10);
     const patientName = `QR Patient ${runId}`;
 
     const submitResponse = await request.post(`${API}/public/qrcode/${QR_UUID}/appointment-request`, {
       data: {
         patientName,
+        // QR requests create a real patient record now, so a mobile is mandatory.
+        patientMobile: `9${String(runId).slice(-9)}`,
         patientAge: 32,
         symptoms: 'Fever and headache',
         doctorPublicId: selectedDoctorId,

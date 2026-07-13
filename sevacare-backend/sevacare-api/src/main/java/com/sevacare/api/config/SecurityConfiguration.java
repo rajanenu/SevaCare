@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.sevacare.api.security.ModuleAccessFilter;
+import com.sevacare.api.security.TenantAccessFilter;
 import com.sevacare.api.security.TokenAuthenticationFilter;
 
 @Configuration
@@ -31,6 +32,7 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, TenantHeaderFilter tenantHeaderFilter,
                                             TokenAuthenticationFilter tokenAuthenticationFilter,
+                                            TenantAccessFilter tenantAccessFilter,
                                             ModuleAccessFilter moduleAccessFilter) throws Exception {
         return http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -47,10 +49,14 @@ public class SecurityConfiguration {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(tenantHeaderFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(tokenAuthenticationFilter, TenantHeaderFilter.class)
-                // Last, because it needs the tenant the token filter resolved. A
-                // module the tenant does not have answers 404, as though it were
+                // Before any module or controller logic: the tenant in the header is
+                // whatever the client typed, so pin it to the tenant in the token or
+                // one hospital can read another's records — see TenantAccessFilter.
+                .addFilterAfter(tenantAccessFilter, TokenAuthenticationFilter.class)
+                // Last, because it needs a tenant that is now known to be the caller's
+                // own. A module the tenant does not have answers 404, as though it were
                 // never built — see ModuleAccessFilter.
-                .addFilterAfter(moduleAccessFilter, TokenAuthenticationFilter.class)
+                .addFilterAfter(moduleAccessFilter, TenantAccessFilter.class)
                 .build();
     }
 

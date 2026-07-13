@@ -129,11 +129,20 @@ public class CreditService {
                 note == null || note.isBlank() ? null : note.trim(), actor);
 
         log.info("pharmacy_credit_payment payment={} mobile={} amount_paise={} via={}",
-                paymentPublicId, customerMobile, amountPaise, via);
+                paymentPublicId, maskMobile(customerMobile), amountPaise, via);
         return outstandingFor(customerMobile);
     }
 
     private static String rupees(long paise) {
         return "Rs " + String.format("%.2f", paise / 100.0);
+    }
+
+    // Cloud Logging keeps entries for 30 days; a phone number does not belong
+    // there. The last 4 digits are enough to correlate with the payment row.
+    private static String maskMobile(String mobile) {
+        if (mobile == null || mobile.length() < 4) {
+            return "****";
+        }
+        return "******" + mobile.substring(mobile.length() - 4);
     }
 }

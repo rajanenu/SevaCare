@@ -1,10 +1,17 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/network/api_client.dart';
 import '../core/constants/api_constants.dart';
 import '../data/models/models.dart';
+
+/// A fresh Idempotency-Key for one logical attempt (a checkout, a booking tap).
+/// Hold it across retries of the same attempt — that is what lets the server
+/// recognise the retry — and clear it only after the request succeeds.
+String newIdempotencyKey() =>
+    'idem-${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(0xFFFFFF)}';
 
 class SevaCareRepository {
   final ApiClient _client;
@@ -73,11 +80,60 @@ class SevaCareRepository {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
-  Future<void> requestOtp(OtpRequest req) async {
-    await _client.post<Map<String, dynamic>>(
+  /// Returns the credential mode for this mobile: 'PASSCODE' when the user set
+  /// their own 4-digit code (the login screen asks for it), else 'DEFAULT_OTP'.
+  Future<String> requestOtp(OtpRequest req) async {
+    final data = await _client.post<Map<String, dynamic>>(
       ApiConstants.otpRequest,
       body: req.toJson(),
       fromJson: (d) => d as Map<String, dynamic>,
+    );
+    return data['credentialMode'] as String? ?? 'DEFAULT_OTP';
+  }
+
+  // ── Login passcode ─────────────────────────────────────────────────────────
+
+  /// Whether the signed-in user's mobile still uses the default OTP or has a
+  /// self-set passcode. Returns 'PASSCODE' or 'DEFAULT_OTP'. Tenant-free: the
+  /// server resolves the caller from the token.
+  Future<String> getPasscodeStatus(String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.accountPasscode,
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+    return data['credentialMode'] as String? ?? 'DEFAULT_OTP';
+  }
+
+  /// Set or change the caller's own passcode. [currentCode] is what they log in
+  /// with today (the default OTP, or their existing passcode).
+  Future<void> changePasscode(String token, String currentCode, String newPasscode) async {
+    await _client.post<Map<String, dynamic>>(
+      ApiConstants.accountPasscode,
+      body: {'currentCode': currentCode, 'newPasscode': newPasscode},
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  /// Hospital/store admin: clear a forgotten passcode for a user of their own
+  /// tenant, so the default OTP applies again until a new code is set.
+  Future<void> adminResetPasscode(String tenantId, String token, String mobileNumber) async {
+    await _client.post<Map<String, dynamic>>(
+      ApiConstants.adminPasscodeReset(tenantId),
+      body: {'mobileNumber': mobileNumber},
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Platform admin: clear any user's passcode, including a hospital admin's.
+  Future<void> platformResetPasscode(String token, String mobileNumber) async {
+    await _client.post<Map<String, dynamic>>(
+      ApiConstants.platformPasscodeReset,
+      body: {'mobileNumber': mobileNumber},
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token'},
     );
   }
 
@@ -86,6 +142,27 @@ class SevaCareRepository {
       ApiConstants.otpVerify,
       body: req.toJson(),
       fromJson: (d) => AuthenticatedSession.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  /// Exchanges a live refresh token for a fresh access token. The refresh token
+  /// rotates: the one sent here is dead afterwards, use only the returned one.
+  Future<RefreshedSession> refreshSession(String refreshToken) async {
+    return _client.post<RefreshedSession>(
+      ApiConstants.authRefresh,
+      body: {'refreshToken': refreshToken},
+      fromJson: (d) => RefreshedSession.fromJson(d as Map<String, dynamic>),
+    );
+  }
+
+  /// Real logout: revokes the refresh token and the bearer's jti server-side.
+  /// The endpoint never fails, but callers should still treat this as
+  /// best-effort — local sign-out must not wait on a dead network.
+  Future<void> logout(String token, String? refreshToken) async {
+    await _client.post<dynamic>(
+      ApiConstants.authLogout,
+      body: {'refreshToken': refreshToken},
+      extraHeaders: {'Authorization': 'Bearer $token'},
     );
   }
 
@@ -183,12 +260,17 @@ class SevaCareRepository {
   }
 
   Future<Map<String, dynamic>> bookAppointment(
-      String tenantId, String patientId, String token, AppointmentBookingRequest body) async {
+      String tenantId, String patientId, String token, AppointmentBookingRequest body,
+      {String? idempotencyKey}) async {
     return _client.post<Map<String, dynamic>>(
       ApiConstants.bookAppointment(tenantId, patientId),
       body: body.toJson(),
       fromJson: (d) => d as Map<String, dynamic>,
-      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+      extraHeaders: {
+        'Authorization': 'Bearer $token',
+        'X-Tenant-Id': tenantId,
+        'Idempotency-Key': ?idempotencyKey,
+      },
     );
   }
 
@@ -1250,12 +1332,17 @@ class SevaCareRepository {
     );
   }
 
-  Future<SaleReceipt> createSale(String tenantId, String token, Map<String, dynamic> body) async {
+  Future<SaleReceipt> createSale(String tenantId, String token, Map<String, dynamic> body,
+      {String? idempotencyKey}) async {
     return _client.post<SaleReceipt>(
       ApiConstants.pharmacySales(tenantId),
       body: body,
       fromJson: (d) => SaleReceipt.fromJson(d as Map<String, dynamic>),
-      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+      extraHeaders: {
+        'Authorization': 'Bearer $token',
+        'X-Tenant-Id': tenantId,
+        'Idempotency-Key': ?idempotencyKey,
+      },
     );
   }
 

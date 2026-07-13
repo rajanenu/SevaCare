@@ -11,6 +11,7 @@ import '../repositories/sevacare_repository.dart';
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 const _kToken = 'seva_token';
+const _kRefreshToken = 'seva_refresh_token';
 const _kTenantId = 'seva_tenant_id';
 const _kSubjectId = 'seva_subject_id';
 const _kRole = 'seva_role';
@@ -220,7 +221,15 @@ final doctorPhotoProvider =
 // ── Auth Provider ─────────────────────────────────────────────────────────────
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(AuthState.unauthenticated);
+  AuthNotifier(this._ref) : super(AuthState.unauthenticated);
+
+  final Ref _ref;
+
+  /// The rotating refresh token. Kept off [AuthState] — no widget renders it,
+  /// only the silent-refresh handler and logout need it.
+  String? _refreshToken;
+
+  String? get refreshToken => _refreshToken;
 
   Future<void> setSession(AuthenticatedSession session) async {
     final role = UserRoleX.fromApi(session.role, userType: session.userType);
@@ -233,7 +242,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       subjectName: session.subjectName,
       userType: session.userType,
     );
+    _refreshToken = session.refreshToken;
     await _storage.write(key: _kToken, value: session.token);
+    if (session.refreshToken != null && session.refreshToken!.isNotEmpty) {
+      await _storage.write(key: _kRefreshToken, value: session.refreshToken);
+    } else {
+      await _storage.delete(key: _kRefreshToken);
+    }
     await _storage.write(key: _kTenantId, value: session.tenantPublicId);
     await _storage.write(key: _kSubjectId, value: session.subjectPublicId);
     await _storage.write(key: _kRole, value: session.role);
@@ -253,8 +268,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ///   - "Sign out fully / disable biometric" user action
   Future<void> clearSession({bool wipeStorage = false}) async {
     state = AuthState.unauthenticated;
+    _refreshToken = null; // restore() reloads it from storage when kept
     if (wipeStorage) {
       await _storage.delete(key: _kToken);
+      await _storage.delete(key: _kRefreshToken);
       await _storage.delete(key: _kTenantId);
       await _storage.delete(key: _kSubjectId);
       await _storage.delete(key: _kRole);
@@ -310,6 +327,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (token == null || token.isEmpty) {
       return false;
     }
+    _refreshToken = all[_kRefreshToken];
     final userType = all[_kUserType] ?? 'ADMIN';
     final roleStr = all[_kRole];
     state = AuthState(
@@ -323,10 +341,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
     return true;
   }
+
+  /// Called after a silent refresh. The new access token must be visible to
+  /// the very next repo call (they all read `auth.token`), and the rotated
+  /// refresh token must replace the spent one — the server treats a
+  /// rotated-out token coming back as a replay and kills the session.
+  Future<void> updateTokens(String token, String refreshToken) async {
+    _refreshToken = refreshToken;
+    state = AuthState(
+      token: token,
+      tenantPublicId: state.tenantPublicId,
+      subjectPublicId: state.subjectPublicId,
+      role: state.role,
+      isGenericAdmin: state.isGenericAdmin,
+      subjectName: state.subjectName,
+      userType: state.userType,
+      capabilities: state.capabilities,
+    );
+    await _storage.write(key: _kToken, value: token);
+    await _storage.write(key: _kRefreshToken, value: refreshToken);
+  }
+
+  /// Revokes the session server-side (refresh token + the access token's jti),
+  /// so signing out means signed out — not just "this phone forgot". Call it
+  /// before a `clearSession(wipeStorage: true)`, never before a soft sign-out:
+  /// biometric restore needs the kept credentials to still be live.
+  /// Best-effort — a dead network must never trap someone in a session.
+  Future<void> logoutEverywhere() async {
+    final token = state.token;
+    if (token == null || token.isEmpty) return;
+    try {
+      await _ref.read(repositoryProvider).logout(token, _refreshToken);
+    } catch (_) {
+      // Local sign-out proceeds regardless.
+    }
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (_) => AuthNotifier(),
+  (ref) => AuthNotifier(ref),
 );
 
 // ── Booking Form Provider ─────────────────────────────────────────────────────
@@ -382,6 +435,10 @@ class LoginFormState {
   final bool sending;
   final String? error;
 
+  /// True when this mobile set its own 4-digit passcode — the screen then asks
+  /// for "your passcode" instead of claiming an OTP was sent (none ever is).
+  final bool usesPasscode;
+
   const LoginFormState({
     this.identifier = '',
     this.email = '',
@@ -389,6 +446,7 @@ class LoginFormState {
     this.otpSent = false,
     this.sending = false,
     this.error,
+    this.usesPasscode = false,
   });
 
   LoginFormState copyWith({
@@ -399,6 +457,7 @@ class LoginFormState {
     bool? sending,
     String? error,
     bool clearError = false,
+    bool? usesPasscode,
   }) =>
       LoginFormState(
         identifier: identifier ?? this.identifier,
@@ -407,6 +466,7 @@ class LoginFormState {
         otpSent: otpSent ?? this.otpSent,
         sending: sending ?? this.sending,
         error: clearError ? null : (error ?? this.error),
+        usesPasscode: usesPasscode ?? this.usesPasscode,
       );
 }
 
@@ -416,7 +476,8 @@ class LoginFormNotifier extends StateNotifier<LoginFormState> {
   void setIdentifier(String v) => state = state.copyWith(identifier: v);
   void setEmail(String v) => state = state.copyWith(email: v);
   void setOtp(String v) => state = state.copyWith(otp: v);
-  void markOtpSent() => state = state.copyWith(otpSent: true, sending: false, clearError: true);
+  void markOtpSent({bool usesPasscode = false}) => state = state.copyWith(
+      otpSent: true, sending: false, clearError: true, usesPasscode: usesPasscode);
   void setSending(bool v) => state = state.copyWith(sending: v);
   void setError(String msg) => state = state.copyWith(error: msg, sending: false);
   void reset() => state = const LoginFormState();

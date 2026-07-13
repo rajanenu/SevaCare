@@ -155,6 +155,11 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
       ),
     );
     if (confirm != true || !mounted) return;
+    if (!biometricEnabled) {
+      // Full sign-out: revoke server-side too. With biometric kept, the stored
+      // session must stay live so the fingerprint can restore it without OTP.
+      await ref.read(authProvider.notifier).logoutEverywhere();
+    }
     await ref.read(authProvider.notifier).clearSession(wipeStorage: !biometricEnabled);
     if (mounted) context.go('/');
   }
@@ -189,6 +194,8 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
       await ref.read(repositoryProvider).deleteMyAdminOrStaffAccount(
           auth.tenantPublicId ?? '', auth.subjectPublicId ?? '', auth.token ?? '');
       if (!mounted) return;
+      // The row is gone but the JWT would verify until expiry — revoke it.
+      await ref.read(authProvider.notifier).logoutEverywhere();
       await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
       if (mounted) context.go('/');
     } catch (e) {
@@ -309,6 +316,33 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('App', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
                   const SizedBox(height: 4),
+                  // Every counter user can set their own 4-digit login passcode;
+                  // once set, the shared default OTP stops working for their number.
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.lock_outline, color: SevaCareColors.textMuted),
+                    title: Text('Login Passcode', style: AppTextStyles.bodyText(SevaCareColors.text)),
+                    trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                    onTap: () async {
+                      final saved = await showSetPasscodeSheet(context, ref);
+                      if (saved && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Passcode set — use it to sign in from now on.')));
+                      }
+                    },
+                  ),
+                  // The owner frees a staff member (or a customer of the same
+                  // tenant) who forgot their passcode.
+                  if (ref.watch(authProvider).userType == 'ADMIN')
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: const Icon(Icons.lock_reset_outlined, color: SevaCareColors.textMuted),
+                      title: Text("Reset a User's Passcode", style: AppTextStyles.bodyText(SevaCareColors.text)),
+                      trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                      onTap: () => showResetPasscodeDialog(context, ref, platformWide: false),
+                    ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,

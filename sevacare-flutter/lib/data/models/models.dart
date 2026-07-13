@@ -81,6 +81,10 @@ class AuthenticatedSession {
   final String subjectName;
   final String userType;
 
+  /// The opaque, server-side-revocable credential that outlives the ~60-minute
+  /// access [token]. Nullable so a response from an older backend still parses.
+  final String? refreshToken;
+
   const AuthenticatedSession({
     required this.tenantPublicId,
     required this.role,
@@ -89,6 +93,7 @@ class AuthenticatedSession {
     this.isGeneric = false,
     this.subjectName = '',
     this.userType = 'ADMIN',
+    this.refreshToken,
   });
 
   factory AuthenticatedSession.fromJson(Map<String, dynamic> json) => AuthenticatedSession(
@@ -99,6 +104,21 @@ class AuthenticatedSession {
     isGeneric: json['isGeneric'] as bool? ?? false,
     subjectName: json['subjectName'] as String? ?? '',
     userType: json['userType'] as String? ?? 'ADMIN',
+    refreshToken: json['refreshToken'] as String?,
+  );
+}
+
+/// The result of POST /auth/refresh: a fresh access token plus the rotated
+/// refresh token that replaces the one just spent — the old one is dead.
+class RefreshedSession {
+  final String token;
+  final String refreshToken;
+
+  const RefreshedSession({required this.token, required this.refreshToken});
+
+  factory RefreshedSession.fromJson(Map<String, dynamic> json) => RefreshedSession(
+    token: json['token'] as String,
+    refreshToken: json['refreshToken'] as String,
   );
 }
 
@@ -2107,12 +2127,19 @@ class PharmacyLoginOption {
 class PharmacyOtpResponse {
   final List<PharmacyLoginOption> shops;
 
-  const PharmacyOtpResponse({required this.shops});
+  /// 'PASSCODE' when this mobile set its own 4-digit code (the screen asks for
+  /// it), otherwise 'DEFAULT_OTP' — keep saying "OTP" like today.
+  final String credentialMode;
+
+  const PharmacyOtpResponse({required this.shops, this.credentialMode = 'DEFAULT_OTP'});
+
+  bool get usesPasscode => credentialMode == 'PASSCODE';
 
   factory PharmacyOtpResponse.fromJson(Map<String, dynamic> json) => PharmacyOtpResponse(
         shops: ((json['shops'] as List?) ?? [])
             .map((e) => PharmacyLoginOption.fromJson(e as Map<String, dynamic>))
             .toList(),
+        credentialMode: json['credentialMode'] as String? ?? 'DEFAULT_OTP',
       );
 }
 

@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.IdempotencyService;
 import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.ContractResponse;
@@ -29,15 +31,18 @@ public class PatientController {
     private final PatientDomainService patientDomainService;
     private final ReferenceDataService referenceDataService;
     private final DoctorAvailabilityService doctorAvailabilityService;
+    private final IdempotencyService idempotencyService;
 
     public PatientController(
             PatientDomainService patientDomainService,
             ReferenceDataService referenceDataService,
-            DoctorAvailabilityService doctorAvailabilityService
+            DoctorAvailabilityService doctorAvailabilityService,
+            IdempotencyService idempotencyService
     ) {
         this.patientDomainService = patientDomainService;
         this.referenceDataService = referenceDataService;
         this.doctorAvailabilityService = doctorAvailabilityService;
+        this.idempotencyService = idempotencyService;
     }
 
     @GetMapping("/{tenantPublicId}/{patientPublicId}/home")
@@ -153,12 +158,18 @@ public class PatientController {
     public ContractResponse<PatientDtos.AppointmentBookingResult> bookAppointment(
             @PathVariable String tenantPublicId,
             @PathVariable String patientPublicId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody PatientDtos.AppointmentBookingRequest request
     ) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        return ContractResponse.of(patientDomainService.bookAppointment(tenantPublicId, patientPublicId, request));
+        // A booking retried on a flaky network must not become two tokens in the
+        // queue — the key makes the retry return the first booking's result.
+        return ContractResponse.of(idempotencyService.execute(
+                tenantPublicId, idempotencyKey, "book-appointment",
+                PatientDtos.AppointmentBookingResult.class,
+                () -> patientDomainService.bookAppointment(tenantPublicId, patientPublicId, request)));
     }
 
     @GetMapping("/{tenantPublicId}/records")

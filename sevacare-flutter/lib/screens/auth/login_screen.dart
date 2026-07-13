@@ -170,6 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     // Token was expired or missing — wipe stale storage and disable biometric
     await BiometricService.setEnabled(false);
+    await ref.read(authProvider.notifier).logoutEverywhere();
     await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
     if (!mounted) return;
     setState(() => _biometricEnabled = false);
@@ -232,7 +233,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ? 'staff'
         : role.apiValue;
     try {
-      await ref
+      final mode = await ref
           .read(repositoryProvider)
           .requestOtp(
             OtpRequest(
@@ -241,10 +242,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mobileNumber: mobile,
             ),
           );
-      notifier.markOtpSent();
-      // Start 120-second countdown for Resend OTP
-      setState(() => _resendCountdown = 120);
-      _startResendTimer();
+      final usesPasscode = mode == 'PASSCODE';
+      notifier.markOtpSent(usesPasscode: usesPasscode);
+      // Resend only means something for the OTP fiction — a passcode is
+      // something the user knows, so there is nothing to resend.
+      if (!usesPasscode) {
+        // Start 120-second countdown for Resend OTP
+        setState(() => _resendCountdown = 120);
+        _startResendTimer();
+      }
       // The OTP field only exists once the code is sent — focus it after the
       // frame that builds it, so the user types the code straight away.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -273,8 +279,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final mobile = _mobileCtrl.text.trim();
     final otp = _otpCtrl.text.trim();
 
+    final usesPasscode = ref.read(loginFormProvider).usesPasscode;
     if (otp.isEmpty) {
-      notifier.setError('Please enter the OTP sent to your mobile.');
+      notifier.setError(usesPasscode
+          ? 'Please enter your 4-digit passcode.'
+          : 'Please enter the OTP sent to your mobile.');
       return;
     }
 
@@ -301,9 +310,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(loginMobileProvider.notifier).state = mobile;
       if (mounted) {
         await _promptEnableBiometric();
-        final sessionRole = ref.read(authProvider).role ?? role;
-        final dest = await _landingRoute(sessionRole);
-        if (mounted) context.go(dest);
+        // Still on the shared default OTP: nudge (never force) the user to set
+        // their own passcode while the code they just typed is at hand.
+        if (!usesPasscode && mounted) {
+          await showPasscodeNudgeSheet(context, ref, currentCode: otp);
+        }
+        if (mounted) {
+          final sessionRole = ref.read(authProvider).role ?? role;
+          final dest = await _landingRoute(sessionRole);
+          if (mounted) context.go(dest);
+        }
       }
     } catch (e) {
       notifier.setError(_friendlyError(e));
@@ -584,7 +600,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 // ── OTP sent success banner ──────────────────────────────
                 if (formState.otpSent) ...[
-                  _OtpSentBanner(),
+                  _OtpSentBanner(usesPasscode: formState.usesPasscode),
                   const SizedBox(height: 16),
                 ],
                 // ── Email field (optional) ───────────────────────────────
@@ -607,8 +623,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // ── OTP input field ──────────────────────────────────────
                 if (formState.otpSent)
                   AppFormField(
-                    label: 'OTP',
-                    placeholder: 'Enter 4-digit code',
+                    label: formState.usesPasscode ? 'Passcode' : 'OTP',
+                    placeholder: formState.usesPasscode
+                        ? 'Enter your 4-digit passcode'
+                        : 'Enter 4-digit code',
                     controller: _otpCtrl,
                     focusNode: _otpFocus,
                     keyboardType: TextInputType.number,
@@ -658,6 +676,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     fullWidth: true,
                     onPressed: formState.sending ? null : _verifyOtp,
                   ),
+                  if (!formState.usesPasscode) ...[
                   const SizedBox(height: 12),
                   Center(
                     child: GestureDetector(
@@ -681,6 +700,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
+                  ],
                 ],
               ],
             ),
@@ -788,6 +808,12 @@ class _BiometricUnlockCard extends StatelessWidget {
 // ── OTP Sent Banner ────────────────────────────────────────────────────────────
 
 class _OtpSentBanner extends StatelessWidget {
+  /// Passcode accounts never receive anything — the banner asks for the code
+  /// the user set, instead of claiming an SMS went out.
+  final bool usesPasscode;
+
+  const _OtpSentBanner({this.usesPasscode = false});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -809,14 +835,17 @@ class _OtpSentBanner extends StatelessWidget {
               color: SevaCareColors.mint,
               shape: BoxShape.circle,
             ),
-            child: const Center(
-              child: Icon(Icons.check, size: 14, color: Colors.white),
+            child: Center(
+              child: Icon(usesPasscode ? Icons.lock_outline : Icons.check,
+                  size: 14, color: Colors.white),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'OTP sent to your mobile number',
+              usesPasscode
+                  ? 'Enter your 4-digit passcode to sign in'
+                  : 'OTP sent to your mobile number',
               style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
             ),
           ),

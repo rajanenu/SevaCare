@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/passcode_sheet.dart';
 
 /// The standalone medical store's sign-in — deliberately its own screen, its own
 /// look, its own flow, separate from the hospital login. A shopkeeper types their
@@ -46,6 +47,10 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
   bool _loading = false;
   String? _error;
 
+  /// True when this mobile set its own passcode — the code step then asks for
+  /// "your passcode" instead of claiming an OTP was sent (none ever is).
+  bool _usesPasscode = false;
+
   @override
   void dispose() {
     _mobileCtrl.dispose();
@@ -72,6 +77,7 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
     try {
       final res = await ref.read(repositoryProvider).pharmacyRequestOtp(mobile);
       if (!mounted) return;
+      _usesPasscode = res.usesPasscode;
 
       // Arrived from Search Pharmacies: the shop is already chosen, so the only
       // question left is whether this mobile actually runs it.
@@ -125,7 +131,9 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
     final shop = _selected;
     if (shop == null) return;
     if (otp.isEmpty) {
-      setState(() => _error = 'Enter the 4-digit OTP.');
+      setState(() => _error = _usesPasscode
+          ? 'Enter your 4-digit passcode.'
+          : 'Enter the 4-digit OTP.');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -139,6 +147,11 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
         final caps = await repo.getCapabilities(session.tenantPublicId, session.token);
         ref.read(authProvider.notifier).setCapabilities(caps);
       } catch (_) {/* counter opens with default name */}
+      // Still on the shared default OTP: nudge (never force) the owner to set
+      // their own passcode while the code they just typed is at hand.
+      if (mounted && !_usesPasscode) {
+        await showPasscodeNudgeSheet(context, ref, currentCode: otp);
+      }
       if (mounted) context.go('/pharmacy');
     } catch (e) {
       if (mounted) setState(() => _error = extractErrorMessage(e));
@@ -347,7 +360,7 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
               TextButton(onPressed: _backToMobile, child: const Text('Change')),
             ]),
           ),
-        _label('Enter OTP'),
+        _label(_usesPasscode ? 'Enter your passcode' : 'Enter OTP'),
         const SizedBox(height: 8),
         TextField(
           controller: _otpCtrl,
@@ -360,7 +373,10 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
           onSubmitted: (_) => _signIn(),
           // No hint at what the code is: a login screen that tells the world the
           // OTP is not a login screen. The code itself is unchanged.
-          decoration: _fieldDecoration('4-digit code', Icons.lock_outline, counter: true),
+          decoration: _fieldDecoration(
+              _usesPasscode ? 'Your 4-digit passcode' : '4-digit code',
+              Icons.lock_outline,
+              counter: true),
         ),
         const SizedBox(height: 10),
         _brandButton('Sign In', Icons.check, _loading ? null : _signIn),

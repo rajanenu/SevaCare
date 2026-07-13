@@ -599,9 +599,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       if (choice == 'hard') {
         await BiometricService.setEnabled(false);
+        await ref.read(authProvider.notifier).logoutEverywhere();
         await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
       } else {
-        // Soft: clear in-memory state, keep encrypted credentials for biometric
+        // Soft: clear in-memory state, keep encrypted credentials for biometric.
+        // No server-side revocation — the fingerprint must restore a live session.
         await ref.read(authProvider.notifier).clearSession(wipeStorage: false);
       }
     } else {
@@ -627,6 +629,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       );
       if (confirm != true || !mounted) return;
+      await ref.read(authProvider.notifier).logoutEverywhere();
       await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
     }
 
@@ -684,6 +687,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           break;
       }
       if (!mounted) return;
+      // The account row is gone but the JWT would verify until expiry — revoke it.
+      await ref.read(authProvider.notifier).logoutEverywhere();
       await ref.read(authProvider.notifier).clearSession(wipeStorage: true);
       if (mounted) context.go('/');
     } catch (e) {
@@ -1049,6 +1054,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 AppCard(
                   child: Column(
                     children: [
+                      // Every role can set their own 4-digit login passcode;
+                      // once set, the shared default OTP stops working for
+                      // their number.
+                      _SettingsTile(
+                        icon: Icons.lock_outline,
+                        label: 'Login Passcode',
+                        onTap: () async {
+                          final saved = await showSetPasscodeSheet(context, ref);
+                          if (saved && context.mounted) {
+                            AppSnack.success(context,
+                                'Passcode set — use it to sign in from now on.');
+                          }
+                        },
+                      ),
+                      // The recovery lever for a forgotten passcode. A hospital
+                      // or store admin frees users of their own tenant; the
+                      // platform admin can free anyone, including admins.
+                      if ((widget.role == UserRole.admin &&
+                              ref.watch(authProvider).userType == 'ADMIN') ||
+                          widget.role == UserRole.platformAdmin) ...[
+                        const SectionDivider(),
+                        _SettingsTile(
+                          icon: Icons.lock_reset_outlined,
+                          label: "Reset a User's Passcode",
+                          onTap: () => showResetPasscodeDialog(context, ref,
+                              platformWide:
+                                  widget.role == UserRole.platformAdmin),
+                        ),
+                      ],
+                      const SectionDivider(),
                       _SettingsTile(
                         icon: Icons.settings_outlined,
                         label: 'Settings',

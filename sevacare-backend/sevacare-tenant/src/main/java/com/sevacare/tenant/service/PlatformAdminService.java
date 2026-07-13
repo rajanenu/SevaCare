@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -185,6 +186,14 @@ public class PlatformAdminService {
         return toTenantView(tenant);
     }
 
+    /**
+     * Suspending a tenant here is how a customer is cut off — for non-payment, at
+     * offboarding, or after a breach. The status is read through the
+     * {@code tenantSchemas} cache, so evict it or this instance keeps serving them.
+     * The eviction is local to this JVM; the cache's TTL is what makes the other
+     * Cloud Run instances catch up (see PlatformConfiguration).
+     */
+    @CacheEvict(cacheNames = "tenantSchemas", key = "#tenantPublicId")
     @Transactional
     public PlatformAdminDtos.PlatformTenantView updateTenant(
             String tenantPublicId,
@@ -240,6 +249,7 @@ public class PlatformAdminService {
         tenantRegistryService.updateTenantHeroImage(tenantPublicId, imageBase64, request.contentType());
     }
 
+    @CacheEvict(cacheNames = "tenantSchemas", key = "#tenantPublicId")
     @Transactional
     public String deleteTenant(String tenantPublicId) {
         TenantRegistry tenant = findTenant(tenantPublicId);

@@ -17,6 +17,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
+import '../../repositories/sevacare_repository.dart' show newIdempotencyKey;
 import '../../widgets/widgets.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
@@ -64,6 +65,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   // Booking submission
   bool _booking = false;
   String? _bookingError;
+
+  // One key per booking attempt: a retry after a timeout reuses it, so the
+  // server dedupes instead of issuing a second token. Cleared only on success.
+  String? _bookingIdemKey;
 
   // Advanced details toggle
   bool _showAdvancedDetails = false;
@@ -349,10 +354,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     setState(() => _booking = true);
     try {
+      _bookingIdemKey ??= newIdempotencyKey();
       await repo.bookAppointment(
         auth.tenantPublicId ?? '',
         auth.subjectPublicId ?? '',
         auth.token ?? '',
+        idempotencyKey: _bookingIdemKey,
         AppointmentBookingRequest(
           tenantPublicId: auth.tenantPublicId ?? '',
           patientPublicId: auth.subjectPublicId ?? '',
@@ -381,6 +388,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ),
       );
 
+      _bookingIdemKey = null; // consumed — the next booking is a new attempt
       if (mounted) {
         // Resolve doctor name from current selection
         final bookedDoc = _doctors.where(

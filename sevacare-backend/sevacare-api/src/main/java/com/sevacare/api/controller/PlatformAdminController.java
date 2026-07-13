@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.PasscodeService;
+import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.PlatformAdminDtos;
 import com.sevacare.tenant.service.PlatformAdminService;
@@ -22,9 +24,25 @@ import jakarta.validation.Valid;
 public class PlatformAdminController {
 
     private final PlatformAdminService platformAdminService;
+    private final PasscodeService passcodeService;
 
-    public PlatformAdminController(PlatformAdminService platformAdminService) {
+    public PlatformAdminController(PlatformAdminService platformAdminService, PasscodeService passcodeService) {
         this.platformAdminService = platformAdminService;
+        this.passcodeService = passcodeService;
+    }
+
+    /**
+     * The operator's passcode-recovery lever: clears any user's passcode so the
+     * default OTP applies again — including a hospital admin's, which their own
+     * tenant cannot do for them.
+     */
+    @PostMapping("/passcode-reset")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ContractResponse<AuthDtos.PasscodeStatus> resetPasscode(
+            @Valid @RequestBody AuthDtos.PasscodeResetRequest request
+    ) {
+        passcodeService.resetPasscode(request.mobileNumber(), "platform_admin");
+        return ContractResponse.of(new AuthDtos.PasscodeStatus(PasscodeService.CredentialMode.DEFAULT_OTP.name()));
     }
 
     @GetMapping("/overview")

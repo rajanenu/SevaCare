@@ -27,8 +27,25 @@ class ApiClient {
   String? _token;
   String? _tenantId;
 
-  /// Called when the server returns HTTP 401 (session expired / unauthorized).
+  /// Called when the server returns HTTP 401 and the session could not be
+  /// silently refreshed (or there was nothing to refresh with).
   VoidCallback? onUnauthorized;
+
+  /// Called on a 401 to attempt a silent session refresh. Returns the new
+  /// access token, or null when the session is truly over — then
+  /// [onUnauthorized] runs and the user is signed out.
+  Future<String?> Function()? onTokenRefresh;
+
+  Future<String?>? _refreshInFlight;
+
+  /// Single-flight: a burst of 401s (a dashboard fans out several calls the
+  /// moment the token expires) must produce one refresh, not five — each
+  /// rotation kills the previous refresh token, so parallel refreshes would
+  /// revoke each other and log the user out of a perfectly good session.
+  Future<String?> _refreshOnce() {
+    return _refreshInFlight ??=
+        onTokenRefresh!().whenComplete(() => _refreshInFlight = null);
+  }
 
   ApiClient() {
     _dio = Dio(BaseOptions(
@@ -67,8 +84,36 @@ class ApiClient {
         }
         handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         final statusCode = error.response?.statusCode ?? 0;
+        // A 401 first gets one shot at a silent refresh + retry. Never for
+        // /auth/ calls (a failed login is not an expired session, and the
+        // refresh call itself must not recurse), and never twice for the same
+        // request — the `extra` flag survives into the retried options.
+        if (statusCode == 401 &&
+            onTokenRefresh != null &&
+            !error.requestOptions.path.startsWith('/auth') &&
+            error.requestOptions.extra['authRetried'] != true) {
+          String? newToken;
+          try {
+            newToken = await _refreshOnce();
+          } catch (_) {
+            newToken = null;
+          }
+          if (newToken != null && newToken.isNotEmpty) {
+            final retry = error.requestOptions;
+            retry.extra['authRetried'] = true;
+            retry.headers['Authorization'] = 'Bearer $newToken';
+            try {
+              handler.resolve(await _dio.fetch(retry));
+            } on DioException catch (retryError) {
+              // The retry re-entered this interceptor, which already converted
+              // it (and fired onUnauthorized if it 401'd again).
+              handler.reject(retryError);
+            }
+            return;
+          }
+        }
         if (statusCode == 401 && onUnauthorized != null) {
           onUnauthorized!();
         }

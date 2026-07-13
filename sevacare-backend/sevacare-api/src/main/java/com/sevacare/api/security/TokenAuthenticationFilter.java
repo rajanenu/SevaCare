@@ -19,9 +19,11 @@ import java.util.List;
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
+    private final TokenRevocationService tokenRevocationService;
 
-    public TokenAuthenticationFilter(TokenService tokenService) {
+    public TokenAuthenticationFilter(TokenService tokenService, TokenRevocationService tokenRevocationService) {
         this.tokenService = tokenService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -29,15 +31,19 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authorization != null && authorization.startsWith("Bearer ")) {
             String token = authorization.substring(7);
-            // A token that is malformed, tampered with, or signed by a previous
-            // secret must leave the request anonymous so Spring Security answers
-            // 401 — and the app auto-logs-out. Letting the exception escape the
-            // filter chain instead produced an opaque 500 the client never
-            // recovered from.
+            // A token that is malformed, tampered with, expired, or signed by a
+            // previous secret must leave the request anonymous so Spring Security
+            // answers 401 — and the app refreshes or re-logs-in. Letting the
+            // exception escape the filter chain instead produced an opaque 500
+            // the client never recovered from.
             try {
-                TokenClaims claims = tokenService.parse(token);
+                TokenService.ParsedToken parsed = tokenService.parseDetailed(token);
+                TokenClaims claims = parsed.claims();
                 String role = claims.role();
-                if (role != null && !role.isBlank() && claims.subjectPublicId() != null) {
+                if (tokenRevocationService.isRevoked(parsed.jti())) {
+                    // Logged out for real: the JWT would verify, but its session ended.
+                    SecurityContextHolder.clearContext();
+                } else if (role != null && !role.isBlank() && claims.subjectPublicId() != null) {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             claims.subjectPublicId(),
                             token,

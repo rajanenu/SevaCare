@@ -2,12 +2,15 @@ package com.sevacare.api.controller;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.admin.service.AdminDomainService;
+import com.sevacare.api.security.RefreshTokenService;
+import com.sevacare.api.security.TokenRevocationService;
 import com.sevacare.api.security.TokenService;
-import com.sevacare.api.service.OtpService;
+import com.sevacare.api.service.PasscodeService;
 import com.sevacare.doctor.service.DoctorDomainService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.AuthDtos;
@@ -29,7 +32,9 @@ public class AuthController {
     private final AdminDomainService adminDomainService;
     private final PlatformAdminService platformAdminService;
     private final TokenService tokenService;
-    private final OtpService otpService;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenRevocationService tokenRevocationService;
+    private final PasscodeService passcodeService;
 
     public AuthController(
             TenantRegistryService tenantRegistryService,
@@ -38,7 +43,9 @@ public class AuthController {
             AdminDomainService adminDomainService,
             PlatformAdminService platformAdminService,
             TokenService tokenService,
-            OtpService otpService
+            RefreshTokenService refreshTokenService,
+            TokenRevocationService tokenRevocationService,
+            PasscodeService passcodeService
     ) {
         this.tenantRegistryService = tenantRegistryService;
         this.patientDomainService = patientDomainService;
@@ -46,7 +53,9 @@ public class AuthController {
         this.adminDomainService = adminDomainService;
         this.platformAdminService = platformAdminService;
         this.tokenService = tokenService;
-        this.otpService = otpService;
+        this.refreshTokenService = refreshTokenService;
+        this.tokenRevocationService = tokenRevocationService;
+        this.passcodeService = passcodeService;
     }
 
     @PostMapping("/otp/request")
@@ -59,7 +68,8 @@ public class AuthController {
                     request.tenantPublicId(),
                     request.role(),
                     request.mobileNumber(),
-                    null
+                    null,
+                    passcodeService.mode(request.mobileNumber()).name()
             ));
         }
 
@@ -93,7 +103,8 @@ public class AuthController {
                 request.tenantPublicId(),
                 request.role(),
                 request.mobileNumber(),
-                null
+                null,
+                passcodeService.mode(request.mobileNumber()).name()
         ));
     }
 
@@ -103,18 +114,16 @@ public class AuthController {
             if (!platformAdminService.hasActivePlatformAdminByMobile(request.mobileNumber())) {
                 throw new IllegalArgumentException("Unauthorized platform admin mobile number");
             }
-            if (!otpService.matches(request.mobileNumber(), request.otp())) {
-                throw new IllegalArgumentException("Invalid OTP");
-            }
+            passcodeService.verify(request.mobileNumber(), request.otp());
             String subjectPublicId = platformAdminService.findPlatformAdminPublicIdByMobile(request.mobileNumber());
             String subjectName = platformAdminService.findPlatformAdminNameByMobile(request.mobileNumber());
-            String token = tokenService.issue(new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName, "ADMIN"));
+            TokenClaims platformClaims = new TokenClaims(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId);
+            String token = tokenService.issue(platformClaims);
+            String refreshToken = refreshTokenService.issue(platformClaims);
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(PlatformAdminService.PLATFORM_TENANT_PUBLIC_ID, request.role(), subjectPublicId, token, false, subjectName, "ADMIN", refreshToken));
         }
 
-        if (!otpService.matches(request.mobileNumber(), request.otp())) {
-            throw new IllegalArgumentException("Invalid OTP");
-        }
+        passcodeService.verify(request.mobileNumber(), request.otp());
 
         String schema = tenantRegistryService.resolveTenantSchema(request.tenantPublicId());
         try {
@@ -146,10 +155,48 @@ public class AuthController {
             };
             // Staff logs in via 'staff' role request but carries 'admin' JWT role so security gates work
             String jwtRole = "staff".equals(request.role()) ? "admin" : request.role();
-            String token = tokenService.issue(new TokenClaims(request.tenantPublicId(), jwtRole, subject.publicId()));
-            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), jwtRole, subject.publicId(), token, false, subject.name(), subject.userType()));
+            TokenClaims claims = new TokenClaims(request.tenantPublicId(), jwtRole, subject.publicId());
+            String token = tokenService.issue(claims);
+            String refreshToken = refreshTokenService.issue(claims);
+            return ContractResponse.of(new AuthDtos.AuthenticatedSession(request.tenantPublicId(), jwtRole, subject.publicId(), token, false, subject.name(), subject.userType(), refreshToken));
         } finally {
             TenantContext.clear();
         }
+    }
+
+    /**
+     * Exchanges a live refresh token for a fresh access JWT. The refresh token
+     * rotates on every use, so a replayed (stolen) one is refused and the
+     * legitimate session keeps moving. 400 here means "sign in again".
+     */
+    @PostMapping("/refresh")
+    public ContractResponse<AuthDtos.RefreshedSession> refresh(@Valid @RequestBody AuthDtos.RefreshRequest request) {
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(request.refreshToken());
+        String token = tokenService.issue(rotation.claims());
+        return ContractResponse.of(new AuthDtos.RefreshedSession(token, rotation.newRefreshToken()));
+    }
+
+    /**
+     * Real logout: the refresh token is revoked server-side and, if a bearer
+     * token accompanies the call, its {@code jti} is revoked too — so neither
+     * credential survives past this request. Deliberately never fails: logout
+     * must work even with a dead session.
+     */
+    @PostMapping("/logout")
+    public ContractResponse<Boolean> logout(
+            @RequestBody(required = false) AuthDtos.LogoutRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (request != null) {
+            refreshTokenService.revoke(request.refreshToken());
+        }
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            try {
+                TokenService.ParsedToken parsed = tokenService.parseDetailed(authorization.substring(7));
+                tokenRevocationService.revoke(parsed.jti(), parsed.expiresAt());
+            } catch (RuntimeException ignored) {
+                // An unparseable/expired access token needs no revoking.
+            }
+        }
+        return ContractResponse.of(Boolean.TRUE);
     }
 }
