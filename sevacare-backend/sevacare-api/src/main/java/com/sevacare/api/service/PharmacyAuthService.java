@@ -91,7 +91,7 @@ public class PharmacyAuthService {
     }
 
     /** Validate the OTP against the chosen store and mint a counter session. */
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthDtos.AuthenticatedSession verify(String mobileNumber, String otp, String tenantPublicId) {
         String mobile = mobileNumber == null ? "" : mobileNumber.trim();
 
