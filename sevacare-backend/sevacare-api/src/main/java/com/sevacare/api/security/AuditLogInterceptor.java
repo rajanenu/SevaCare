@@ -61,6 +61,7 @@ public class AuditLogInterceptor implements HandlerInterceptor {
             new Rule(Pattern.compile("^/api/v1/doctors/[^/]+/[^/]+/prescriptions"), "PRESCRIPTION", false),
             new Rule(Pattern.compile("^/api/v1/doctors/[^/]+/[^/]+/appointments/([^/]+)"), "APPOINTMENT", false),
             new Rule(Pattern.compile("^/api/v1/doctors/[^/]+/[^/]+/dashboard"), "QUEUE", false),
+            new Rule(Pattern.compile("^/api/v1/doctors/[^/]+/scribe$"), "SCRIBE", true),
             // Prescription detail / PDF download
             new Rule(Pattern.compile("^/api/v1/prescriptions/[^/]+/([^/]+)"), "PRESCRIPTION", false),
             // IPD: an admission names which patient is in which room — PHI

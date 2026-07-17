@@ -21,6 +21,7 @@ import com.sevacare.api.security.RefreshTokenService;
 import com.sevacare.api.service.IdempotencyService;
 import com.sevacare.api.service.ScheduledTasksService;
 import com.sevacare.patient.service.WhatsAppService;
+import com.sevacare.pharmacy.refill.service.RefillReminderService;
 import com.sevacare.tenant.event.OutboxEventDispatcher;
 
 /**
@@ -50,6 +51,7 @@ public class InternalJobsController {
     private final ScheduledTasksService scheduledTasksService;
     private final RefreshTokenService refreshTokenService;
     private final IdempotencyService idempotencyService;
+    private final RefillReminderService refillReminderService;
     private final String jobsToken;
 
     public InternalJobsController(
@@ -58,6 +60,7 @@ public class InternalJobsController {
             ScheduledTasksService scheduledTasksService,
             RefreshTokenService refreshTokenService,
             IdempotencyService idempotencyService,
+            RefillReminderService refillReminderService,
             @Value("${sevacare.jobs.token:}") String jobsToken
     ) {
         this.outboxEventDispatcher = outboxEventDispatcher;
@@ -65,6 +68,7 @@ public class InternalJobsController {
         this.scheduledTasksService = scheduledTasksService;
         this.refreshTokenService = refreshTokenService;
         this.idempotencyService = idempotencyService;
+        this.refillReminderService = refillReminderService;
         this.jobsToken = jobsToken == null ? "" : jobsToken.trim();
     }
 
@@ -85,6 +89,13 @@ public class InternalJobsController {
         run(outcomes, "leave_auto_approve", scheduledTasksService::autoApproveLeaveRequests);
         run(outcomes, "appointment_reminders", scheduledTasksService::sendAppointmentReminders);
         run(outcomes, "prescription_notifications", scheduledTasksService::sendPrescriptionNotifications);
+
+        // Refill nudges are a morning ritual, not a firehose: run from 8am IST on
+        // (the service's own per-tenant day guard makes repeat ticks no-ops, and
+        // every statement it runs is idempotent anyway).
+        if (LocalTime.now(IST).getHour() >= 8) {
+            run(outcomes, "pharmacy_refill_scan", refillReminderService::scanAllTenants);
+        }
 
         // The prunes were nightly crons; keep them to the small hours rather than
         // deleting on every tick. Re-running within the hour is a no-op DELETE.

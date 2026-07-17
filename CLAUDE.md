@@ -279,7 +279,47 @@ a bug; keep the `booking_type='SLOT'` predicate.
 
 **Booking source is whitelisted.** `normalizeBookingSource` silently maps anything it
 doesn't recognise to `PATIENT_APP`. Add new sources to that switch or they vanish from
-the admin channel analytics.
+the admin channel analytics. Current set: `QR_CODE`, `IP_STAFF`, `CHATBOT`, `ABDM`.
+
+**Queue ETAs are measured, never guessed.** `appointment.completed_at` (tenant V14) is
+stamped once when a consult completes; `measuredConsultPace` averages the gaps between a
+doctor's consecutive completions today (only 2–45 min gaps count, so a lunch break
+doesn't) and that number replaces the old hardcoded `tokensAhead * 10` /
+`avgConsultMinutes = 15`. The day view carries per-facet `estimatedCallAt` (live day
+only), `QueueStatusView` carries a real wait + call time, and the queue board shows when
+the session clears. Completing a consult also enqueues a WhatsApp "your turn is near"
+nudge to the patient ~3 tokens back — event-driven from `completeAppointment`, deduped by
+the outbox's (tenant, type, reference) key, and never allowed to fail the completion.
+
+**The refill loop is counted from the store's own sales.** `RefillReminderService`
+(pharmacy module) derives a purchase rhythm per (customer mobile, SKU) — ≥2 purchase
+days, cadence = span/intervals bounded to 7–120 days (cast `::int`: date + bigint has no
+operator) — and opens one cycle per rhythm in `refill_reminder` (tenant V15), made
+idempotent by a partial unique index over open cycles. Due cycles get a WhatsApp nudge
+(direct outbox insert — pharmacy never imports the patient module) and appear as the Sell
+tab's "Refills (n)" worklist (`/pharmacy/{t}/refills/due`); a newer sale auto-fulfils the
+cycle. The scan runs from `/internal/jobs` (hour ≥ 8 IST, per-instance day guard) and a
+08:30 cron twin; every statement is safe to re-run.
+
+**The voice scribe drafts; the doctor authors.** `POST /api/v1/doctors/{t}/scribe`
+(`ScribeService`) sends a device-transcribed dictation to the Claude API
+(`claude-opus-4-8`, structured-output JSON schema — raw `java.net.http` like
+WhatsAppService, never an SDK) and returns a draft the consultation form pre-fills;
+nothing is saved or sent by the endpoint, and audio never leaves the phone
+(`speech_to_text` on-device, en/hi/te). Inert until `SEVACARE_ANTHROPIC_API_KEY` is set:
+the endpoint 503s and `/capabilities` reports `voiceScribe: false`, which is the only
+thing that makes the mic visible. For a pharmacy tenant, drafted medicines are matched
+against the store's own `medicine_sku` so the prescription is dispensable as typed. The
+scribe path is in `AuditLogInterceptor`'s rule table.
+
+**ABDM ships dark until registered.** `/api/v1/abdm/**` (Scan & Share webhook +
+status) answers 404 until `SEVACARE_ABDM_CLIENT_ID`/`_SECRET` exist — the jobs-token
+pattern. A profile share maps `metadata.hipId` → `tenant_registry.abdm_hip_id` (public
+V44) and rides the existing `submitAppointmentRequest` pipeline with source `ABDM`
+(auto-token, front-desk inbox). The path is tenant-free: it is in `TenantHeaderFilter`'s
+skip list, Security's permit list, and the public-POST rate-limit bucket — a path missing
+any of those surfaces as a confusing 401. `patient.abha_number/_address` (tenant V16)
+exist but aren't in any form yet. Operator steps live in `docs/abdm/ABDM_INTEGRATION.md`.
 
 **Times are IST.** The JVM default is set in `SevaCareApiApplication` and Hikari runs
 `SET TIME ZONE 'Asia/Kolkata'` on every connection, because Cloud SQL defaults to UTC.

@@ -1,5 +1,6 @@
 package com.sevacare.patient.service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -7,9 +8,11 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -45,6 +48,11 @@ import com.sevacare.shared.tenant.TenantContext;
 public class PatientDomainService {
 
     private static final Logger log = LoggerFactory.getLogger(PatientDomainService.class);
+
+    private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
+
+    // Used until a doctor has two real completions in the day to measure from.
+    private static final int FALLBACK_CONSULT_MINUTES = 10;
 
     private final PatientRepository patientRepository;
     private final AppointmentRepository appointmentRepository;
@@ -468,7 +476,7 @@ public class PatientDomainService {
                 }
                 String normalized = bookingSource.trim().toUpperCase(Locale.ROOT);
                 return switch (normalized) {
-                        case "QR_CODE", "IP_STAFF", "CHATBOT" -> normalized;
+                        case "QR_CODE", "IP_STAFF", "CHATBOT", "ABDM" -> normalized;
                         default -> "PATIENT_APP";
                 };
         }
@@ -810,6 +818,16 @@ public class PatientDomainService {
         appointment.setDoctorPublicId(request.doctorPublicId());
         appointment.setAppointmentSlot(request.slot());
         appointment.setAppointmentStatus(request.status());
+        // Completion is stamped once (the measured consult pace reads these gaps);
+        // reverting a completed appointment clears the stamp so a later re-complete
+        // doesn't count a stale gap.
+        if ("completed".equalsIgnoreCase(request.status())) {
+            if (appointment.getCompletedAt() == null) {
+                appointment.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            appointment.setCompletedAt(null);
+        }
         appointment.setNotes(request.note());
 
         Appointment saved = appointmentRepository.save(appointment);
@@ -846,8 +864,66 @@ public class PatientDomainService {
             throw new IllegalArgumentException("You are not the assigned doctor for this appointment");
         }
         appointment.setAppointmentStatus("completed");
+        if (appointment.getCompletedAt() == null) {
+            appointment.setCompletedAt(LocalDateTime.now());
+        }
         appointmentRepository.save(appointment);
         log.info("appointment_complete tenantPublicId={} doctorPublicId={} appointmentPublicId={}", tenantPublicId, doctorPublicId, appointmentPublicId);
+        nudgeApproachingPatient(tenantPublicId, appointment);
+    }
+
+    /**
+     * After a consult wraps, the patient now ~3 tokens away gets a WhatsApp
+     * heads-up with a measured ETA — their cue to start for the hospital. The
+     * outbox's (tenant, type, reference) dedupe makes this at-most-once per
+     * appointment, and a failure here must never fail the completion it rides on.
+     */
+    private void nudgeApproachingPatient(String tenantPublicId, Appointment completed) {
+        try {
+            if (completed.getTokenNumber() == null || completed.getTokenSession() == null) {
+                return;
+            }
+            LocalDate date = parseSlotDate(completed.getAppointmentSlot()).orElse(null);
+            if (date == null || !date.equals(LocalDate.now())) {
+                return;
+            }
+            List<Appointment> dayRows = appointmentRepository
+                    .findByTenantPublicIdAndDoctorPublicIdAndAppointmentSlotBetween(
+                            tenantPublicId, completed.getDoctorPublicId(), date + " 00:00", date + " 23:59");
+            List<Appointment> waiting = dayRows.stream()
+                    .filter(a -> a.getTokenNumber() != null)
+                    .filter(a -> completed.getTokenSession().equals(a.getTokenSession()))
+                    .filter(a -> "upcoming".equalsIgnoreCase(a.getAppointmentStatus()))
+                    .sorted(Comparator.comparing(Appointment::getTokenNumber))
+                    .toList();
+            if (waiting.size() < 3) {
+                return; // close enough that they should already be in the waiting room
+            }
+            Appointment target = waiting.get(2);
+            int pace = measuredConsultPace(dayRows.stream()
+                    .map(Appointment::getCompletedAt)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList());
+            patientRepository.findCardsByPatientPublicIdInAndTenantPublicId(List.of(target.getPatientPublicId()), tenantPublicId)
+                    .stream()
+                    .findFirst()
+                    .ifPresent(card -> whatsAppService.enqueue(
+                            tenantPublicId,
+                            card.getMobileNumber(),
+                            WhatsAppService.TYPE_QUEUE_NEAR,
+                            target.getAppointmentPublicId(),
+                            WhatsAppService.queueNearBody(
+                                    hospitalNameOf(tenantPublicId),
+                                    card.getFullName(),
+                                    doctorNameOf(completed.getDoctorPublicId()),
+                                    target.getTokenNumber(),
+                                    waiting.get(0).getTokenNumber(),
+                                    2 * pace)));
+        } catch (Exception e) {
+            log.warn("queue_near_nudge_failed tenantPublicId={} appointmentPublicId={} reason={}",
+                    tenantPublicId, completed.getAppointmentPublicId(), e.getMessage());
+        }
     }
 
     /** One review per completed appointment — enforced by the doctor_review.appointment_public_id unique constraint. */
@@ -915,7 +991,12 @@ public class PatientDomainService {
         boolean alreadyServed = "completed".equalsIgnoreCase(appointment.getAppointmentStatus());
         Integer nowServingToken = waiting.isEmpty() ? null : waiting.get(0).tokenNumber();
         int tokensAhead = patientIndex < 0 ? 0 : patientIndex;
-        int estimatedWaitMinutes = tokensAhead * 10;
+        // Measured pace, not a guess: the day view derives avgConsultMinutes from
+        // the gaps between this doctor's actual completions today.
+        int estimatedWaitMinutes = tokensAhead * Math.max(1, dayView.avgConsultMinutes());
+        String estimatedCallAt = (alreadyServed || patientIndex < 0)
+                ? null
+                : LocalDateTime.now().plusMinutes(estimatedWaitMinutes).format(HH_MM);
 
         return new PatientDtos.QueueStatusView(
                 appointment.getDoctorPublicId(),
@@ -925,6 +1006,7 @@ public class PatientDomainService {
                 nowServingToken,
                 tokensAhead,
                 estimatedWaitMinutes,
+                estimatedCallAt,
                 alreadyServed
         );
     }
@@ -1449,6 +1531,37 @@ public class PatientDomainService {
                         .thenComparing(a -> a.getTokenNumber() == null ? 0 : a.getTokenNumber()))
                 .toList();
 
+        // Measured consult pace: gaps between today's consecutive completions,
+        // computed from the rows already in hand — no extra query.
+        int avgConsultMinutes = measuredConsultPace(dayAppointments.stream()
+                .map(Appointment::getCompletedAt)
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList());
+
+        // Projected call time per waiting token, session by session: position in
+        // the remaining queue × measured pace, from now. Only meaningful for the
+        // live day; recomputed on every poll, so it self-corrects as consults run.
+        Map<String, String> estimatedCallAtByAppointment = new HashMap<>();
+        if (date.equals(LocalDate.now())) {
+            LocalDateTime now = LocalDateTime.now();
+            dayAppointments.stream()
+                    .filter(a -> a.getTokenNumber() != null && a.getTokenSession() != null)
+                    .filter(a -> "upcoming".equalsIgnoreCase(a.getAppointmentStatus()))
+                    .collect(Collectors.groupingBy(Appointment::getTokenSession))
+                    .values()
+                    .forEach(sessionRows -> {
+                        List<Appointment> ordered = sessionRows.stream()
+                                .sorted(Comparator.comparing(Appointment::getTokenNumber))
+                                .toList();
+                        for (int i = 0; i < ordered.size(); i++) {
+                            estimatedCallAtByAppointment.put(
+                                    ordered.get(i).getAppointmentPublicId(),
+                                    now.plusMinutes((long) i * avgConsultMinutes).format(HH_MM));
+                        }
+                    });
+        }
+
         // Batch-fetch patients and attachments for the whole day instead of one query per
         // appointment (this screen is the doctor's main dashboard, loaded constantly).
         List<String> patientIds = dayAppointments.stream().map(Appointment::getPatientPublicId).distinct().toList();
@@ -1489,7 +1602,8 @@ public class PatientDomainService {
                         doctorPublicId, appointment,
                         patientsSeenBefore.contains(appointment.getPatientPublicId()),
                         patientNameById.get(appointment.getPatientPublicId()),
-                        attachmentsByAppointment.getOrDefault(appointment.getAppointmentPublicId(), List.of())))
+                        attachmentsByAppointment.getOrDefault(appointment.getAppointmentPublicId(), List.of()),
+                        estimatedCallAtByAppointment.get(appointment.getAppointmentPublicId())))
                 .toList();
 
         int totalAppointments = (int) facets.stream()
@@ -1504,15 +1618,13 @@ public class PatientDomainService {
                         .count()
                 : 0;
 
-        int avgConsultMinutes = facets.isEmpty() ? 0 : 15;
-
         return new PatientDtos.DoctorQueueDayView(
                 tenantPublicId,
                 doctorPublicId,
                 date.toString(),
                 totalAppointments,
                 pendingNotes,
-                avgConsultMinutes,
+                dayAppointments.isEmpty() ? 0 : avgConsultMinutes,
                 facets
         );
     }
@@ -1537,7 +1649,8 @@ public class PatientDomainService {
             Appointment appointment,
             boolean followUp,
             String patientName,
-            List<PatientDtos.AttachmentView> attachments
+            List<PatientDtos.AttachmentView> attachments,
+            String estimatedCallAt
     ) {
         Optional<Prescription> linkedPrescription = resolvePrescriptionForAppointment(doctorPublicId, appointment);
 
@@ -1580,8 +1693,32 @@ public class PatientDomainService {
                 appointment.getBookingType(),
                 appointment.getTokenNumber(),
                 appointment.getTokenSession(),
-                appointment.getBookingSource()
+                appointment.getBookingSource(),
+                estimatedCallAt
         );
+    }
+
+    /**
+     * Average minutes between consecutive consult completions, counting only gaps
+     * that look like a consult (2–45 min) so a lunch break or a bulk status edit
+     * does not skew the pace. Falls back until two real completions exist.
+     */
+    private static int measuredConsultPace(List<LocalDateTime> completions) {
+        List<Long> gaps = new ArrayList<>();
+        for (int i = 1; i < completions.size(); i++) {
+            long minutes = Duration.between(completions.get(i - 1), completions.get(i)).toMinutes();
+            if (minutes >= 2 && minutes <= 45) {
+                gaps.add(minutes);
+            }
+        }
+        if (gaps.isEmpty()) {
+            return FALLBACK_CONSULT_MINUTES;
+        }
+        long total = 0;
+        for (long gap : gaps) {
+            total += gap;
+        }
+        return (int) Math.max(2, Math.min(45, total / gaps.size()));
     }
 
     private Optional<Prescription> resolvePrescriptionForAppointment(String doctorPublicId, Appointment appointment) {

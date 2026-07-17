@@ -501,10 +501,16 @@ class _SellTabState extends ConsumerState<_SellTab> {
   // Held (parked) sales — pre-payment, so purely client-side.
   final List<_HeldSale> _held = [];
 
+  // Refill worklist: customers whose purchase rhythm says they're running out,
+  // computed server-side from this store's own sales. Loaded once per tab
+  // build and re-fetched when the sheet opens or a sale completes.
+  List<RefillDueItem> _refillsDue = [];
+
   @override
   void initState() {
     super.initState();
     _loadCatalog();
+    _loadRefills();
   }
 
   @override
@@ -1074,6 +1080,128 @@ class _SellTabState extends ConsumerState<_SellTab> {
     );
   }
 
+  // ── Refill worklist ──────────────────────────────────────────────────────
+
+  Future<void> _loadRefills() async {
+    try {
+      final auth = ref.read(authProvider);
+      final repo = ref.read(repositoryProvider);
+      final due = await repo.refillsDue(auth.tenantPublicId!, auth.token!);
+      if (mounted) setState(() => _refillsDue = due);
+    } catch (_) {
+      // The worklist is a bonus, never a blocker — a failed load just hides it.
+    }
+  }
+
+  /// Puts the reminder's customer into the sale form and their medicine into
+  /// the cart, so acting on a nudge is one tap plus Complete Sale.
+  void _startRefillSale(RefillDueItem r) {
+    _customerMobileCtrl.text = r.customerMobile;
+    _customerNameCtrl.text = r.customerName ?? '';
+    final sku = _catalog[r.skuPublicId];
+    if (sku != null) {
+      _addToCart(sku);
+    }
+    _onCustomerMobileChanged(r.customerMobile);
+    setState(() {});
+  }
+
+  Future<void> _dismissRefill(RefillDueItem r) async {
+    try {
+      final auth = ref.read(authProvider);
+      final repo = ref.read(repositoryProvider);
+      await repo.dismissRefill(auth.tenantPublicId!, auth.token!, r.id);
+      if (mounted) setState(() => _refillsDue.removeWhere((x) => x.id == r.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error),
+        );
+      }
+    }
+  }
+
+  void _showRefillsSheet() {
+    _loadRefills();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: SevaCareColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Due for refill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            const Text(
+              'Regulars whose usual purchase gap says they are about to run out. '
+              'They have been nudged on WhatsApp where possible.',
+              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+            if (_refillsDue.isEmpty)
+              const Text('No refills due right now.', style: TextStyle(color: SevaCareColors.textMuted)),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final r in List.of(_refillsDue))
+                    GlassCard(
+                      borderWidth: 0.8,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Flexible(
+                                child: Text(
+                                  (r.customerName == null || r.customerName!.isEmpty)
+                                      ? r.customerMobile
+                                      : r.customerName!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              if (r.notified) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.mark_chat_read_outlined,
+                                    size: 14, color: SevaCareColors.success),
+                              ],
+                            ]),
+                            Text(
+                              '${r.brandName} · every ~${r.cadenceDays}d · due ${r.dueDate}',
+                              style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ]),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            _startRefillSale(r);
+                          },
+                          child: const Text('Bill'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          tooltip: 'Dismiss',
+                          onPressed: () async {
+                            await _dismissRefill(r);
+                            setSheetState(() {});
+                          },
+                        ),
+                      ]),
+                    ),
+                ],
+              ),
+            ),
+          ]),
+        );
+      }),
+    );
+  }
+
   Future<void> _openWaLink(String link) async {
     final uri = Uri.parse(link);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
@@ -1487,6 +1615,15 @@ class _SellTabState extends ConsumerState<_SellTab> {
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
         child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          if (_refillsDue.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ActionChip(
+                avatar: const Icon(Icons.autorenew, size: 16, color: SevaCareColors.primary),
+                label: Text('Refills (${_refillsDue.length})'),
+                onPressed: _showRefillsSheet,
+              ),
+            ),
           if (_held.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 4),

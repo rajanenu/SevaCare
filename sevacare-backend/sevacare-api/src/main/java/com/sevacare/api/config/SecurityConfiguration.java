@@ -41,6 +41,9 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/v1/public/**", "/api/v1/auth/**").permitAll()
+                        // ABDM gateway webhook — tenant-free, 404s until ABDM
+                        // credentials are configured (see AbdmController).
+                        .requestMatchers("/api/v1/abdm/**").permitAll()
                         // Guarded by its own shared-secret header (SEVACARE_JOBS_TOKEN),
                         // checked in the controller in constant time; unset = 404.
                         .requestMatchers("/internal/jobs/**").permitAll()

@@ -316,7 +316,8 @@ public final class PatientDtos {
                 String bookingType,
                 Integer tokenNumber,
                 String tokenSession,
-                String bookingSource
+                String bookingSource,
+                String estimatedCallAt
             ) {
             }
 
@@ -355,6 +356,7 @@ public final class PatientDtos {
                 Integer nowServingToken,
                 int tokensAhead,
                 int estimatedWaitMinutes,
+                String estimatedCallAt,
                 boolean alreadyServed
             ) {
             }

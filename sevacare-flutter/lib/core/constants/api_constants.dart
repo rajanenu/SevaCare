@@ -201,6 +201,11 @@ class ApiConstants {
       '/pharmacy/$tenantId/sales/customer-history?mobile=${Uri.encodeComponent(mobile)}&page=$page&size=$size';
   static String pharmacyVoidSale(String tenantId, String salePublicId) =>
       '/pharmacy/$tenantId/sales/$salePublicId/void';
+  static String doctorScribe(String tenantId) => '/doctors/$tenantId/scribe';
+  static String pharmacyRefillsDue(String tenantId) =>
+      '/pharmacy/$tenantId/refills/due';
+  static String pharmacyRefillDismiss(String tenantId, int id) =>
+      '/pharmacy/$tenantId/refills/$id/dismiss';
   static String pharmacyRecentReturns(String tenantId, {int limit = 20}) =>
       '/pharmacy/$tenantId/returns/recent?limit=$limit';
   static String pharmacyCreditOutstanding(String tenantId) =>

@@ -467,6 +467,10 @@ class DoctorQueueFacetView {
   final String? tokenSession;
   final String bookingSource;
 
+  /// Server-projected call time ("HH:mm") — measured consult pace × queue
+  /// position, only present for waiting tokens on the live day.
+  final String? estimatedCallAt;
+
   const DoctorQueueFacetView({
     required this.appointmentPublicId,
     required this.patientPublicId,
@@ -484,6 +488,7 @@ class DoctorQueueFacetView {
     this.tokenNumber,
     this.tokenSession,
     this.bookingSource = 'PATIENT_APP',
+    this.estimatedCallAt,
   });
 
   bool get isQrBooking => bookingSource == 'QR_CODE';
@@ -509,6 +514,7 @@ class DoctorQueueFacetView {
     tokenNumber: json['tokenNumber'] as int?,
     tokenSession: json['tokenSession'] as String?,
     bookingSource: json['bookingSource'] as String? ?? 'PATIENT_APP',
+    estimatedCallAt: json['estimatedCallAt'] as String?,
   );
 }
 
@@ -1169,6 +1175,47 @@ class ReviewSubmitResult {
   );
 }
 
+/// One open refill cycle on the pharmacy counter's worklist: this customer's
+/// purchase rhythm for this SKU says they're running out around [dueDate].
+class RefillDueItem {
+  final int id;
+  final String customerMobile;
+  final String? customerName;
+  final String skuPublicId;
+  final String brandName;
+  final String lastSaleDate;
+  final int cadenceDays;
+  final String dueDate;
+  final String status;
+  final bool notified;
+
+  const RefillDueItem({
+    required this.id,
+    required this.customerMobile,
+    this.customerName,
+    required this.skuPublicId,
+    required this.brandName,
+    required this.lastSaleDate,
+    required this.cadenceDays,
+    required this.dueDate,
+    required this.status,
+    required this.notified,
+  });
+
+  factory RefillDueItem.fromJson(Map<String, dynamic> json) => RefillDueItem(
+    id: json['id'] as int? ?? 0,
+    customerMobile: json['customerMobile'] as String? ?? '',
+    customerName: json['customerName'] as String?,
+    skuPublicId: json['skuPublicId'] as String? ?? '',
+    brandName: json['brandName'] as String? ?? '',
+    lastSaleDate: json['lastSaleDate'] as String? ?? '',
+    cadenceDays: json['cadenceDays'] as int? ?? 0,
+    dueDate: json['dueDate'] as String? ?? '',
+    status: json['status'] as String? ?? 'DUE',
+    notified: json['notifiedAt'] != null,
+  );
+}
+
 /// Live queue position for the patient's own TOKEN appointment.
 class QueueStatusView {
   final String doctorPublicId;
@@ -1178,6 +1225,10 @@ class QueueStatusView {
   final int? nowServingToken;
   final int tokensAhead;
   final int estimatedWaitMinutes;
+
+  /// Server-projected call time ("HH:mm"), measured from the doctor's real
+  /// consult pace today. Null once served or when the queue can't place us.
+  final String? estimatedCallAt;
   final bool alreadyServed;
 
   const QueueStatusView({
@@ -1188,6 +1239,7 @@ class QueueStatusView {
     this.nowServingToken,
     required this.tokensAhead,
     required this.estimatedWaitMinutes,
+    this.estimatedCallAt,
     required this.alreadyServed,
   });
 
@@ -1199,6 +1251,7 @@ class QueueStatusView {
     nowServingToken: json['nowServingToken'] as int?,
     tokensAhead: json['tokensAhead'] as int? ?? 0,
     estimatedWaitMinutes: json['estimatedWaitMinutes'] as int? ?? 0,
+    estimatedCallAt: json['estimatedCallAt'] as String?,
     alreadyServed: json['alreadyServed'] as bool? ?? false,
   );
 }
@@ -2166,6 +2219,10 @@ class Capabilities {
   final String termsVersion;
   final bool termsAccepted;
 
+  /// Whether the server has the voice scribe configured — the consultation
+  /// screen only shows the mic when it does.
+  final bool voiceScribe;
+
   const Capabilities({
     required this.tenantPublicId,
     required this.tenantName,
@@ -2174,6 +2231,7 @@ class Capabilities {
     this.pharmacyFeatures = const {},
     this.termsVersion = '',
     this.termsAccepted = true,
+    this.voiceScribe = false,
   });
 
   bool get hasPharmacy => modules.contains('PHARMACY');
@@ -2190,6 +2248,99 @@ class Capabilities {
     pharmacyFeatures: ((json['pharmacyFeatures'] as List?) ?? []).map((e) => e.toString()).toSet(),
     termsVersion: json['termsVersion'] as String? ?? '',
     termsAccepted: json['termsAccepted'] as bool? ?? true,
+    voiceScribe: json['voiceScribe'] as bool? ?? false,
+  );
+}
+
+// ── Voice scribe ──────────────────────────────────────────────────────────────
+
+class ScribeVitals {
+  final String bp;
+  final String pulse;
+  final String temperature;
+  final String spo2;
+  final String weight;
+
+  const ScribeVitals({
+    this.bp = '',
+    this.pulse = '',
+    this.temperature = '',
+    this.spo2 = '',
+    this.weight = '',
+  });
+
+  factory ScribeVitals.fromJson(Map<String, dynamic> json) => ScribeVitals(
+    bp: json['bp'] as String? ?? '',
+    pulse: json['pulse'] as String? ?? '',
+    temperature: json['temperature'] as String? ?? '',
+    spo2: json['spo2'] as String? ?? '',
+    weight: json['weight'] as String? ?? '',
+  );
+}
+
+class ScribeMedicine {
+  final String name;
+  final String strength;
+  final String frequency;
+  final String duration;
+  final String instructions;
+
+  /// Set when the tenant's own pharmacy catalog carries this medicine — the
+  /// prescription is then dispensable at their counter without retyping.
+  final String? skuPublicId;
+  final String? matchedBrandName;
+
+  const ScribeMedicine({
+    required this.name,
+    this.strength = '',
+    this.frequency = '',
+    this.duration = '',
+    this.instructions = '',
+    this.skuPublicId,
+    this.matchedBrandName,
+  });
+
+  factory ScribeMedicine.fromJson(Map<String, dynamic> json) => ScribeMedicine(
+    name: json['name'] as String? ?? '',
+    strength: json['strength'] as String? ?? '',
+    frequency: json['frequency'] as String? ?? '',
+    duration: json['duration'] as String? ?? '',
+    instructions: json['instructions'] as String? ?? '',
+    skuPublicId: json['skuPublicId'] as String?,
+    matchedBrandName: json['matchedBrandName'] as String?,
+  );
+}
+
+/// A structured prescription draft extracted from a dictated consult — the
+/// doctor reviews and edits before anything is saved.
+class ScribeDraft {
+  final String complaints;
+  final String diagnosis;
+  final ScribeVitals vitals;
+  final List<ScribeMedicine> medicines;
+  final String advice;
+  final int followUpDays;
+
+  const ScribeDraft({
+    this.complaints = '',
+    this.diagnosis = '',
+    this.vitals = const ScribeVitals(),
+    this.medicines = const [],
+    this.advice = '',
+    this.followUpDays = 0,
+  });
+
+  factory ScribeDraft.fromJson(Map<String, dynamic> json) => ScribeDraft(
+    complaints: json['complaints'] as String? ?? '',
+    diagnosis: json['diagnosis'] as String? ?? '',
+    vitals: json['vitals'] != null
+        ? ScribeVitals.fromJson(json['vitals'] as Map<String, dynamic>)
+        : const ScribeVitals(),
+    medicines: ((json['medicines'] as List?) ?? [])
+        .map((e) => ScribeMedicine.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    advice: json['advice'] as String? ?? '',
+    followUpDays: json['followUpDays'] as int? ?? 0,
   );
 }
 

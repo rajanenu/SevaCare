@@ -16,6 +16,10 @@ class SessionQueueState {
   final int completed;
   final int total;
 
+  /// Projected call time ("HH:mm") of the last waiting token — the server's
+  /// measured-pace estimate of when this session's queue clears.
+  final String? lastCallEta;
+
   const SessionQueueState({
     required this.session,
     required this.nowServing,
@@ -23,6 +27,7 @@ class SessionQueueState {
     required this.waiting,
     required this.completed,
     required this.total,
+    this.lastCallEta,
   });
 }
 
@@ -58,6 +63,7 @@ List<SessionQueueState> computeQueueStates(List<DoctorQueueFacetView> facets) {
         waiting: pending.length,
         completed: completedCount,
         total: list.length,
+        lastCallEta: pending.isNotEmpty ? pending.last.estimatedCallAt : null,
       ),
     );
   }
@@ -360,6 +366,13 @@ class _SessionBoard extends StatelessWidget {
               _MiniStat(label: 'Completed', value: '${state.completed}'),
             ],
           ),
+          if (state.lastCallEta != null) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Last token expected around ${state.lastCallEta}',
+              style: AppTextStyles.label(Colors.white.withValues(alpha: 0.75)),
+            ),
+          ],
         ],
       ),
     );

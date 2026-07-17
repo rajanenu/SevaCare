@@ -30,7 +30,7 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
             // tenant from the signed token, so a platform admin (whose sentinel
             // tenant matches no schema) can use it too. /internal/jobs is the
             // Cloud Scheduler hook and sweeps every tenant itself.
-            if (path.startsWith("/api/v1/public") || path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/platform-admin") || path.startsWith("/api/v1/account") || path.startsWith("/actuator") || path.startsWith("/internal/jobs")) {
+            if (path.startsWith("/api/v1/public") || path.startsWith("/api/v1/auth") || path.startsWith("/api/v1/platform-admin") || path.startsWith("/api/v1/account") || path.startsWith("/api/v1/abdm") || path.startsWith("/actuator") || path.startsWith("/internal/jobs")) {
                 filterChain.doFilter(request, response);
                 return;
             }

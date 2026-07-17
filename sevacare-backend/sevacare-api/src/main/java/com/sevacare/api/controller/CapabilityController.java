@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.ScribeService;
 import com.sevacare.shared.dto.ContractResponse;
 import com.sevacare.shared.dto.TermsDtos;
 import com.sevacare.shared.tenant.TenantContext;
@@ -29,10 +30,13 @@ public class CapabilityController {
 
     private final TenantModuleService tenantModuleService;
     private final TermsService termsService;
+    private final ScribeService scribeService;
 
-    public CapabilityController(TenantModuleService tenantModuleService, TermsService termsService) {
+    public CapabilityController(TenantModuleService tenantModuleService, TermsService termsService,
+                                ScribeService scribeService) {
         this.tenantModuleService = tenantModuleService;
         this.termsService = termsService;
+        this.scribeService = scribeService;
     }
 
     /**
@@ -47,7 +51,8 @@ public class CapabilityController {
             String pharmacyProfileKey,
             Set<String> pharmacyFeatures,
             String termsVersion,
-            boolean termsAccepted) {
+            boolean termsAccepted,
+            boolean voiceScribe) {
     }
 
     @GetMapping
@@ -65,6 +70,7 @@ public class CapabilityController {
                 manifest.pharmacyProfileKey(),
                 manifest.pharmacyFeatures(),
                 terms.currentVersion(),
-                terms.upToDate())));
+                terms.upToDate(),
+                scribeService.isConfigured())));
     }
 }

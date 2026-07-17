@@ -11,6 +11,7 @@ import '../../core/utils/app_snack.dart';
 import '../../core/utils/error_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/scribe_sheet.dart';
 import '../../widgets/widgets.dart';
 
 class ConsultationScreen extends ConsumerStatefulWidget {
@@ -601,6 +602,66 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     }
   }
 
+  // ── Voice scribe ───────────────────────────────────────────────────────────
+
+  Future<void> _openScribe() async {
+    final draft = await ScribeSheet.open(context);
+    if (draft == null || !mounted) return;
+    _applyScribeDraft(draft);
+  }
+
+  /// Pre-fills the form from a scribe draft. Everything lands in the same
+  /// editable fields the doctor types into — nothing is saved until they
+  /// complete the consultation themselves.
+  void _applyScribeDraft(ScribeDraft draft) {
+    setState(() {
+      for (final m in draft.medicines) {
+        final name = (m.matchedBrandName?.isNotEmpty ?? false) ? m.matchedBrandName! : m.name;
+        if (name.trim().isEmpty) continue;
+        _medicines.add(MedicineView(
+          name: name,
+          strength: m.strength,
+          frequency: m.frequency,
+          duration: m.duration,
+          instructions: m.instructions.isNotEmpty ? m.instructions : null,
+        ));
+      }
+
+      final noteParts = <String>[
+        if (draft.complaints.isNotEmpty) 'C/O: ${draft.complaints}',
+        if (draft.diagnosis.isNotEmpty) 'Dx: ${draft.diagnosis}',
+        if (draft.advice.isNotEmpty) 'Advice: ${draft.advice}',
+      ];
+      if (noteParts.isNotEmpty) {
+        final existing = _notesCtrl.text.trim();
+        _notesCtrl.text = existing.isEmpty ? noteParts.join('\n') : '$existing\n${noteParts.join('\n')}';
+      }
+
+      final bp = draft.vitals.bp;
+      if (bp.contains('/')) {
+        final parts = bp.split('/');
+        _systolicCtrl.text = _digits(parts[0]);
+        _diastolicCtrl.text = _digits(parts[1]);
+      }
+      if (draft.vitals.pulse.isNotEmpty) _pulseCtrl.text = _digits(draft.vitals.pulse);
+      if (draft.vitals.temperature.isNotEmpty) _tempCtrl.text = _digits(draft.vitals.temperature);
+      if (draft.vitals.spo2.isNotEmpty) _spo2Ctrl.text = _digits(draft.vitals.spo2);
+      if (draft.vitals.weight.isNotEmpty) _weightCtrl.text = _digits(draft.vitals.weight);
+      if (bp.isNotEmpty || draft.vitals.pulse.isNotEmpty || draft.vitals.temperature.isNotEmpty) {
+        _vitalsExpanded = true;
+      }
+
+      if (draft.followUpDays > 0) _followUpDays = draft.followUpDays;
+    });
+    AppSnack.success(context,
+        'Draft applied — ${draft.medicines.length} medicine${draft.medicines.length == 1 ? '' : 's'} added. Please review before completing.');
+  }
+
+  static String _digits(String raw) {
+    final match = RegExp(r'\d+(?:\.\d+)?').firstMatch(raw);
+    return match?.group(0) ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final patientId = ref.watch(doctorSelectedPatientIdProvider);
@@ -625,6 +686,36 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
                 : 'No patient selected',
           ),
           const SizedBox(height: 16),
+
+          // ── Voice scribe (only when the server has it configured) ──────────
+          if (auth.capabilities?.voiceScribe ?? false) ...[
+            GestureDetector(
+              onTap: _openScribe,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: SevaCareColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.mic_rounded, size: 18, color: SevaCareColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Dictate this consult — a draft fills the form for your review',
+                        style: AppTextStyles.body(
+                            size: 13, weight: FontWeight.w600, color: SevaCareColors.primary),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 20, color: SevaCareColors.primary),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // ── Intake summary + AI assist ─────────────────────────────────────
           if (facet != null &&

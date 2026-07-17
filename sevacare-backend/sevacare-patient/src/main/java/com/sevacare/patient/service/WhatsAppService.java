@@ -43,6 +43,8 @@ public class WhatsAppService {
     public static final String TYPE_PRESCRIPTION = "PRESCRIPTION";
     public static final String TYPE_APPOINTMENT_CONFIRMED = "APPOINTMENT_CONFIRMED";
     public static final String TYPE_FOLLOW_UP = "FOLLOW_UP_REMINDER";
+    public static final String TYPE_QUEUE_NEAR = "QUEUE_NEAR";
+    public static final String TYPE_REFILL_REMINDER = "REFILL_REMINDER";
 
     private final JdbcTemplate jdbc;
     private final HttpClient http = HttpClient.newBuilder()
@@ -158,6 +160,20 @@ public class WhatsAppService {
             sb.append("When: ").append(slot).append("\n");
         }
         sb.append("\nPlease show this message at the reception desk on your visit.");
+        return sb.toString();
+    }
+
+    public static String queueNearBody(String hospitalName, String patientName, String doctorName,
+                                       Integer yourToken, Integer nowServingToken, int etaMinutes) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("*").append(safe(hospitalName, "SevaCare")).append("*\n");
+        sb.append("Your turn is near\n\n");
+        sb.append("Hello ").append(safe(patientName, "there")).append(",\n");
+        sb.append("Dr. ").append(safe(doctorName, "your doctor")).append(" is now seeing token #")
+                .append(nowServingToken == null ? "—" : nowServingToken).append(".\n");
+        sb.append("Your token *#").append(yourToken == null ? "—" : yourToken)
+                .append("* is about ").append(Math.max(etaMinutes, 5)).append(" minutes away.\n\n");
+        sb.append("Please start for the hospital now so you don't miss your turn.");
         return sb.toString();
     }
 

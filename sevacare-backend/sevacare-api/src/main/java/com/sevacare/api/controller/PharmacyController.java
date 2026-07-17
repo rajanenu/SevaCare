@@ -51,6 +51,8 @@ import com.sevacare.pharmacy.procurement.service.SupplierService;
 import com.sevacare.pharmacy.procurement.spi.GrnSummary;
 import com.sevacare.pharmacy.procurement.spi.PostedGrn;
 import com.sevacare.pharmacy.procurement.spi.SupplierInfo;
+import com.sevacare.pharmacy.refill.service.RefillReminderService;
+import com.sevacare.pharmacy.refill.spi.RefillDueItem;
 import com.sevacare.pharmacy.returns.service.CustomerReturnService;
 import com.sevacare.pharmacy.returns.service.PostReturnCommand;
 import com.sevacare.pharmacy.returns.spi.PostedReturn;
@@ -87,6 +89,7 @@ public class PharmacyController {
     private final DayCloseService dayCloseService;
     private final CreditService creditService;
     private final IdempotencyService idempotencyService;
+    private final RefillReminderService refillReminderService;
 
     public PharmacyController(CatalogService catalogService,
                              InventoryService inventoryService,
@@ -97,7 +100,8 @@ public class PharmacyController {
                              CustomerReturnService customerReturnService,
                              DayCloseService dayCloseService,
                              CreditService creditService,
-                             IdempotencyService idempotencyService) {
+                             IdempotencyService idempotencyService,
+                             RefillReminderService refillReminderService) {
         this.catalogService = catalogService;
         this.inventoryService = inventoryService;
         this.counterSaleService = counterSaleService;
@@ -108,6 +112,23 @@ public class PharmacyController {
         this.dayCloseService = dayCloseService;
         this.creditService = creditService;
         this.idempotencyService = idempotencyService;
+        this.refillReminderService = refillReminderService;
+    }
+
+    // ---- Refill worklist ------------------------------------------------
+
+    /** Customers whose purchase rhythm says they are running out — the Sell tab's outbound list. */
+    @GetMapping("/{tenantPublicId}/refills/due")
+    public ContractResponse<List<RefillDueItem>> refillsDue(@PathVariable String tenantPublicId) {
+        requireTenant(tenantPublicId);
+        return ContractResponse.of(refillReminderService.listDue());
+    }
+
+    @PostMapping("/{tenantPublicId}/refills/{id}/dismiss")
+    public ContractResponse<Boolean> dismissRefill(@PathVariable String tenantPublicId,
+                                                   @PathVariable("id") long id) {
+        requireTenant(tenantPublicId);
+        return ContractResponse.of(refillReminderService.dismiss(id));
     }
 
     // ---- Catalog --------------------------------------------------------

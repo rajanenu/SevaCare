@@ -1467,7 +1467,9 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                   ),
                   if (!info.almostYourTurn)
                     Text(
-                      'est. wait',
+                      status.estimatedCallAt != null
+                          ? 'around ${status.estimatedCallAt}'
+                          : 'est. wait',
                       style: AppTextStyles.label(SevaCareColors.textMuted),
                     ),
                 ],

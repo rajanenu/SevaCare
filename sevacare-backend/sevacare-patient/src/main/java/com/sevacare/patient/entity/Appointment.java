@@ -51,6 +51,11 @@ public class Appointment {
     @Column(name = "booking_source", nullable = false, length = 20)
     private String bookingSource = "PATIENT_APP";
 
+    // Stamped once when the consult completes; consecutive stamps for a doctor's
+    // day are the measured consult pace behind queue ETAs.
+    @Column(name = "completed_at")
+    private java.time.LocalDateTime completedAt;
+
     public String getAppointmentPublicId() {
         return appointmentPublicId;
     }
@@ -145,5 +150,13 @@ public class Appointment {
 
     public void setBookingSource(String bookingSource) {
         this.bookingSource = bookingSource;
+    }
+
+    public java.time.LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(java.time.LocalDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

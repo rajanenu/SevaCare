@@ -13,6 +13,7 @@
 #include <local_auth_windows/local_auth_plugin.h>
 #include <printing/printing_plugin.h>
 #include <sentry_flutter/sentry_flutter_plugin.h>
+#include <speech_to_text_windows/speech_to_text_windows.h>
 #include <url_launcher_windows/url_launcher_windows.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
@@ -30,6 +31,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("PrintingPlugin"));
   SentryFlutterPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("SentryFlutterPlugin"));
+  SpeechToTextWindowsRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("SpeechToTextWindows"));
   UrlLauncherWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("UrlLauncherWindows"));
 }

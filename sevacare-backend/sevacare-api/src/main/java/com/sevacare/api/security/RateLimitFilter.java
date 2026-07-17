@@ -81,7 +81,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/v1/auth/") || path.startsWith("/api/v1/account/passcode")) {
             return AUTH_LIMIT_PER_MINUTE;
         }
-        if (path.startsWith("/api/v1/public/")) {
+        if (path.startsWith("/api/v1/public/") || path.startsWith("/api/v1/abdm/")) {
             return PUBLIC_LIMIT_PER_MINUTE;
         }
         return 0;

@@ -42,6 +42,13 @@ public class Patient {
     @Column(name = "blood_group", length = 8)
     private String bloodGroup;
 
+    // ABDM: linked Ayushman Bharat Health Account, when the patient has one.
+    @Column(name = "abha_number", length = 17)
+    private String abhaNumber;
+
+    @Column(name = "abha_address", length = 64)
+    private String abhaAddress;
+
     @Column(name = "deletion_requested_at")
     private LocalDateTime deletionRequestedAt;
 

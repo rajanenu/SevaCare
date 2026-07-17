@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.ScribeService;
 import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.doctor.service.DoctorDomainService;
 import com.sevacare.doctor.service.SlotBlockService;
@@ -33,17 +34,37 @@ public class DoctorController {
     private final PatientDomainService patientDomainService;
     private final SlotBlockService slotBlockService;
     private final DoctorAvailabilityService doctorAvailabilityService;
+    private final ScribeService scribeService;
 
     public DoctorController(
             DoctorDomainService doctorDomainService,
             PatientDomainService patientDomainService,
             SlotBlockService slotBlockService,
-            DoctorAvailabilityService doctorAvailabilityService
+            DoctorAvailabilityService doctorAvailabilityService,
+            ScribeService scribeService
     ) {
         this.doctorDomainService = doctorDomainService;
         this.patientDomainService = patientDomainService;
         this.slotBlockService = slotBlockService;
         this.doctorAvailabilityService = doctorAvailabilityService;
+        this.scribeService = scribeService;
+    }
+
+    /**
+     * Voice scribe: a dictated consult transcript in, a structured prescription
+     * draft out — pre-filled into the consultation form for the doctor to review.
+     * Nothing is saved or sent by this endpoint; the doctor stays the author.
+     */
+    @PostMapping("/{tenantPublicId}/scribe")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<ScribeService.ScribeDraft> scribe(
+            @PathVariable String tenantPublicId,
+            @RequestBody ScribeService.ScribeRequest request
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(scribeService.draft(request.transcript(), request.patientContext()));
     }
 
     @GetMapping("/{tenantPublicId}/{doctorPublicId}/dashboard")

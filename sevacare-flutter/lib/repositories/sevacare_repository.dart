@@ -1501,6 +1501,40 @@ class SevaCareRepository {
     );
   }
 
+  /// Voice scribe: dictated consult transcript in, structured draft out.
+  Future<ScribeDraft> scribeDraft(String tenantId, String token, String transcript,
+      {String? patientContext}) async {
+    return _client.post<ScribeDraft>(
+      ApiConstants.doctorScribe(tenantId),
+      body: {
+        'transcript': transcript,
+        if (patientContext != null && patientContext.isNotEmpty)
+          'patientContext': patientContext,
+      },
+      fromJson: (d) => ScribeDraft.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Open refill cycles — customers whose purchase rhythm says they're running out.
+  Future<List<RefillDueItem>> refillsDue(String tenantId, String token) async {
+    return _client.get<List<RefillDueItem>>(
+      ApiConstants.pharmacyRefillsDue(tenantId),
+      fromJson: (d) => (d as List)
+          .map((e) => RefillDueItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> dismissRefill(String tenantId, String token, int id) async {
+    await _client.post(
+      ApiConstants.pharmacyRefillDismiss(tenantId, id),
+      body: const {},
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<void> voidSale(String tenantId, String token, String salePublicId) async {
     await _client.post(
       ApiConstants.pharmacyVoidSale(tenantId, salePublicId),
