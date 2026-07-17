@@ -130,11 +130,11 @@ class _SuccessOverlayState extends State<_SuccessOverlay>
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: SevaCareColors.surface,
+                    color: context.colors.surface,
                     borderRadius: BorderRadius.circular(AppTheme.radius + 4),
                     boxShadow: [
                       BoxShadow(
-                        color: SevaCareColors.primary.withValues(alpha: 0.18),
+                        color: context.colors.primary.withValues(alpha: 0.18),
                         blurRadius: 36,
                         offset: const Offset(0, 10),
                       ),
@@ -144,7 +144,7 @@ class _SuccessOverlayState extends State<_SuccessOverlay>
                     children: [
                       Text(
                         'Appointment Confirmed!',
-                        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                        style: AppTextStyles.sectionTitle(context.colors.text),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),
@@ -152,7 +152,7 @@ class _SuccessOverlayState extends State<_SuccessOverlay>
                         widget.doctorName.isNotEmpty
                             ? 'with Dr. ${widget.doctorName}'
                             : 'Your appointment is booked',
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        style: AppTextStyles.bodyText(context.colors.textMuted),
                         textAlign: TextAlign.center,
                       ),
                       if (widget.displaySlot.isNotEmpty) ...[
@@ -167,19 +167,19 @@ class _SuccessOverlayState extends State<_SuccessOverlay>
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusPill),
                             border: Border.all(
-                                color: SevaCareColors.primary
+                                color: context.colors.primary
                                     .withValues(alpha: 0.20)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.schedule_rounded,
-                                  size: 14, color: SevaCareColors.primary),
+                              Icon(Icons.schedule_rounded,
+                                  size: 14, color: context.colors.primary),
                               const SizedBox(width: 6),
                               Text(
                                 widget.displaySlot,
                                 style: AppTextStyles.chipLabel(
-                                    SevaCareColors.primary),
+                                    context.colors.primary),
                               ),
                             ],
                           ),
@@ -228,13 +228,13 @@ class _GoBtnState extends State<_GoBtn> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: SevaCareColors.buttonGradient,
+            gradient: LinearGradient(
+              colors: context.colors.buttonGradient,
             ),
             borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             boxShadow: [
               BoxShadow(
-                color: SevaCareColors.primary.withValues(alpha: 0.35),
+                color: context.colors.primary.withValues(alpha: 0.35),
                 blurRadius: 14,
                 offset: const Offset(0, 4),
               ),

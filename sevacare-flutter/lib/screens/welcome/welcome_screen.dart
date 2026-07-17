@@ -60,7 +60,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                 index: 0,
                 baseDelay: const Duration(milliseconds: 80),
                 child: Text('Quick Actions',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
               ),
               const SizedBox(height: 12),
               // IntrinsicHeight gives the Row a bounded height so the three
@@ -78,8 +78,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                         icon: Icons.search_rounded,
                         label: 'Search Hospitals',
                         description: 'Find & book nearby',
-                        gradient: const LinearGradient(
-                          colors: SevaCareColors.buttonGradient,
+                        gradient: LinearGradient(
+                          colors: context.colors.buttonGradient,
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -142,18 +142,18 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                   children: [
                     Text('Coming Soon',
                         style: AppTextStyles.sectionTitle(
-                            SevaCareColors.textMuted)),
+                            context.colors.textMuted)),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: SevaCareColors.peachSoft,
+                        color: context.colors.peachSoft,
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text('SOON',
                           style: AppTextStyles.labelCaps(
-                              SevaCareColors.peachForeground)),
+                              context.colors.peachForeground)),
                     ),
                   ],
                 ),
@@ -202,9 +202,9 @@ class _HeroCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppTheme.radius + 2),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: SevaCareColors.heroGradient,
+            colors: context.colors.heroGradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -387,9 +387,9 @@ class _PrimaryCardState extends State<_PrimaryCard> {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: SevaCareColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(AppTheme.radius),
-            border: Border.all(color: SevaCareColors.border, width: 1),
+            border: Border.all(color: context.colors.border, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -426,14 +426,14 @@ class _PrimaryCardState extends State<_PrimaryCard> {
               const SizedBox(height: 14),
               Text(
                 widget.label,
-                style: AppTextStyles.cardTitle(SevaCareColors.text),
+                style: AppTextStyles.cardTitle(context.colors.text),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 3),
               Text(
                 widget.description,
-                style: AppTextStyles.label(SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -472,21 +472,21 @@ class _ComingSoonCard extends StatelessWidget {
       height: 78,
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
-        color: SevaCareColors.surfaceMuted,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
-            color: SevaCareColors.border.withValues(alpha: 0.6), width: 1),
+            color: context.colors.border.withValues(alpha: 0.6), width: 1),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon,
               size: 22,
-              color: SevaCareColors.textMuted.withValues(alpha: 0.50)),
+              color: context.colors.textMuted.withValues(alpha: 0.50)),
           const SizedBox(height: 8),
           Text(
             label,
-            style: AppTextStyles.label(SevaCareColors.textMuted),
+            style: AppTextStyles.label(context.colors.textMuted),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

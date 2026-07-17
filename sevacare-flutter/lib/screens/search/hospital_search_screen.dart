@@ -212,7 +212,7 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.my_location, size: 20, color: SevaCareColors.primary),
+                  : Icon(Icons.my_location, size: 20, color: context.colors.primary),
             ),
           ),
           if (_locationLabel != null) ...[
@@ -222,19 +222,19 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.primarySoft,
+                  color: context.colors.primarySoft,
                   borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.near_me, size: 12, color: SevaCareColors.primary),
+                    Icon(Icons.near_me, size: 12, color: context.colors.primary),
                     const SizedBox(width: 4),
-                    Text(_locationLabel!, style: AppTextStyles.label(SevaCareColors.primary)),
+                    Text(_locationLabel!, style: AppTextStyles.label(context.colors.primary)),
                     const SizedBox(width: 4),
                     GestureDetector(
                       onTap: _clearDetectedLocation,
-                      child: const Icon(Icons.close, size: 14, color: SevaCareColors.primary),
+                      child: Icon(Icons.close, size: 14, color: context.colors.primary),
                     ),
                   ],
                 ),
@@ -272,15 +272,15 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (hasFavorites && _query.isEmpty) ...[
-                    Text('Favorites', style: AppTextStyles.label(SevaCareColors.primary)),
+                    Text('Favorites', style: AppTextStyles.label(context.colors.primary)),
                     const SizedBox(height: 6),
                   ] else if (hasRecent && _query.isEmpty) ...[
-                    Text('Recently Visited', style: AppTextStyles.label(SevaCareColors.primary)),
+                    Text('Recently Visited', style: AppTextStyles.label(context.colors.primary)),
                     const SizedBox(height: 6),
                   ] else ...[
                     Text(
                       '${filtered.length} hospital${filtered.length == 1 ? '' : 's'} found',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                     const SizedBox(height: 6),
                   ],
@@ -300,11 +300,11 @@ class _HospitalSearchScreenState extends ConsumerState<HospitalSearchScreen> {
                         children: [
                           if (showFavDivider) ...[
                             const SizedBox(height: 6),
-                            Text(hasRecent ? 'Recently Visited' : 'All Hospitals', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                            Text(hasRecent ? 'Recently Visited' : 'All Hospitals', style: AppTextStyles.label(context.colors.textMuted)),
                             const SizedBox(height: 6),
                           ] else if (showRecentDivider) ...[
                             const SizedBox(height: 6),
-                            Text('All Hospitals', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                            Text('All Hospitals', style: AppTextStyles.label(context.colors.textMuted)),
                             const SizedBox(height: 6),
                           ],
                           Padding(
@@ -369,10 +369,10 @@ class _HospitalCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(tenant.hospitalName,
-            style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            style: AppTextStyles.sectionTitle(context.colors.text)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -383,7 +383,7 @@ class _HospitalCard extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SevaCareColors.border, width: 1),
+                border: Border.all(color: context.colors.border, width: 1),
               ),
               child: QrImageView(
                 data: link,
@@ -395,7 +395,7 @@ class _HospitalCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               'Scan with your phone camera to book an appointment — no login needed.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -446,8 +446,8 @@ class _HospitalCard extends ConsumerWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: SevaCareColors.buttonGradient,
+                    gradient: LinearGradient(
+                      colors: context.colors.buttonGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -461,7 +461,7 @@ class _HospitalCard extends ConsumerWidget {
                       style: AppTextStyles.display(
                         size: 18,
                         weight: FontWeight.w700,
-                        color: SevaCareColors.textOnPrimary,
+                        color: context.colors.textOnPrimary,
                       ),
                     ),
                   ),
@@ -476,7 +476,7 @@ class _HospitalCard extends ConsumerWidget {
                         Flexible(
                           child: Text(
                             tenant.hospitalName,
-                            style: AppTextStyles.cardTitle(SevaCareColors.text),
+                            style: AppTextStyles.cardTitle(context.colors.text),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -486,12 +486,12 @@ class _HospitalCard extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.mintSoft,
+                              color: context.colors.mintSoft,
                               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                             ),
                             child: Text(
                               'Recent',
-                              style: AppTextStyles.label(SevaCareColors.mintForeground),
+                              style: AppTextStyles.label(context.colors.mintForeground),
                             ),
                           ),
                         ],
@@ -503,7 +503,7 @@ class _HospitalCard extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             tenant.city,
-                            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                            style: AppTextStyles.bodyText(context.colors.textMuted),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -513,22 +513,22 @@ class _HospitalCard extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.surfaceMuted,
+                              color: context.colors.surfaceMuted,
                               borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                              border: Border.all(color: SevaCareColors.border, width: 1),
+                              border: Border.all(color: context.colors.border, width: 1),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.near_me,
                                   size: 11,
-                                  color: SevaCareColors.primary,
+                                  color: context.colors.primary,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   tenant.distance!,
-                                  style: AppTextStyles.label(SevaCareColors.primary),
+                                  style: AppTextStyles.label(context.colors.primary),
                                 ),
                               ],
                             ),
@@ -549,14 +549,14 @@ class _HospitalCard extends ConsumerWidget {
                   child: Icon(
                     isFavorite ? Icons.favorite : Icons.favorite_border,
                     size: 18,
-                    color: isFavorite ? SevaCareColors.danger : SevaCareColors.textMuted,
+                    color: isFavorite ? context.colors.danger : context.colors.textMuted,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 18,
-                color: SevaCareColors.textMuted,
+                color: context.colors.textMuted,
               ),
             ],
           ),
@@ -583,10 +583,10 @@ class _HospitalCard extends ConsumerWidget {
                       children: [
                         Text(
                           'Explore Doctors',
-                          style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
+                          style: AppTextStyles.label(context.colors.primary).copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(width: 2),
-                        const Icon(Icons.arrow_forward, size: 12, color: SevaCareColors.primary),
+                        Icon(Icons.arrow_forward, size: 12, color: context.colors.primary),
                       ],
                     ),
                   ),
@@ -600,11 +600,11 @@ class _HospitalCard extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.qr_code_2, size: 15, color: SevaCareColors.primary),
+                        Icon(Icons.qr_code_2, size: 15, color: context.colors.primary),
                         const SizedBox(width: 2),
                         Text(
                           'QR',
-                          style: AppTextStyles.label(SevaCareColors.primary).copyWith(fontWeight: FontWeight.w600),
+                          style: AppTextStyles.label(context.colors.primary).copyWith(fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -627,26 +627,8 @@ class _LoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(
-              strokeWidth: 2.5,
-              valueColor: AlwaysStoppedAnimation<Color>(SevaCareColors.primary),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Loading hospitals…',
-              style: TextStyle(
-                fontSize: 13,
-                color: SevaCareColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
+      padding: EdgeInsets.only(top: 8),
+      child: ShimmerList(count: 4, cardHeight: 84),
     );
   }
 }
@@ -669,18 +651,18 @@ class _ErrorState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: SevaCareColors.errorSurface,
+              color: context.colors.errorSurface,
               borderRadius: BorderRadius.circular(AppTheme.radius),
               border: Border.all(
-                color: SevaCareColors.danger.withValues(alpha: 0.20),
+                color: context.colors.danger.withValues(alpha: 0.20),
                 width: 1,
               ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error_outline,
-                    size: 18, color: SevaCareColors.danger),
+                Icon(Icons.error_outline,
+                    size: 18, color: context.colors.danger),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -688,12 +670,12 @@ class _ErrorState extends StatelessWidget {
                     children: [
                       Text(
                         'Could not load hospitals',
-                        style: AppTextStyles.cardTitle(SevaCareColors.danger),
+                        style: AppTextStyles.cardTitle(context.colors.danger),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         error,
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        style: AppTextStyles.bodyText(context.colors.textMuted),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -734,21 +716,21 @@ class _EmptyState extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: SevaCareColors.surfaceMuted,
+              color: context.colors.surfaceMuted,
               shape: BoxShape.circle,
             ),
-            child: const Center(
+            child: Center(
               child: Icon(
                 Icons.local_hospital_outlined,
                 size: 28,
-                color: SevaCareColors.textMuted,
+                color: context.colors.textMuted,
               ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
             hasQuery ? 'No hospitals matched "$query"' : 'No hospitals available',
-            style: AppTextStyles.cardTitle(SevaCareColors.text),
+            style: AppTextStyles.cardTitle(context.colors.text),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
@@ -756,7 +738,7 @@ class _EmptyState extends StatelessWidget {
             hasQuery
                 ? 'Try a different name, city, or specialty.'
                 : 'Please check your connection and try again.',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],

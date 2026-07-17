@@ -35,12 +35,12 @@ class AppBottomNav extends ConsumerWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: SevaCareColors.glassSurface,
+        color: context.colors.glassSurface,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: SevaCareColors.glassBorder, width: 1.5),
+        border: Border.all(color: context.colors.glassBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: SevaCareColors.shadowColor.withValues(alpha: 0.10),
+            color: context.colors.shadowColor.withValues(alpha: 0.10),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -60,8 +60,8 @@ class AppBottomNav extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                 decoration: BoxDecoration(
                   gradient: isActive
-                      ? const LinearGradient(
-                          colors: SevaCareColors.buttonGradient,
+                      ? LinearGradient(
+                          colors: context.colors.buttonGradient,
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         )
@@ -70,7 +70,7 @@ class AppBottomNav extends ConsumerWidget {
                   boxShadow: isActive
                       ? [
                           BoxShadow(
-                            color: SevaCareColors.primary.withValues(alpha: 0.30),
+                            color: context.colors.primary.withValues(alpha: 0.30),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -83,7 +83,7 @@ class AppBottomNav extends ConsumerWidget {
                     Icon(
                       item.icon,
                       size: 20,
-                      color: isActive ? SevaCareColors.textOnPrimary : SevaCareColors.textMuted,
+                      color: isActive ? context.colors.textOnPrimary : context.colors.textMuted,
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -91,7 +91,7 @@ class AppBottomNav extends ConsumerWidget {
                       style: AppTextStyles.body(
                         size: 10,
                         weight: FontWeight.w600,
-                        color: isActive ? SevaCareColors.textOnPrimary : SevaCareColors.textMuted,
+                        color: isActive ? context.colors.textOnPrimary : context.colors.textMuted,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -171,9 +171,9 @@ class _StaffHeroBanner extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: SevaCareColors.skyGradient,
+            colors: context.colors.skyGradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -213,7 +213,7 @@ class _StaffHeroBanner extends StatelessWidget {
                         Text(
                           'Good ${_greeting()}',
                           style: AppTextStyles.label(
-                            SevaCareColors.textOnPrimary.withValues(
+                            context.colors.textOnPrimary.withValues(
                               alpha: 0.80,
                             ),
                           ),
@@ -222,7 +222,7 @@ class _StaffHeroBanner extends StatelessWidget {
                         Text(
                           name,
                           style: AppTextStyles.cardTitle(
-                            SevaCareColors.textOnPrimary,
+                            context.colors.textOnPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -240,7 +240,7 @@ class _StaffHeroBanner extends StatelessWidget {
                           child: Text(
                             'IP-Staff Portal',
                             style: AppTextStyles.label(
-                              SevaCareColors.textOnPrimary,
+                              context.colors.textOnPrimary,
                             ),
                           ),
                         ),
@@ -304,12 +304,12 @@ class _TabBar extends StatelessWidget {
               margin: EdgeInsets.only(right: i < tabs.length - 1 ? 6 : 0),
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
               decoration: BoxDecoration(
-                color: active ? SevaCareColors.primary : SevaCareColors.surface,
+                color: active ? context.colors.primary : context.colors.surface,
                 borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 border: Border.all(
                   color: active
-                      ? SevaCareColors.primary
-                      : SevaCareColors.border,
+                      ? context.colors.primary
+                      : context.colors.border,
                 ),
               ),
               child: Row(
@@ -319,8 +319,8 @@ class _TabBar extends StatelessWidget {
                     tabs[i].icon,
                     size: 14,
                     color: active
-                        ? SevaCareColors.textOnPrimary
-                        : SevaCareColors.textMuted,
+                        ? context.colors.textOnPrimary
+                        : context.colors.textMuted,
                   ),
                   const SizedBox(width: 5),
                   Flexible(
@@ -330,8 +330,8 @@ class _TabBar extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.label(
                         active
-                            ? SevaCareColors.textOnPrimary
-                            : SevaCareColors.textMuted,
+                            ? context.colors.textOnPrimary
+                            : context.colors.textMuted,
                       ),
                     ),
                   ),
@@ -502,7 +502,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
           icon: Icons.medical_services_outlined,
           title: 'Find a Doctor',
           trailing: IconButton(
-            icon: const Icon(Icons.refresh, size: 16, color: SevaCareColors.textMuted),
+            icon: Icon(Icons.refresh, size: 16, color: context.colors.textMuted),
             onPressed: () {
               _load();
               if (_doctorId.isNotEmpty) _loadStatus();
@@ -514,7 +514,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
             children: [
               if ((_setup?.specialties ?? []).isEmpty)
                 Text('No specialties configured.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted))
+                    style: AppTextStyles.bodyText(context.colors.textMuted))
               else
                 AppDropdown<String>(
                   label: 'Specialty',
@@ -538,7 +538,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
               const SizedBox(height: 10),
               if (_filteredDoctors.isEmpty)
                 Text('No doctors for this specialty.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted))
+                    style: AppTextStyles.bodyText(context.colors.textMuted))
               else
                 Wrap(
                   spacing: 8,
@@ -559,10 +559,10 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                         duration: const Duration(milliseconds: 140),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: sel ? SevaCareColors.primary : SevaCareColors.surface,
+                          color: sel ? context.colors.primary : context.colors.surface,
                           borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                           border: Border.all(
-                            color: sel ? SevaCareColors.primary : SevaCareColors.border,
+                            color: sel ? context.colors.primary : context.colors.border,
                           ),
                         ),
                         child: Row(
@@ -571,7 +571,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                             DoctorPhoto.circle(doctorId: doc.doctorPublicId, size: 20),
                             const SizedBox(width: 6),
                             if (onLeave) ...[
-                              const Icon(Icons.event_busy, size: 12, color: SevaCareColors.danger),
+                              Icon(Icons.event_busy, size: 12, color: context.colors.danger),
                               const SizedBox(width: 4),
                             ],
                             Text(
@@ -579,7 +579,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                               style: AppTextStyles.body(
                                 size: 13,
                                 weight: FontWeight.w600,
-                                color: sel ? SevaCareColors.textOnPrimary : SevaCareColors.text,
+                                color: sel ? context.colors.textOnPrimary : context.colors.text,
                               ),
                             ),
                           ],
@@ -603,8 +603,8 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: SevaCareColors.heroGradient,
+                gradient: LinearGradient(
+                  colors: context.colors.heroGradient,
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
@@ -661,10 +661,10 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                       duration: const Duration(milliseconds: 140),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: sel ? SevaCareColors.primary : SevaCareColors.surface,
+                        color: sel ? context.colors.primary : context.colors.surface,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: sel ? SevaCareColors.primary : SevaCareColors.border,
+                          color: sel ? context.colors.primary : context.colors.border,
                         ),
                       ),
                       child: Text(
@@ -674,7 +674,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           height: 1.4,
-                          color: sel ? Colors.white : SevaCareColors.text,
+                          color: sel ? Colors.white : context.colors.text,
                         ),
                       ),
                     ),
@@ -693,22 +693,22 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                 ? const _Spinner(label: 'Checking availability…')
                 : _status == null
                     ? Text('Select a doctor and date to check availability.',
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted))
+                        style: AppTextStyles.bodyText(context.colors.textMuted))
                     : _status!.doctorOnLeave
                         ? Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.errorSurface,
+                              color: context.colors.errorSurface,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.event_busy, size: 16, color: SevaCareColors.danger),
+                                Icon(Icons.event_busy, size: 16, color: context.colors.danger),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     '$_doctorName is on approved leave on $_date — not available for appointments. Suggest another date or doctor to the caller.',
-                                    style: AppTextStyles.label(SevaCareColors.danger),
+                                    style: AppTextStyles.label(context.colors.danger),
                                   ),
                                 ),
                               ],
@@ -721,19 +721,19 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: SevaCareColors.successSurface,
+                                  color: context.colors.successSurface,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.check_circle_outline,
-                                        size: 15, color: SevaCareColors.success),
+                                    Icon(Icons.check_circle_outline,
+                                        size: 15, color: context.colors.success),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         '$_freeSlotCount of $totalSlots slots free on $_date'
                                         '${_status!.blockedSlots.isNotEmpty ? ' · doctor busy for some hours (amber)' : ''}',
-                                        style: AppTextStyles.label(SevaCareColors.success),
+                                        style: AppTextStyles.label(context.colors.success),
                                       ),
                                     ),
                                   ],
@@ -742,7 +742,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                               const SizedBox(height: 10),
                               if (_morningSlots.isNotEmpty) ...[
                                 Text('Morning  ${_morningSlots.first} – ${_morningSlots.last}',
-                                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                                    style: AppTextStyles.label(context.colors.textMuted)),
                                 const SizedBox(height: 6),
                                 _SlotGrid(
                                   slots: _morningSlots,
@@ -755,7 +755,7 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                               if (_eveningSlots.isNotEmpty) ...[
                                 const SizedBox(height: 10),
                                 Text('Evening  ${_eveningSlots.first} – ${_eveningSlots.last}',
-                                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                                    style: AppTextStyles.label(context.colors.textMuted)),
                                 const SizedBox(height: 6),
                                 _SlotGrid(
                                   slots: _eveningSlots,
@@ -768,11 +768,11 @@ class _DoctorsTabState extends ConsumerState<_DoctorsTab> {
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  _LegendDot(color: SevaCareColors.surface, label: 'Free', bordered: true),
+                                  _LegendDot(color: context.colors.surface, label: 'Free', bordered: true),
                                   const SizedBox(width: 12),
-                                  _LegendDot(color: SevaCareColors.border, label: 'Booked'),
+                                  _LegendDot(color: context.colors.border, label: 'Booked'),
                                   const SizedBox(width: 12),
-                                  _LegendDot(color: SevaCareColors.warningSurface, label: 'Doctor busy'),
+                                  _LegendDot(color: context.colors.warningSurface, label: 'Doctor busy'),
                                 ],
                               ),
                             ],
@@ -802,11 +802,11 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(3),
-            border: bordered ? Border.all(color: SevaCareColors.border) : null,
+            border: bordered ? Border.all(color: context.colors.border) : null,
           ),
         ),
         const SizedBox(width: 5),
-        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        Text(label, style: AppTextStyles.label(context.colors.textMuted)),
       ],
     );
   }
@@ -1025,7 +1025,7 @@ class _StaffRequestsTabState extends ConsumerState<_StaffRequestsTab> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('Duration', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text('Duration', style: AppTextStyles.label(context.colors.textMuted)),
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -1089,7 +1089,7 @@ class _StaffRequestsTabState extends ConsumerState<_StaffRequestsTab> {
 
         // ── My requests ───────────────────────────────────────────────────────
         const SizedBox(height: 16),
-        Text('My Requests', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        Text('My Requests', style: AppTextStyles.sectionTitle(context.colors.text)),
         const SizedBox(height: 10),
         if (_loadingHistory)
           const Center(
@@ -1103,7 +1103,7 @@ class _StaffRequestsTabState extends ConsumerState<_StaffRequestsTab> {
             title: 'No requests yet',
             child: Text(
               'Your leave requests and the admin\'s responses appear here.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           )
         else
@@ -1133,27 +1133,27 @@ class _StaffTimePickTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        Text(label, style: AppTextStyles.label(context.colors.textMuted)),
         const SizedBox(height: 4),
         GestureDetector(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: SevaCareColors.surface,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: SevaCareColors.border, width: 1.5),
+              border: Border.all(color: context.colors.border, width: 1.5),
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time, size: 15, color: SevaCareColors.textMuted),
+                Icon(Icons.access_time, size: 15, color: context.colors.textMuted),
                 const SizedBox(width: 8),
                 Text(
                   value,
                   style: AppTextStyles.body(
                     size: 13,
                     weight: placeholder ? FontWeight.w400 : FontWeight.w600,
-                    color: placeholder ? SevaCareColors.textMuted : SevaCareColors.text,
+                    color: placeholder ? context.colors.textMuted : context.colors.text,
                   ),
                 ),
               ],
@@ -1169,11 +1169,11 @@ class _StaffRequestTile extends StatelessWidget {
   final LeaveRequestRecord request;
   const _StaffRequestTile({required this.request});
 
-  Color get _statusColor => switch (request.status) {
+  Color _statusColor(BuildContext context) => switch (request.status) {
         'PENDING' => const Color(0xFFD97706),
-        'APPROVED' || 'AUTO_APPROVED' => SevaCareColors.mint,
-        'DECLINED' => SevaCareColors.danger,
-        _ => SevaCareColors.textMuted,
+        'APPROVED' || 'AUTO_APPROVED' => context.colors.mint,
+        'DECLINED' => context.colors.danger,
+        _ => context.colors.textMuted,
       };
 
   @override
@@ -1192,18 +1192,18 @@ class _StaffRequestTile extends StatelessWidget {
                     'EMERGENCY' => 'Emergency Leave',
                     _ => 'Other Leave',
                   },
-                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                  style: AppTextStyles.cardTitle(context.colors.text),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _statusColor.withValues(alpha: 0.14),
+                  color: _statusColor(context).withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   request.status == 'AUTO_APPROVED' ? 'Auto-Approved' : request.status,
-                  style: AppTextStyles.badgeText(_statusColor),
+                  style: AppTextStyles.badgeText(_statusColor(context)),
                 ),
               ),
             ],
@@ -1213,13 +1213,13 @@ class _StaffRequestTile extends StatelessWidget {
             Text(
               '${request.fromDate}  →  ${request.toDate}'
               '${request.isHourly ? '  ·  ${request.startTime}–${request.endTime}' : ''}',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ],
           if (request.message.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(request.message,
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -1228,19 +1228,19 @@ class _StaffRequestTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.20)),
+                border: Border.all(color: context.colors.primary.withValues(alpha: 0.20)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.admin_panel_settings_outlined,
-                      size: 14, color: SevaCareColors.primary),
+                  Icon(Icons.admin_panel_settings_outlined,
+                      size: 14, color: context.colors.primary),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text('Admin: ${request.adminResponse!}',
-                        style: AppTextStyles.label(SevaCareColors.primary)),
+                        style: AppTextStyles.label(context.colors.primary)),
                   ),
                 ],
               ),
@@ -1805,32 +1805,32 @@ class _BookTabState extends ConsumerState<_BookTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: SevaCareColors.primary.withValues(alpha: 0.25),
+                  color: context.colors.primary.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.person_pin_outlined,
                     size: 16,
-                    color: SevaCareColors.primary,
+                    color: context.colors.primary,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Booking for existing patient: ${widget.prefill!.fullName}',
-                      style: AppTextStyles.label(SevaCareColors.primary),
+                      style: AppTextStyles.label(context.colors.primary),
                     ),
                   ),
                   GestureDetector(
                     onTap: widget.onClearPrefill,
-                    child: const Icon(
+                    child: Icon(
                       Icons.close,
                       size: 16,
-                      color: SevaCareColors.primary,
+                      color: context.colors.primary,
                     ),
                   ),
                 ],
@@ -1857,7 +1857,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
               const SizedBox(height: 8),
               Text(
                 'Creates the patient record without an appointment — for walk-ins already consulted or registration-only visits. Book later from the Patients tab.',
-                style: AppTextStyles.label(SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted),
               ),
             ],
             const SizedBox(height: 12),
@@ -1903,7 +1903,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
                       children: [
                         Text(
                           'Gender:',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                          style: AppTextStyles.label(context.colors.textMuted),
                         ),
                         const SizedBox(width: 12),
                         _ToggleChip(
@@ -1965,10 +1965,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
                   trailing: _loadingSetup
                       ? null
                       : IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.refresh,
                             size: 16,
-                            color: SevaCareColors.textMuted,
+                            color: context.colors.textMuted,
                           ),
                           onPressed: _loadSetup,
                           tooltip: 'Reload',
@@ -1986,7 +1986,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
                             Text(
                               'No specialties configured.',
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted,
+                                context.colors.textMuted,
                               ),
                             )
                           else ...[
@@ -2015,14 +2015,14 @@ class _BookTabState extends ConsumerState<_BookTab> {
                             const SizedBox(height: 12),
                             Text(
                               'Choose Doctor',
-                              style: AppTextStyles.label(SevaCareColors.textMuted),
+                              style: AppTextStyles.label(context.colors.textMuted),
                             ),
                             const SizedBox(height: 8),
                             if (_filteredDoctors.isEmpty)
                               Text(
                                 'No doctors available for this specialty.',
                                 style: AppTextStyles.bodyText(
-                                  SevaCareColors.textMuted,
+                                  context.colors.textMuted,
                                 ),
                               )
                             else
@@ -2059,17 +2059,17 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: onLeave
-                                            ? SevaCareColors.surfaceMuted
+                                            ? context.colors.surfaceMuted
                                             : sel
-                                            ? SevaCareColors.primary
-                                            : SevaCareColors.surface,
+                                            ? context.colors.primary
+                                            : context.colors.surface,
                                         borderRadius: BorderRadius.circular(
                                           AppTheme.radiusPill,
                                         ),
                                         border: Border.all(
                                           color: sel && !onLeave
-                                              ? SevaCareColors.primary
-                                              : SevaCareColors.border,
+                                              ? context.colors.primary
+                                              : context.colors.border,
                                         ),
                                       ),
                                       child: Column(
@@ -2087,10 +2087,10 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                                   size: 13,
                                                   weight: FontWeight.w600,
                                                   color: onLeave
-                                                      ? SevaCareColors.textMuted
+                                                      ? context.colors.textMuted
                                                       : sel
-                                                      ? SevaCareColors.textOnPrimary
-                                                      : SevaCareColors.text,
+                                                      ? context.colors.textOnPrimary
+                                                      : context.colors.text,
                                                 ),
                                               ),
                                             ],
@@ -2105,11 +2105,11 @@ class _BookTabState extends ConsumerState<_BookTab> {
                                                 : doc.specialty,
                                             style: AppTextStyles.label(
                                               onLeave
-                                                  ? SevaCareColors.danger
+                                                  ? context.colors.danger
                                                   : sel
-                                                  ? SevaCareColors.textOnPrimary
+                                                  ? context.colors.textOnPrimary
                                                         .withValues(alpha: 0.75)
-                                                  : SevaCareColors.textMuted,
+                                                  : context.colors.textMuted,
                                             ),
                                           ),
                                         ],
@@ -2186,13 +2186,13 @@ class _BookTabState extends ConsumerState<_BookTab> {
                         ),
                         decoration: BoxDecoration(
                           color: sel
-                              ? SevaCareColors.primary
-                              : SevaCareColors.surface,
+                              ? context.colors.primary
+                              : context.colors.surface,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: sel
-                                ? SevaCareColors.primary
-                                : SevaCareColors.border,
+                                ? context.colors.primary
+                                : context.colors.border,
                           ),
                         ),
                         child: Text(
@@ -2202,7 +2202,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             height: 1.4,
-                            color: sel ? Colors.white : SevaCareColors.text,
+                            color: sel ? Colors.white : context.colors.text,
                           ),
                         ),
                       ),
@@ -2227,7 +2227,7 @@ class _BookTabState extends ConsumerState<_BookTab> {
                       onPressed: _resettingTokenCounter ? null : _resetTokenCounter,
                       child: Text(
                         _resettingTokenCounter ? 'Resetting…' : 'Reset counter',
-                        style: AppTextStyles.label(SevaCareColors.primary),
+                        style: AppTextStyles.label(context.colors.primary),
                       ),
                     )
                   : null,
@@ -2237,21 +2237,21 @@ class _BookTabState extends ConsumerState<_BookTab> {
                   ? Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: SevaCareColors.errorSurface,
+                        color: context.colors.errorSurface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.event_busy,
                             size: 16,
-                            color: SevaCareColors.danger,
+                            color: context.colors.danger,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '$_doctorName is on leave on $_date. Pick another date or doctor.',
-                              style: AppTextStyles.label(SevaCareColors.danger),
+                              style: AppTextStyles.label(context.colors.danger),
                             ),
                           ),
                         ],
@@ -2273,17 +2273,17 @@ class _BookTabState extends ConsumerState<_BookTab> {
                         if (_blockedSlots.isNotEmpty) ...[
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.block,
                                 size: 13,
-                                color: SevaCareColors.warning,
+                                color: context.colors.warning,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   'Doctor is unavailable for some slots (shown in amber).',
                                   style: AppTextStyles.label(
-                                    SevaCareColors.warning,
+                                    context.colors.warning,
                                   ),
                                 ),
                               ),
@@ -2324,22 +2324,22 @@ class _BookTabState extends ConsumerState<_BookTab> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.warningSurface,
+                              color: context.colors.warningSurface,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.event_busy,
                                   size: 16,
-                                  color: SevaCareColors.warning,
+                                  color: context.colors.warning,
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     '$_doctorName is not available on $_date under their working hours. Pick another date or doctor.',
                                     style: AppTextStyles.label(
-                                      SevaCareColors.warning,
+                                      context.colors.warning,
                                     ),
                                   ),
                                 ),
@@ -2427,7 +2427,7 @@ class _SortableHeader extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              style: AppTextStyles.label(SevaCareColors.primary),
+              style: AppTextStyles.label(context.colors.primary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -2438,8 +2438,8 @@ class _SortableHeader extends StatelessWidget {
                 : (dir == 'asc' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded),
             size: 13,
             color: active
-                ? SevaCareColors.primary
-                : SevaCareColors.primary.withValues(alpha: 0.45),
+                ? context.colors.primary
+                : context.colors.primary.withValues(alpha: 0.45),
           ),
         ],
       ),
@@ -2692,10 +2692,10 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          backgroundColor: SevaCareColors.surface,
+          backgroundColor: context.colors.surface,
           title: Text(
             'Edit Patient',
-            style: AppTextStyles.cardTitle(SevaCareColors.text),
+            style: AppTextStyles.cardTitle(context.colors.text),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -2730,7 +2730,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                   children: [
                     Text(
                       'Gender:',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                     const SizedBox(width: 12),
                     _ToggleChip(
@@ -2756,7 +2756,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Blood group',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -2785,12 +2785,12 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancel',
-                style: AppTextStyles.label(SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: SevaCareColors.primary,
+                backgroundColor: context.colors.primary,
               ),
               onPressed: saving
                   ? null
@@ -2856,26 +2856,26 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text(
           'Delete Patient',
-          style: AppTextStyles.cardTitle(SevaCareColors.text),
+          style: AppTextStyles.cardTitle(context.colors.text),
         ),
         content: Text(
           'Delete "${p.fullName}"?\nThis cannot be undone.',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Cancel',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: SevaCareColors.danger,
+              backgroundColor: context.colors.danger,
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -2911,13 +2911,13 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
     final apptLabel = _formatAppt(p.lastAppointment);
     final admission = _admitted[p.patientPublicId];
     return Material(
-      color: SevaCareColors.surface,
+      color: context.colors.surface,
       child: InkWell(
         onTap: () => _openDetail(p, admission),
         child: Container(
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: SevaCareColors.border, width: 0.8),
+              bottom: BorderSide(color: context.colors.border, width: 0.8),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -2934,7 +2934,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                       style: AppTextStyles.body(
                         size: 13,
                         weight: FontWeight.w600,
-                        color: SevaCareColors.text,
+                        color: context.colors.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2947,7 +2947,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                           style: AppTextStyles.body(
                             size: 11,
                             weight: FontWeight.w500,
-                            color: SevaCareColors.textMuted,
+                            color: context.colors.textMuted,
                           ),
                         ),
                         if (p.bloodGroup != null &&
@@ -2955,7 +2955,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                           const SizedBox(width: 8),
                           _MiniChip(
                             label: p.bloodGroup!,
-                            color: SevaCareColors.danger,
+                            color: context.colors.danger,
                             icon: Icons.water_drop_outlined,
                           ),
                         ],
@@ -2965,7 +2965,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                       const SizedBox(height: 4),
                       _MiniChip(
                         label: 'In ${admission.roomLabel ?? 'room'}',
-                        color: SevaCareColors.primary,
+                        color: context.colors.primary,
                         icon: Icons.king_bed_outlined,
                       ),
                     ],
@@ -2976,7 +2976,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                 width: 36,
                 child: Text(
                   p.age != null ? '${p.age}y' : '—',
-                  style: AppTextStyles.label(SevaCareColors.textMuted),
+                  style: AppTextStyles.label(context.colors.textMuted),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -2986,15 +2986,15 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                   apptLabel,
                   style: AppTextStyles.label(
                     apptLabel == '—'
-                        ? SevaCareColors.textMuted
-                        : SevaCareColors.primary,
+                        ? context.colors.textMuted
+                        : context.colors.primary,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: SevaCareColors.textMuted),
+              Icon(Icons.chevron_right,
+                  size: 18, color: context.colors.textMuted),
             ],
           ),
         ),
@@ -3010,7 +3010,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3087,21 +3087,21 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                 children: [
                   Text(
                     'All Patients',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                    style: AppTextStyles.sectionTitle(context.colors.text),
                   ),
                   if (!_loading && _error == null)
                     Text(
                       '$_total patient${_total == 1 ? '' : 's'}  ·  showing ${_patients.length}',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                 ],
               ),
               const Spacer(),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.refresh,
                   size: 18,
-                  color: SevaCareColors.textMuted,
+                  color: context.colors.textMuted,
                 ),
                 tooltip: 'Refresh',
                 onPressed: () => _load(reset: true),
@@ -3129,12 +3129,12 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _visitFrom != null ? SevaCareColors.primarySoft : SevaCareColors.surfaceMuted,
+                    color: _visitFrom != null ? context.colors.primarySoft : context.colors.surfaceMuted,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: _visitFrom != null
-                          ? SevaCareColors.primary.withValues(alpha: 0.35)
-                          : SevaCareColors.border,
+                          ? context.colors.primary.withValues(alpha: 0.35)
+                          : context.colors.border,
                     ),
                   ),
                   child: Row(
@@ -3142,20 +3142,20 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                     children: [
                       Icon(Icons.date_range_outlined,
                           size: 14,
-                          color: _visitFrom != null ? SevaCareColors.primary : SevaCareColors.textMuted),
+                          color: _visitFrom != null ? context.colors.primary : context.colors.textMuted),
                       const SizedBox(width: 5),
                       Text(
                         _visitFrom == null
                             ? 'Visited between…'
                             : '${_fromDateStr!}  →  ${_toDateStr!}',
                         style: AppTextStyles.label(
-                            _visitFrom != null ? SevaCareColors.primary : SevaCareColors.textMuted),
+                            _visitFrom != null ? context.colors.primary : context.colors.textMuted),
                       ),
                       if (_visitFrom != null) ...[
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: _clearVisitRange,
-                          child: const Icon(Icons.close, size: 14, color: SevaCareColors.primary),
+                          child: Icon(Icons.close, size: 14, color: context.colors.primary),
                         ),
                       ],
                     ],
@@ -3165,7 +3165,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
               const Spacer(),
               if (_visitFrom == null && _searchCtrl.text.isEmpty)
                 Text('Most recent first',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
             ],
           ),
           const SizedBox(height: 8),
@@ -3202,7 +3202,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                       : _searchCtrl.text.isEmpty
                           ? 'No patients registered yet.'
                           : 'No patients match your search.',
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  style: AppTextStyles.bodyText(context.colors.textMuted),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -3212,7 +3212,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
               children: [
                 // Table header
                 Container(
-                  color: SevaCareColors.primarySoft,
+                  color: context.colors.primarySoft,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
@@ -3255,7 +3255,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                         width: 104,
                         child: Text(
                           'Actions',
-                          style: AppTextStyles.label(SevaCareColors.primary),
+                          style: AppTextStyles.label(context.colors.primary),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -3364,7 +3364,7 @@ class _StaffVitalsSection extends StatelessWidget {
               Icon(
                 Icons.monitor_heart_outlined,
                 size: 16,
-                color: expanded ? SevaCareColors.mint : SevaCareColors.primary,
+                color: expanded ? context.colors.mint : context.colors.primary,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -3373,11 +3373,11 @@ class _StaffVitalsSection extends StatelessWidget {
                   children: [
                     Text(
                       'Record Vitals (optional)',
-                      style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                      style: AppTextStyles.sectionTitle(context.colors.text),
                     ),
                     Text(
                       'BP · Temperature · Weight · Pulse · SpO₂',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -3385,7 +3385,7 @@ class _StaffVitalsSection extends StatelessWidget {
               Icon(
                 expanded ? Icons.expand_less : Icons.expand_more,
                 size: 20,
-                color: SevaCareColors.textMuted,
+                color: context.colors.textMuted,
               ),
             ],
           ),
@@ -3435,35 +3435,35 @@ class _StaffVitalInput extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        Text(label, style: AppTextStyles.label(context.colors.textMuted)),
         const SizedBox(height: 4),
         TextFormField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-          style: AppTextStyles.inputText(SevaCareColors.text),
+          style: AppTextStyles.inputText(context.colors.text),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.inputHint(
-              SevaCareColors.textMuted.withValues(alpha: 0.5),
+              context.colors.textMuted.withValues(alpha: 0.5),
             ),
             suffixText: unit,
-            suffixStyle: AppTextStyles.label(SevaCareColors.mint),
+            suffixStyle: AppTextStyles.label(context.colors.mint),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: SevaCareColors.mint, width: 2),
+              borderSide: BorderSide(color: context.colors.mint, width: 2),
             ),
             filled: true,
-            fillColor: SevaCareColors.surface,
+            fillColor: context.colors.surface,
           ),
         ),
       ],
@@ -3505,9 +3505,9 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, size: 16, color: SevaCareColors.primary),
+      Icon(icon, size: 16, color: context.colors.primary),
       const SizedBox(width: 6),
-      Text(title, style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+      Text(title, style: AppTextStyles.sectionTitle(context.colors.text)),
       if (trailing != null) ...[const Spacer(), trailing!],
     ],
   );
@@ -3526,7 +3526,7 @@ class _Spinner extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
       const SizedBox(width: 10),
-      Text(label, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+      Text(label, style: AppTextStyles.bodyText(context.colors.textMuted)),
     ],
   );
 }
@@ -3539,10 +3539,10 @@ class _RetryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      const Icon(Icons.error_outline, size: 16, color: SevaCareColors.danger),
+      Icon(Icons.error_outline, size: 16, color: context.colors.danger),
       const SizedBox(width: 6),
       Expanded(
-        child: Text(msg, style: AppTextStyles.label(SevaCareColors.danger)),
+        child: Text(msg, style: AppTextStyles.label(context.colors.danger)),
       ),
       TextButton(onPressed: onRetry, child: const Text('Retry')),
     ],
@@ -3575,9 +3575,9 @@ class _SlotAccordionSection extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3591,14 +3591,14 @@ class _SlotAccordionSection extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(title,
-                        style: AppTextStyles.label(SevaCareColors.textMuted)),
+                        style: AppTextStyles.label(context.colors.textMuted)),
                   ),
                   Text('${slots.length}',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                   const SizedBox(width: 6),
                   Icon(
                     expanded ? Icons.expand_less : Icons.expand_more,
-                    color: SevaCareColors.textMuted,
+                    color: context.colors.textMuted,
                   ),
                 ],
               ),
@@ -3651,21 +3651,21 @@ class _SlotGrid extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: isBlocked
-                ? SevaCareColors.warningSurface
+                ? context.colors.warningSurface
                 : isBooked
-                ? SevaCareColors.border
+                ? context.colors.border
                 : isSel
-                ? SevaCareColors.primary
-                : SevaCareColors.surface,
+                ? context.colors.primary
+                : context.colors.surface,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isBlocked
-                  ? SevaCareColors.warning.withValues(alpha: 0.5)
+                  ? context.colors.warning.withValues(alpha: 0.5)
                   : isBooked
-                  ? SevaCareColors.border
+                  ? context.colors.border
                   : isSel
-                  ? SevaCareColors.primary
-                  : SevaCareColors.border,
+                  ? context.colors.primary
+                  : context.colors.border,
             ),
           ),
           child: Text(
@@ -3674,12 +3674,12 @@ class _SlotGrid extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: isBlocked
-                  ? SevaCareColors.warning
+                  ? context.colors.warning
                   : isBooked
-                  ? SevaCareColors.textMuted
+                  ? context.colors.textMuted
                   : isSel
                   ? Colors.white
-                  : SevaCareColors.text,
+                  : context.colors.text,
               decoration: isBooked ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -3705,16 +3705,16 @@ class _ToggleChip extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: selected ? SevaCareColors.primary : SevaCareColors.surface,
+        color: selected ? context.colors.primary : context.colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: Border.all(
-          color: selected ? SevaCareColors.primary : SevaCareColors.border,
+          color: selected ? context.colors.primary : context.colors.border,
         ),
       ),
       child: Text(
         label,
         style: AppTextStyles.label(
-          selected ? SevaCareColors.textOnPrimary : SevaCareColors.textMuted,
+          selected ? context.colors.textOnPrimary : context.colors.textMuted,
         ),
       ),
     ),
@@ -3728,8 +3728,8 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isError ? const Color(0xFFFFEDED) : SevaCareColors.mintSoft;
-    final fg = isError ? SevaCareColors.danger : SevaCareColors.mintForeground;
+    final bg = isError ? const Color(0xFFFFEDED) : context.colors.mintSoft;
+    final fg = isError ? context.colors.danger : context.colors.mintForeground;
     final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -3824,7 +3824,7 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
     final selection = await showModalBottomSheet<({int roomId, String notes})>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3861,23 +3861,23 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text('Discharge patient',
-            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            style: AppTextStyles.cardTitle(context.colors.text)),
         content: Text(
           'Discharge ${widget.patient.fullName} from ${adm.roomLabel ?? 'the room'}? '
           'The room becomes available.',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('Cancel',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
           ),
           ElevatedButton(
             style:
-                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.primary),
+                ElevatedButton.styleFrom(backgroundColor: context.colors.primary),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Discharge', style: AppTextStyles.label(Colors.white)),
           ),
@@ -3929,19 +3929,19 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.border,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Text(p.fullName,
-                style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                style: AppTextStyles.sectionTitle(context.colors.text),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text('Patient ID · ${p.patientPublicId}',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
@@ -3964,21 +3964,21 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.primarySoft,
+                  color: context.colors.primarySoft,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: SevaCareColors.primary.withValues(alpha: 0.25)),
+                      color: context.colors.primary.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.king_bed_outlined,
-                        size: 18, color: SevaCareColors.primary),
+                    Icon(Icons.king_bed_outlined,
+                        size: 18, color: context.colors.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'In-patient · ${adm.roomLabel ?? 'room'}'
                         '${adm.admittedAt != null ? '\nSince ${adm.admittedAt}' : ''}',
-                        style: AppTextStyles.bodyText(SevaCareColors.text),
+                        style: AppTextStyles.bodyText(context.colors.text),
                       ),
                     ),
                   ],
@@ -3997,9 +3997,9 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: SevaCareColors.danger,
+                    foregroundColor: context.colors.danger,
                     side: BorderSide(
-                        color: SevaCareColors.danger.withValues(alpha: 0.5)),
+                        color: context.colors.danger.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   icon: const Icon(Icons.logout, size: 18),
@@ -4013,8 +4013,8 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: SevaCareColors.primary,
-                      side: const BorderSide(color: SevaCareColors.border),
+                      foregroundColor: context.colors.primary,
+                      side: BorderSide(color: context.colors.border),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     icon: const Icon(Icons.edit_outlined, size: 17),
@@ -4026,8 +4026,8 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: SevaCareColors.primary,
-                      side: const BorderSide(color: SevaCareColors.border),
+                      foregroundColor: context.colors.primary,
+                      side: BorderSide(color: context.colors.border),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     icon: const Icon(Icons.calendar_month_outlined, size: 17),
@@ -4041,7 +4041,7 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+                style: TextButton.styleFrom(foregroundColor: context.colors.danger),
                 icon: const Icon(Icons.delete_outline, size: 17),
                 label: const Text('Delete patient'),
                 onPressed: _busy ? null : widget.onDelete,
@@ -4057,16 +4057,16 @@ class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: SevaCareColors.surfaceMuted,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: SevaCareColors.textMuted),
+          Icon(icon, size: 13, color: context.colors.textMuted),
           const SizedBox(width: 5),
-          Text(text, style: AppTextStyles.label(SevaCareColors.text)),
+          Text(text, style: AppTextStyles.label(context.colors.text)),
         ],
       ),
     );
@@ -4153,25 +4153,22 @@ class _AdmitRoomSheetState extends ConsumerState<_AdmitRoomSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.border,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Text('Admit ${widget.patientName}',
-                style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                style: AppTextStyles.sectionTitle(context.colors.text),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text('Choose an available room',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 14),
             if (_loading)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const ShimmerList(count: 3, cardHeight: 88)
             else if (_error != null)
               _Banner(msg: _error!, isError: true)
             else if (_rooms.isEmpty)
@@ -4179,18 +4176,18 @@ class _AdmitRoomSheetState extends ConsumerState<_AdmitRoomSheet> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
+                  color: context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.meeting_room_outlined,
-                        color: SevaCareColors.textMuted),
+                    Icon(Icons.meeting_room_outlined,
+                        color: context.colors.textMuted),
                     const SizedBox(height: 8),
                     Text(
                       'No free rooms right now.\nAdd rooms in the Rooms tab first.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                      style: AppTextStyles.bodyText(context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -4305,9 +4302,9 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          backgroundColor: SevaCareColors.surface,
+          backgroundColor: context.colors.surface,
           title:
-              Text('Add room', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              Text('Add room', style: AppTextStyles.cardTitle(context.colors.text)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -4321,7 +4318,7 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
                 ),
                 const SizedBox(height: 6),
                 Text('Type (optional)',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -4347,11 +4344,11 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text('Cancel',
-                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+                  style: AppTextStyles.label(context.colors.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: SevaCareColors.primary),
+                  backgroundColor: context.colors.primary),
               onPressed: saving
                   ? null
                   : () async {
@@ -4397,20 +4394,20 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title:
-            Text('Remove room', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            Text('Remove room', style: AppTextStyles.cardTitle(context.colors.text)),
         content: Text('Remove ${r.label}? This cannot be undone.',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            style: AppTextStyles.bodyText(context.colors.textMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('Cancel',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
           ),
           ElevatedButton(
             style:
-                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.danger),
+                ElevatedButton.styleFrom(backgroundColor: context.colors.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Remove', style: AppTextStyles.label(Colors.white)),
           ),
@@ -4437,23 +4434,23 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text('Discharge patient',
-            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            style: AppTextStyles.cardTitle(context.colors.text)),
         content: Text(
           'Discharge ${r.occupantName ?? 'the patient'} from ${r.label}? '
           'The room becomes available.',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('Cancel',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
           ),
           ElevatedButton(
             style:
-                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.primary),
+                ElevatedButton.styleFrom(backgroundColor: context.colors.primary),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Discharge', style: AppTextStyles.label(Colors.white)),
           ),
@@ -4487,19 +4484,19 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Rooms',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
                 if (!_loading && _error == null)
                   Text(
                     '${_rooms.length} room${_rooms.length == 1 ? '' : 's'}  ·  '
                     '$available free  ·  $occupied occupied',
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                    style: AppTextStyles.label(context.colors.textMuted),
                   ),
               ],
             ),
             const Spacer(),
             IconButton(
-              icon: const Icon(Icons.refresh,
-                  size: 18, color: SevaCareColors.textMuted),
+              icon: Icon(Icons.refresh,
+                  size: 18, color: context.colors.textMuted),
               tooltip: 'Refresh',
               onPressed: () => _load(initial: true),
             ),
@@ -4510,9 +4507,9 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: SevaCareColors.primary,
+              foregroundColor: context.colors.primary,
               side:
-                  BorderSide(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+                  BorderSide(color: context.colors.primary.withValues(alpha: 0.4)),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
             icon: const Icon(Icons.add, size: 18),
@@ -4538,21 +4535,21 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
-        color: SevaCareColors.surfaceMuted,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          const Icon(Icons.king_bed_outlined,
-              size: 32, color: SevaCareColors.textMuted),
+          Icon(Icons.king_bed_outlined,
+              size: 32, color: context.colors.textMuted),
           const SizedBox(height: 10),
           Text('No rooms yet',
-              style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              style: AppTextStyles.cardTitle(context.colors.text)),
           const SizedBox(height: 4),
           Text(
             'Add your wards and rooms to start admitting in-patients.',
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
         ],
       ),
@@ -4565,12 +4562,12 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: occupied
-              ? SevaCareColors.primary.withValues(alpha: 0.30)
-              : SevaCareColors.border,
+              ? context.colors.primary.withValues(alpha: 0.30)
+              : context.colors.border,
         ),
       ),
       child: Row(
@@ -4580,14 +4577,14 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
             height: 44,
             decoration: BoxDecoration(
               color: occupied
-                  ? SevaCareColors.primarySoft
-                  : SevaCareColors.surfaceMuted,
+                  ? context.colors.primarySoft
+                  : context.colors.surfaceMuted,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(Icons.king_bed_outlined,
                 color: occupied
-                    ? SevaCareColors.primary
-                    : SevaCareColors.textMuted),
+                    ? context.colors.primary
+                    : context.colors.textMuted),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -4598,14 +4595,14 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
                   children: [
                     Flexible(
                       child: Text(r.label,
-                          style: AppTextStyles.cardTitle(SevaCareColors.text),
+                          style: AppTextStyles.cardTitle(context.colors.text),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
                     if (r.roomType != null && r.roomType!.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       _MiniChip(
-                          label: r.roomType!, color: SevaCareColors.textMuted),
+                          label: r.roomType!, color: context.colors.textMuted),
                     ],
                   ],
                 ),
@@ -4613,7 +4610,7 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
                 Text(
                   occupied ? (r.occupantName ?? 'Occupied') : 'Available',
                   style: AppTextStyles.label(
-                      occupied ? SevaCareColors.primary : SevaCareColors.mint),
+                      occupied ? context.colors.primary : context.colors.mint),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4623,14 +4620,14 @@ class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
           if (occupied)
             _ActionIcon(
               icon: Icons.logout,
-              color: SevaCareColors.danger,
+              color: context.colors.danger,
               tooltip: 'Discharge',
               onTap: () => _discharge(r),
             )
           else
             _ActionIcon(
               icon: Icons.delete_outline,
-              color: SevaCareColors.textMuted,
+              color: context.colors.textMuted,
               tooltip: 'Remove',
               onTap: () => _deleteRoom(r),
             ),

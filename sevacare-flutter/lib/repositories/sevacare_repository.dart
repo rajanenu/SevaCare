@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,34 @@ class SevaCareRepository {
   final ApiClient _client;
 
   SevaCareRepository(this._client);
+
+  // Content-addressed media is immutable, so bytes fetched once are good for the
+  // whole session — a sha can never point at different bytes.
+  final Map<String, Uint8List> _mediaCache = {};
+
+  /// Fetches image bytes from the deduplicated media store by their content
+  /// address (sha). Cached for the session; null on empty/missing.
+  Future<Uint8List?> getMediaBytes(String sha) async {
+    if (sha.isEmpty) return null;
+    final cached = _mediaCache[sha];
+    if (cached != null) return cached;
+    final bytes = await _client.getBytes('/public/media/$sha');
+    if (bytes.isEmpty) return null;
+    _mediaCache[sha] = bytes;
+    return bytes;
+  }
+
+  /// Resolves a [PhotoView] to displayable bytes, preferring the media store
+  /// reference and falling back to a legacy base64 payload. Null when neither.
+  Future<Uint8List?> resolvePhotoBytes(PhotoView photo) async {
+    if (photo.mediaSha != null && photo.mediaSha!.isNotEmpty) {
+      return getMediaBytes(photo.mediaSha!);
+    }
+    if (photo.photoBase64 != null && photo.photoBase64!.isNotEmpty) {
+      return base64Decode(photo.photoBase64!);
+    }
+    return null;
+  }
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
@@ -51,15 +80,18 @@ class SevaCareRepository {
     }).toList();
   }
 
-  /// Hospital hero image (login-screen background). Returns the base64
-  /// payload, or null when the hospital has no image uploaded.
-  Future<String?> getTenantHeroImageBase64(String tenantId) async {
+  /// Hospital hero image (login-screen background) as displayable bytes.
+  /// Prefers the media-store reference and falls back to a legacy base64
+  /// payload; null when the hospital has no image uploaded.
+  Future<Uint8List?> getTenantHeroImageBytes(String tenantId) async {
     final data = await _client.get<Map<String, dynamic>>(
       ApiConstants.publicTenantHeroImage(tenantId),
       fromJson: (d) => d as Map<String, dynamic>,
     );
+    final sha = data['mediaSha'] as String?;
+    if (sha != null && sha.isNotEmpty) return getMediaBytes(sha);
     final b64 = data['imageBase64'] as String?;
-    return (b64 == null || b64.isEmpty) ? null : b64;
+    return (b64 == null || b64.isEmpty) ? null : base64Decode(b64);
   }
 
   Future<ReferenceLookups> getLookups() async {
@@ -497,6 +529,19 @@ class SevaCareRepository {
     return _client.get<DoctorQueueDayView>(
       ApiConstants.doctorQueue(tenantId, doctorId, date),
       fromJson: (d) => DoctorQueueDayView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  /// Conditional fetch of the doctor's day queue. Pass the [etag] held from the
+  /// last fetch; an unchanged queue comes back as `notModified` (a cheap 304 with
+  /// no body), so the board can poll on a short interval for near-zero cost.
+  Future<Revalidated<DoctorQueueDayView>> getDoctorQueueRevalidated(
+      String tenantId, String doctorId, String date, String token, String? etag) async {
+    return _client.getIfChanged<DoctorQueueDayView>(
+      ApiConstants.doctorQueue(tenantId, doctorId, date),
+      fromJson: (d) => DoctorQueueDayView.fromJson(d as Map<String, dynamic>),
+      etag: etag,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
   }

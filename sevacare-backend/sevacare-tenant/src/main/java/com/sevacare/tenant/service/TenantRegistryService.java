@@ -74,26 +74,35 @@ public class TenantRegistryService {
     @Transactional(readOnly = true)
     public DiscoveryDtos.TenantHeroImage getTenantHeroImage(String tenantPublicId) {
         return jdbcTemplate.query(
-                "SELECT hero_image_base64, hero_image_content_type FROM public.tenant_registry " +
+                "SELECT hero_image_base64, hero_image_content_type, hero_image_media_sha FROM public.tenant_registry " +
                         "WHERE tenant_public_id = ? AND tenant_status = 'active'",
-                rs -> rs.next()
-                        ? new DiscoveryDtos.TenantHeroImage(
-                                tenantPublicId,
-                                rs.getString("hero_image_base64"),
-                                rs.getString("hero_image_content_type"))
-                        : new DiscoveryDtos.TenantHeroImage(tenantPublicId, null, null),
+                rs -> {
+                    if (!rs.next()) {
+                        return new DiscoveryDtos.TenantHeroImage(tenantPublicId, null, null, null);
+                    }
+                    String sha = rs.getString("hero_image_media_sha");
+                    // Once migrated, the reference wins and the legacy base64 is dropped
+                    // from the payload (the client fetches bytes from /media/{sha}).
+                    return sha != null
+                            ? new DiscoveryDtos.TenantHeroImage(tenantPublicId, null, null, sha)
+                            : new DiscoveryDtos.TenantHeroImage(
+                                    tenantPublicId,
+                                    rs.getString("hero_image_base64"),
+                                    rs.getString("hero_image_content_type"),
+                                    null);
+                },
                 tenantPublicId
         );
     }
 
+    /** Store the hero image's media reference (bytes already in public.media); null clears it. */
     @Transactional
-    public void updateTenantHeroImage(String tenantPublicId, String imageBase64, String contentType) {
-        boolean clearing = imageBase64 == null || imageBase64.isBlank();
+    public void updateTenantHeroImage(String tenantPublicId, String mediaSha) {
         int updated = jdbcTemplate.update(
-                "UPDATE public.tenant_registry SET hero_image_base64 = ?, hero_image_content_type = ? " +
+                "UPDATE public.tenant_registry " +
+                        "SET hero_image_media_sha = ?, hero_image_base64 = NULL, hero_image_content_type = NULL " +
                         "WHERE tenant_public_id = ?",
-                clearing ? null : imageBase64,
-                clearing ? null : contentType,
+                mediaSha,
                 tenantPublicId
         );
         if (updated == 0) {

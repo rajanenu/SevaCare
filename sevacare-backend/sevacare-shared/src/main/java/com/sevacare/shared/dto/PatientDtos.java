@@ -328,7 +328,10 @@ public final class PatientDtos {
                 int totalAppointments,
                 int pendingNotes,
                 int avgConsultMinutes,
-                List<DoctorQueueFacetView> facets
+                List<DoctorQueueFacetView> facets,
+                // Content version of the queue's actual state (bookings, statuses,
+                // completions) — the HTTP ETag, so an unchanged queue is a 304.
+                String version
             ) {
             }
 
@@ -361,8 +364,13 @@ public final class PatientDtos {
             ) {
             }
 
-            /** Profile photo — base64 payload, null when none uploaded. */
-            public record PhotoView(String photoBase64) {
+            /**
+             * Profile photo. Once migrated to the media store, {@code mediaSha}
+             * carries a content-addressed reference (fetch bytes from
+             * /api/v1/public/media/{sha}) and {@code photoBase64} is null. Legacy
+             * rows not yet backfilled still return {@code photoBase64}.
+             */
+            public record PhotoView(String photoBase64, String mediaSha) {
             }
 
             public record PhotoUpdateRequest(String photoBase64) {

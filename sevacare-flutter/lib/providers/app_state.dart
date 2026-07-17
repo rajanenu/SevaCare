@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -198,10 +197,7 @@ final tenantHeroImageProvider =
     FutureProvider.family<Uint8List?, String>((ref, tenantId) async {
   if (tenantId.isEmpty) return null;
   try {
-    final b64 =
-        await ref.watch(repositoryProvider).getTenantHeroImageBase64(tenantId);
-    if (b64 == null) return null;
-    return base64Decode(b64);
+    return await ref.watch(repositoryProvider).getTenantHeroImageBytes(tenantId);
   } catch (_) {
     return null;
   }
@@ -221,9 +217,9 @@ final doctorPhotoProvider =
     return null;
   }
   try {
-    final photo = await ref.watch(repositoryProvider).getDoctorPhoto(tenantId, doctorId, token);
-    if (photo.photoBase64 == null || photo.photoBase64!.isEmpty) return null;
-    return base64Decode(photo.photoBase64!);
+    final repo = ref.watch(repositoryProvider);
+    final photo = await repo.getDoctorPhoto(tenantId, doctorId, token);
+    return repo.resolvePhotoBytes(photo);
   } catch (_) {
     return null;
   }

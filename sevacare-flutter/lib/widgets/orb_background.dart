@@ -41,7 +41,12 @@ class _OrbBackgroundState extends State<OrbBackground>
             child: AnimatedBuilder(
               animation: _ctrl,
               builder: (_, _) => CustomPaint(
-                painter: _OrbPainter(t: _ctrl.value),
+                painter: _OrbPainter(
+                  t: _ctrl.value,
+                  orb1: context.colors.primarySoft.withValues(alpha: 0.70),
+                  orb2: context.colors.mintSoft.withValues(alpha: 0.65),
+                  orb3: context.colors.peachSoft.withValues(alpha: 0.60),
+                ),
               ),
             ),
           ),
@@ -54,7 +59,15 @@ class _OrbBackgroundState extends State<OrbBackground>
 
 class _OrbPainter extends CustomPainter {
   final double t;
-  const _OrbPainter({required this.t});
+  final Color orb1;
+  final Color orb2;
+  final Color orb3;
+  const _OrbPainter({
+    required this.t,
+    required this.orb1,
+    required this.orb2,
+    required this.orb3,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -63,21 +76,21 @@ class _OrbPainter extends CustomPainter {
       20 + math.cos(t * math.pi * 0.7) * 18,
       40 + math.sin(t * math.pi) * 22,
       100,
-      SevaCareColors.primarySoft.withValues(alpha: 0.70),
+      orb1,
     );
     _orb(
       canvas,
       size.width - 20 + math.sin(t * math.pi * 1.1) * 14,
       160 + math.cos(t * math.pi * 0.8) * 18,
       80,
-      SevaCareColors.mintSoft.withValues(alpha: 0.65),
+      orb2,
     );
     _orb(
       canvas,
       size.width - 25 + math.cos(t * math.pi * 0.6) * 12,
       size.height - 185 + math.sin(t * math.pi * 0.9) * 20,
       65,
-      SevaCareColors.peachSoft.withValues(alpha: 0.60),
+      orb3,
     );
   }
 
@@ -92,5 +105,6 @@ class _OrbPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_OrbPainter old) => old.t != t;
+  bool shouldRepaint(_OrbPainter old) =>
+      old.t != t || old.orb1 != orb1 || old.orb2 != orb2 || old.orb3 != orb3;
 }

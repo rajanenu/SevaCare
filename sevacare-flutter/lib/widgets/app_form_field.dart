@@ -56,9 +56,9 @@ class AppFormField extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+            Text(label, style: AppTextStyles.label(context.colors.textMuted)),
             if (required)
-              Text(' *', style: AppTextStyles.label(SevaCareColors.danger)),
+              Text(' *', style: AppTextStyles.label(context.colors.danger)),
           ],
         ),
         const SizedBox(height: 6),
@@ -75,34 +75,34 @@ class AppFormField extends StatelessWidget {
           autofocus: autofocus,
           textInputAction: textInputAction,
           onEditingComplete: onEditingComplete,
-          style: AppTextStyles.inputText(SevaCareColors.text),
+          style: AppTextStyles.inputText(context.colors.text),
           decoration: InputDecoration(
             hintText: placeholder,
-            hintStyle: AppTextStyles.inputHint(SevaCareColors.textMuted.withValues(alpha: 0.6)),
+            hintStyle: AppTextStyles.inputHint(context.colors.textMuted.withValues(alpha: 0.6)),
             errorText: errorText,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: readOnly ? SevaCareColors.surfaceMuted : SevaCareColors.surface,
+            fillColor: readOnly ? context.colors.surfaceMuted : context.colors.surface,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: const BorderSide(color: SevaCareColors.primary, width: 2),
+              borderSide: BorderSide(color: context.colors.primary, width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.error, width: 1.5),
+              borderSide: BorderSide(color: context.colors.error, width: 1.5),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.error, width: 2),
+              borderSide: BorderSide(color: context.colors.error, width: 2),
             ),
           ),
         ),
@@ -136,8 +136,8 @@ class AppDropdown<T> extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
-            if (required) Text(' *', style: AppTextStyles.label(SevaCareColors.danger)),
+            Text(label, style: AppTextStyles.label(context.colors.textMuted)),
+            if (required) Text(' *', style: AppTextStyles.label(context.colors.danger)),
           ],
         ),
         const SizedBox(height: 6),
@@ -145,25 +145,25 @@ class AppDropdown<T> extends StatelessWidget {
           initialValue: value,
           items: items,
           onChanged: onChanged,
-          style: AppTextStyles.inputText(SevaCareColors.text),
+          style: AppTextStyles.inputText(context.colors.text),
           decoration: InputDecoration(
             filled: true,
-            fillColor: SevaCareColors.surface,
+            fillColor: context.colors.surface,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: BorderSide(color: SevaCareColors.border, width: 1.5),
+              borderSide: BorderSide(color: context.colors.border, width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              borderSide: const BorderSide(color: SevaCareColors.primary, width: 2),
+              borderSide: BorderSide(color: context.colors.primary, width: 2),
             ),
           ),
-          dropdownColor: SevaCareColors.surface,
+          dropdownColor: context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radius),
         ),
         const SizedBox(height: 14),

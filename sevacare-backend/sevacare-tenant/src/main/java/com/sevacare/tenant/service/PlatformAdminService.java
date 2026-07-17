@@ -239,14 +239,11 @@ public class PlatformAdminService {
         return toTenantView(saved);
     }
 
+    /** Store the hero image's media reference; the api layer has already put the bytes. */
     @Transactional
-    public void updateTenantHeroImage(String tenantPublicId, PlatformAdminDtos.PlatformTenantHeroImageRequest request) {
-        String imageBase64 = request.imageBase64();
-        if (imageBase64 != null && imageBase64.length() > 4_000_000) {
-            throw new IllegalArgumentException("Hero image too large — please upload an image under ~3 MB.");
-        }
+    public void updateTenantHeroImage(String tenantPublicId, String mediaSha) {
         findTenant(tenantPublicId); // 404 semantics for unknown tenants
-        tenantRegistryService.updateTenantHeroImage(tenantPublicId, imageBase64, request.contentType());
+        tenantRegistryService.updateTenantHeroImage(tenantPublicId, mediaSha);
     }
 
     @CacheEvict(cacheNames = "tenantSchemas", key = "#tenantPublicId")

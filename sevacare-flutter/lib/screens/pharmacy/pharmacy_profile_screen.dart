@@ -139,16 +139,16 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
-        title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        backgroundColor: context.colors.surface,
+        title: Text('Sign Out', style: AppTextStyles.cardTitle(context.colors.text)),
         content: Text('Are you sure you want to sign out?',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            style: AppTextStyles.bodyText(context.colors.textMuted)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted))),
+              child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: const Text('Sign Out'),
           ),
         ],
@@ -168,20 +168,20 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
-        title: Text('Delete Account', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+        backgroundColor: context.colors.surface,
+        title: Text('Delete Account', style: AppTextStyles.cardTitle(context.colors.danger)),
         content: Text(
           'This permanently disables your login — you will not be able to sign in '
           'again. The store\'s sales and stock records are not deleted, only your '
           'access. This cannot be undone. Continue?',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted))),
+              child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: const Text('Delete My Account'),
           ),
         ],
@@ -219,7 +219,10 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
       homeRoute: '/pharmacy',
       onBack: () => context.canPop() ? context.pop() : context.go('/pharmacy'),
       body: _loading
-          ? const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+          ? const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: ShimmerList(count: 5, cardHeight: 72),
+            )
           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               PageHeader(
                 title: 'My Profile',
@@ -240,7 +243,7 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
 
               AppCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Details', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                  Text('Details', style: AppTextStyles.sectionTitle(context.colors.text)),
                   const SizedBox(height: 8),
                   AppFormField(label: 'Name', controller: _nameCtrl, placeholder: 'Your name'),
                   AppFormField(
@@ -303,7 +306,7 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_error!, style: const TextStyle(color: SevaCareColors.warning, fontSize: 13)),
+                      child: Text(_error!, style: TextStyle(color: context.colors.warning, fontSize: 13)),
                     ),
                   const SizedBox(height: 8),
                   GradientButton(label: 'Save', icon: Icons.check, fullWidth: true,
@@ -314,16 +317,16 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
 
               AppCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('App', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                  Text('App', style: AppTextStyles.sectionTitle(context.colors.text)),
                   const SizedBox(height: 4),
                   // Every counter user can set their own 4-digit login passcode;
                   // once set, the shared default OTP stops working for their number.
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading: const Icon(Icons.lock_outline, color: SevaCareColors.textMuted),
-                    title: Text('Login Passcode', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                    trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                    leading: Icon(Icons.lock_outline, color: context.colors.textMuted),
+                    title: Text('Login Passcode', style: AppTextStyles.bodyText(context.colors.text)),
+                    trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
                     onTap: () async {
                       final saved = await showSetPasscodeSheet(context, ref);
                       if (saved && context.mounted) {
@@ -338,25 +341,25 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       dense: true,
-                      leading: const Icon(Icons.lock_reset_outlined, color: SevaCareColors.textMuted),
-                      title: Text("Reset a User's Passcode", style: AppTextStyles.bodyText(SevaCareColors.text)),
-                      trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                      leading: Icon(Icons.lock_reset_outlined, color: context.colors.textMuted),
+                      title: Text("Reset a User's Passcode", style: AppTextStyles.bodyText(context.colors.text)),
+                      trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
                       onTap: () => showResetPasscodeDialog(context, ref, platformWide: false),
                     ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading: const Icon(Icons.settings_outlined, color: SevaCareColors.textMuted),
-                    title: Text('Settings', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                    trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                    leading: Icon(Icons.settings_outlined, color: context.colors.textMuted),
+                    title: Text('Settings', style: AppTextStyles.bodyText(context.colors.text)),
+                    trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
                     onTap: () => context.push('/settings'),
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading: const Icon(Icons.help_outline_rounded, color: SevaCareColors.textMuted),
-                    title: Text('Help & Support', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                    trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                    leading: Icon(Icons.help_outline_rounded, color: context.colors.textMuted),
+                    title: Text('Help & Support', style: AppTextStyles.bodyText(context.colors.text)),
+                    trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
                     onTap: () => context.push('/pharmacy/help'),
                   ),
                 ]),
@@ -366,11 +369,11 @@ class _PharmacyProfileScreenState extends ConsumerState<PharmacyProfileScreen> {
               DangerButton(label: 'Sign Out', icon: Icons.logout, fullWidth: true, onPressed: _signOut),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                icon: const Icon(Icons.delete_outline, size: 18, color: SevaCareColors.danger),
-                label: Text('Delete Account', style: AppTextStyles.label(SevaCareColors.danger)),
+                icon: Icon(Icons.delete_outline, size: 18, color: context.colors.danger),
+                label: Text('Delete Account', style: AppTextStyles.label(context.colors.danger)),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(46),
-                  side: const BorderSide(color: SevaCareColors.danger),
+                  side: BorderSide(color: context.colors.danger),
                 ),
                 onPressed: _deleteAccount,
               ),

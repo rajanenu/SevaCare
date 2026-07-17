@@ -73,14 +73,14 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text(
           action == 'APPROVE'
               ? (isMessage ? 'Acknowledge Message' : 'Approve Leave')
               : action == 'DECLINE'
                   ? (isMessage ? 'Dismiss Message' : 'Decline Leave')
                   : (isMessage ? 'Reply' : 'Add Comment'),
-          style: AppTextStyles.cardTitle(SevaCareColors.text),
+          style: AppTextStyles.cardTitle(context.colors.text),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -88,13 +88,13 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
           children: [
             Text(
                 '${req.isStaffRequest ? '${req.doctorName} (IP-Staff)' : 'Dr. ${req.doctorName}'}  •  ${isMessage ? 'Message' : req.leaveType}',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                style: AppTextStyles.bodyText(context.colors.textMuted)),
             if (req.fromDate != null) ...[
               const SizedBox(height: 4),
               Text(
                   '${req.fromDate} → ${req.toDate}'
                   '${req.isHourly ? ' · ${req.startTime}–${req.endTime}' : ''}',
-                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+                  style: AppTextStyles.label(context.colors.textMuted)),
             ],
             const SizedBox(height: 12),
             AppFormField(
@@ -108,11 +108,11 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr(ref, 'Cancel'), style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text(tr(ref, 'Cancel'), style: AppTextStyles.label(context.colors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: action == 'DECLINE' ? SevaCareColors.danger : SevaCareColors.primary,
+              backgroundColor: action == 'DECLINE' ? context.colors.danger : context.colors.primary,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
@@ -142,7 +142,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Failed: ${extractErrorMessage(e)}'),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
     }
@@ -196,7 +196,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Failed: ${extractErrorMessage(e)}'),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
       return false;
@@ -277,22 +277,13 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
 
   Widget _buildLeaveTab() {
     if (_loading) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(32), child: CircularProgressIndicator()));
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(count: 4, cardHeight: 92),
+      );
     }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(children: [
-            const Icon(Icons.error_outline, color: SevaCareColors.danger),
-            const SizedBox(height: 8),
-            Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-            const SizedBox(height: 12),
-            PrimaryButton(label: tr(ref, 'Retry'), onPressed: _load),
-          ]),
-        ),
-      );
+      return AppErrorState(message: _error!, onRetry: _load);
     }
 
     final requests = _requests?.requests ?? [];
@@ -301,12 +292,12 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(children: [
-            const Icon(Icons.inbox_outlined, size: 44, color: SevaCareColors.textMuted),
+            Icon(Icons.inbox_outlined, size: 44, color: context.colors.textMuted),
             const SizedBox(height: 12),
-            Text(tr(ref, 'No leave requests'), style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+            Text(tr(ref, 'No leave requests'), style: AppTextStyles.sectionTitle(context.colors.textMuted)),
             const SizedBox(height: 6),
             Text(tr(ref, "Doctors' leave requests will appear here."),
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
                 textAlign: TextAlign.center),
           ]),
         ),
@@ -335,20 +326,20 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
             Container(
               width: 40, height: 40,
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.campaign_outlined,
-                  size: 21, color: SevaCareColors.primary),
+              child: Icon(Icons.campaign_outlined,
+                  size: 21, color: context.colors.primary),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr(ref, 'Message your doctors'),
-                    style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                    style: AppTextStyles.cardTitle(context.colors.text)),
                 const SizedBox(height: 2),
                 Text(tr(ref, 'Reach everyone, one department, or a single doctor.'),
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
               ]),
             ),
           ]),
@@ -358,15 +349,15 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: SevaCareColors.mintSoft,
+                color: context.colors.mintSoft,
                 borderRadius: BorderRadius.circular(AppTheme.radius),
-                border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+                border: Border.all(color: context.colors.mint.withValues(alpha: 0.3)),
               ),
               child: Row(children: [
-                const Icon(Icons.check_circle_outline, color: SevaCareColors.mint, size: 18),
+                Icon(Icons.check_circle_outline, color: context.colors.mint, size: 18),
                 const SizedBox(width: 8),
                 Expanded(child: Text(_sendSuccess!,
-                    style: AppTextStyles.bodyText(SevaCareColors.mintForeground))),
+                    style: AppTextStyles.bodyText(context.colors.mintForeground))),
               ]),
             ),
             const SizedBox(height: 12),
@@ -381,7 +372,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
           if (_doctors.isEmpty) ...[
             const SizedBox(height: 10),
             Text(tr(ref, 'Add a doctor before you can send messages.'),
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
           ],
         ],
       ),
@@ -394,7 +385,7 @@ class _AdminRequestsScreenState extends ConsumerState<AdminRequestsScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -499,7 +490,7 @@ class _MessageComposerSheetState extends ConsumerState<_MessageComposerSheet> {
             Container(
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: SevaCareColors.border,
+                color: context.colors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -507,9 +498,9 @@ class _MessageComposerSheetState extends ConsumerState<_MessageComposerSheet> {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
               child: Row(children: [
                 Expanded(child: Text(tr(ref, 'New Message'),
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text))),
+                    style: AppTextStyles.sectionTitle(context.colors.text))),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: SevaCareColors.textMuted),
+                  icon: Icon(Icons.close_rounded, color: context.colors.textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ]),
@@ -524,7 +515,7 @@ class _MessageComposerSheetState extends ConsumerState<_MessageComposerSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(tr(ref, 'Send to'),
-                        style: AppTextStyles.label(SevaCareColors.textMuted)),
+                        style: AppTextStyles.label(context.colors.textMuted)),
                     const SizedBox(height: 8),
 
                     // ── Target type selector (3 chips) ──────────────────────
@@ -615,9 +606,9 @@ class _MessageComposerSheetState extends ConsumerState<_MessageComposerSheet> {
             // Send action pinned above the keyboard, never over the form.
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              decoration: const BoxDecoration(
-                color: SevaCareColors.surface,
-                border: Border(top: BorderSide(color: SevaCareColors.border)),
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                border: Border(top: BorderSide(color: context.colors.border)),
               ),
               child: PrimaryButton(
                 label: switch (_targetType) {
@@ -646,20 +637,18 @@ class _LeaveRequestCard extends ConsumerWidget {
 
   const _LeaveRequestCard({required this.request, required this.onAction});
 
-  static final _statusColors = <String, Color>{
-    'PENDING':      Color(0xFFD97706),
-    'APPROVED':     SevaCareColors.mint,
-    'AUTO_APPROVED': SevaCareColors.mint,
-    'DECLINED':     SevaCareColors.danger,
-  };
-
-  Color get _statusColor => _statusColors[request.status] ?? SevaCareColors.textMuted;
+  Color _statusColor(BuildContext context) => switch (request.status) {
+        'PENDING' => const Color(0xFFD97706),
+        'APPROVED' || 'AUTO_APPROVED' => context.colors.mint,
+        'DECLINED' => context.colors.danger,
+        _ => context.colors.textMuted,
+      };
   bool  get _isPending   => request.status == 'PENDING';
   bool  get _isMessage   => request.leaveType.toUpperCase() == 'MESSAGE';
 
   // Messages read as a conversation item, not a leave to approve — so they get
   // their own icon, accent color, chip and button labels.
-  Color get _accent => _isMessage ? const Color(0xFF2563EB) : SevaCareColors.primary;
+  Color _accent(BuildContext context) => _isMessage ? const Color(0xFF2563EB) : context.colors.primary;
 
   String _typeLabel(WidgetRef ref) => switch (request.leaveType.toUpperCase()) {
     'SICK'      => tr(ref, 'Sick Leave'),
@@ -687,12 +676,12 @@ class _LeaveRequestCard extends ConsumerWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.10),
+                color: _accent(context).withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                   _isMessage ? Icons.chat_bubble_outline_rounded : Icons.event_busy_outlined,
-                  size: 20, color: _accent),
+                  size: 20, color: _accent(context)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -701,20 +690,20 @@ class _LeaveRequestCard extends ConsumerWidget {
                     request.isStaffRequest
                         ? request.doctorName
                         : 'Dr. ${request.doctorName}',
-                    style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                    style: AppTextStyles.cardTitle(context.colors.text)),
                 Text(
                     request.isStaffRequest ? '${_typeLabel(ref)} · IP-Staff' : _typeLabel(ref),
-                    style: AppTextStyles.label(_isMessage ? _accent : SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(_isMessage ? _accent(context) : context.colors.textMuted)),
               ]),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: _statusColor.withValues(alpha: 0.12),
+                color: _statusColor(context).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(_statusLabel(),
-                  style: AppTextStyles.badgeText(_statusColor)),
+                  style: AppTextStyles.badgeText(_statusColor(context))),
             ),
           ]),
 
@@ -724,17 +713,17 @@ class _LeaveRequestCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: SevaCareColors.surfaceMuted,
+                color: context.colors.surfaceMuted,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                const Icon(Icons.date_range_outlined, size: 14,
-                    color: SevaCareColors.textMuted),
+                Icon(Icons.date_range_outlined, size: 14,
+                    color: context.colors.textMuted),
                 const SizedBox(width: 6),
                 Text(
                     '${request.fromDate}  →  ${request.toDate}'
                     '${request.isHourly ? '  ·  ${request.startTime}–${request.endTime}' : ''}',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
               ]),
             ),
           ],
@@ -743,7 +732,7 @@ class _LeaveRequestCard extends ConsumerWidget {
           if (request.message.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(request.message,
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
                 maxLines: 3, overflow: TextOverflow.ellipsis),
           ],
 
@@ -753,15 +742,15 @@ class _LeaveRequestCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                const Icon(Icons.admin_panel_settings_outlined,
-                    size: 14, color: SevaCareColors.primary),
+                Icon(Icons.admin_panel_settings_outlined,
+                    size: 14, color: context.colors.primary),
                 const SizedBox(width: 6),
                 Expanded(child: Text(request.adminResponse!,
-                    style: AppTextStyles.label(SevaCareColors.primary))),
+                    style: AppTextStyles.label(context.colors.primary))),
               ]),
             ),
           ],
@@ -780,7 +769,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                   child: _ActionBtn(
                     label: tr(ref, 'Reply'),
                     icon: Icons.reply_rounded,
-                    color: _accent,
+                    color: _accent(context),
                     filled: false,
                     onTap: () => onAction('COMMENT'),
                   ),
@@ -790,7 +779,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                   child: _ActionBtn(
                     label: tr(ref, 'Acknowledge'),
                     icon: Icons.mark_chat_read_outlined,
-                    color: SevaCareColors.mint,
+                    color: context.colors.mint,
                     filled: true,
                     onTap: () => onAction('APPROVE'),
                   ),
@@ -803,7 +792,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                   child: _ActionBtn(
                     label: tr(ref, 'Comment'),
                     icon: Icons.comment_outlined,
-                    color: SevaCareColors.primary,
+                    color: context.colors.primary,
                     filled: false,
                     onTap: () => onAction('COMMENT'),
                   ),
@@ -813,7 +802,7 @@ class _LeaveRequestCard extends ConsumerWidget {
                   child: _ActionBtn(
                     label: tr(ref, 'Decline'),
                     icon: Icons.close_rounded,
-                    color: SevaCareColors.danger,
+                    color: context.colors.danger,
                     filled: false,
                     onTap: () => onAction('DECLINE'),
                   ),
@@ -825,7 +814,7 @@ class _LeaveRequestCard extends ConsumerWidget {
               _ActionBtn(
                 label: tr(ref, 'Approve Leave'),
                 icon: Icons.check_circle_outline_rounded,
-                color: SevaCareColors.mint,
+                color: context.colors.mint,
                 filled: true,
                 fullWidth: true,
                 onTap: () => onAction('APPROVE'),
@@ -915,7 +904,7 @@ class _TabBtn extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? SevaCareColors.primary : Colors.transparent,
+            color: active ? context.colors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.radius - 2),
           ),
           child: Row(
@@ -925,14 +914,14 @@ class _TabBtn extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                    color: active ? Colors.white : SevaCareColors.textMuted,
+                    color: active ? Colors.white : context.colors.textMuted,
                   )),
               if (badge != null && badge! > 0) ...[
                 const SizedBox(width: 6),
                 Container(
                   width: 18, height: 18,
                   decoration: BoxDecoration(
-                    color: active ? Colors.white : SevaCareColors.danger,
+                    color: active ? Colors.white : context.colors.danger,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -940,7 +929,7 @@ class _TabBtn extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: active ? SevaCareColors.primary : Colors.white,
+                          color: active ? context.colors.primary : Colors.white,
                         )),
                   ),
                 ),
@@ -972,12 +961,12 @@ class _TargetChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? SevaCareColors.primarySoft : SevaCareColors.surfaceMuted,
+          color: selected ? context.colors.primarySoft : context.colors.surfaceMuted,
           borderRadius: BorderRadius.circular(AppTheme.radius),
           border: Border.all(
             color: selected
-                ? SevaCareColors.primary.withValues(alpha: 0.35)
-                : SevaCareColors.border,
+                ? context.colors.primary.withValues(alpha: 0.35)
+                : context.colors.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -985,14 +974,14 @@ class _TargetChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 18,
-                color: selected ? SevaCareColors.primary : SevaCareColors.textMuted),
+                color: selected ? context.colors.primary : context.colors.textMuted),
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                  color: selected ? SevaCareColors.primary : SevaCareColors.textMuted,
+                  color: selected ? context.colors.primary : context.colors.textMuted,
                 )),
           ],
         ),

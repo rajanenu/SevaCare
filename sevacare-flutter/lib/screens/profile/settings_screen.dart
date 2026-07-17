@@ -46,14 +46,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Notifications', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('Notifications', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 8),
                 SwitchListTile.adaptive(
-                  title: Text('Push Notifications', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                  subtitle: Text('Appointment reminders & updates', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                  title: Text('Push Notifications', style: AppTextStyles.bodyText(context.colors.text)),
+                  subtitle: Text('Appointment reminders & updates', style: AppTextStyles.bodyText(context.colors.textMuted)),
                   value: _notificationsEnabled,
-                  activeThumbColor: SevaCareColors.primary,
-                  activeTrackColor: SevaCareColors.primarySoft,
+                  activeThumbColor: context.colors.primary,
+                  activeTrackColor: context.colors.primarySoft,
                   contentPadding: EdgeInsets.zero,
                   onChanged: (v) => setState(() => _notificationsEnabled = v),
                 ),
@@ -66,14 +66,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Appearance', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('Appearance', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 8),
                 SwitchListTile.adaptive(
-                  title: Text('Dark Mode', style: AppTextStyles.bodyText(SevaCareColors.text)),
-                  subtitle: Text('Toggle dark/light theme', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                  title: Text('Dark Mode', style: AppTextStyles.bodyText(context.colors.text)),
+                  subtitle: Text('Toggle dark/light theme', style: AppTextStyles.bodyText(context.colors.textMuted)),
                   value: isDark,
-                  activeThumbColor: SevaCareColors.primary,
-                  activeTrackColor: SevaCareColors.primarySoft,
+                  activeThumbColor: context.colors.primary,
+                  activeTrackColor: context.colors.primarySoft,
                   contentPadding: EdgeInsets.zero,
                   onChanged: (v) => ref.read(darkModeProvider.notifier).state = v,
                 ),
@@ -89,17 +89,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.translate_rounded,
-                        size: 18, color: SevaCareColors.primary),
+                    Icon(Icons.translate_rounded,
+                        size: 18, color: context.colors.primary),
                     const SizedBox(width: 8),
                     Text(tr(ref, 'Language'),
-                        style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                        style: AppTextStyles.sectionTitle(context.colors.text)),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   tr(ref, 'Choose your language'),
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  style: AppTextStyles.bodyText(context.colors.textMuted),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -116,13 +116,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: selected
-                              ? SevaCareColors.primary
-                              : SevaCareColors.surface,
+                              ? context.colors.primary
+                              : context.colors.surface,
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: selected
-                                ? SevaCareColors.primary
-                                : SevaCareColors.border,
+                                ? context.colors.primary
+                                : context.colors.border,
                           ),
                         ),
                         child: Column(
@@ -134,8 +134,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 size: 13,
                                 weight: FontWeight.w600,
                                 color: selected
-                                    ? SevaCareColors.textOnPrimary
-                                    : SevaCareColors.text,
+                                    ? context.colors.textOnPrimary
+                                    : context.colors.text,
                               ),
                             ),
                             if (lang != AppLanguage.en)
@@ -143,9 +143,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 lang.englishName,
                                 style: AppTextStyles.label(
                                   selected
-                                      ? SevaCareColors.textOnPrimary
+                                      ? context.colors.textOnPrimary
                                           .withValues(alpha: 0.75)
-                                      : SevaCareColors.textMuted,
+                                      : context.colors.textMuted,
                                 ),
                               ),
                           ],
@@ -163,7 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('App Info', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('App Info', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 8),
                 const InfoRow(label: 'Version', value: '1.0.0'),
                 const SectionDivider(),
@@ -179,7 +179,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Account', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('Account', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 8),
                 InfoRow(label: 'Role', value: auth.role?.label ?? 'Guest'),
                 const SectionDivider(),
@@ -211,24 +211,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: SevaCareColors.surface,
-          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          backgroundColor: context.colors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(context.colors.text)),
           content: Text(
             'Your biometric unlock is active. How would you like to sign out?',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'cancel'),
-              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'soft'),
-              child: Text('Sign Out', style: AppTextStyles.label(SevaCareColors.primary)),
+              child: Text('Sign Out', style: AppTextStyles.label(context.colors.primary)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'hard'),
-              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              style: TextButton.styleFrom(foregroundColor: context.colors.danger),
               child: const Text('Sign Out & Disable Biometric'),
             ),
           ],

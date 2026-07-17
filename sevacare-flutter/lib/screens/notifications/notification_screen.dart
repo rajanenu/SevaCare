@@ -113,43 +113,31 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.primarySoft,
+                      color: context.colors.primarySoft,
                       borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                      border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+                      border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
                     ),
-                    child: Text('Mark all read', style: AppTextStyles.chipLabel(SevaCareColors.primary)),
+                    child: Text('Mark all read', style: AppTextStyles.chipLabel(context.colors.primary)),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
           if (_loading)
-            const Center(child: CircularProgressIndicator())
+            const ShimmerList(count: 5, cardHeight: 76)
           else if (_error != null)
-            Center(
-              child: Column(children: [
-                const SizedBox(height: 40),
-                const Icon(Icons.error_outline, color: SevaCareColors.danger, size: 36),
-                const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                const SizedBox(height: 12),
-                PrimaryButton(label: 'Retry', onPressed: _load),
-              ]),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: AppErrorState(message: _error!, onRetry: _load),
             )
           else if (_data == null || _data!.notifications.isEmpty)
-            Center(
-              child: Column(children: [
-                const SizedBox(height: 48),
-                Icon(Icons.notifications_none_rounded,
-                    size: 56, color: SevaCareColors.textMuted.withValues(alpha: 0.4)),
-                const SizedBox(height: 12),
-                Text('No notifications yet', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
-                const SizedBox(height: 6),
-                Text('You\'ll be notified about appointments,\nprescriptions, and admin updates here.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 48),
-              ]),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: AppEmptyState(
+                icon: Icons.notifications_none_rounded,
+                title: 'No notifications yet',
+                message: "You'll be notified about appointments, prescriptions, and admin updates here.",
+              ),
             )
           else
             ListView.separated(
@@ -189,8 +177,8 @@ class _NotificationTile extends StatelessWidget {
     'ADMIN_MESSAGE':       (Icons.campaign_outlined,            Color(0xFF7C3AED)),
   };
 
-  (IconData, Color) get _config =>
-      _typeConfig[notification.notifType] ?? (Icons.notifications_outlined, SevaCareColors.primary);
+  (IconData, Color) _config(BuildContext context) =>
+      _typeConfig[notification.notifType] ?? (Icons.notifications_outlined, context.colors.primary);
 
   String get _timeAgo {
     try {
@@ -207,7 +195,7 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = _config;
+    final (icon, color) = _config(context);
     final isUnread = !notification.read;
 
     return GestureDetector(
@@ -215,10 +203,10 @@ class _NotificationTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
-          color: isUnread ? color.withValues(alpha: 0.06) : SevaCareColors.surface,
+          color: isUnread ? color.withValues(alpha: 0.06) : context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radius),
           border: Border.all(
-            color: isUnread ? color.withValues(alpha: 0.20) : SevaCareColors.border,
+            color: isUnread ? color.withValues(alpha: 0.20) : context.colors.border,
             width: isUnread ? 1.5 : 1,
           ),
           boxShadow: isUnread
@@ -267,16 +255,16 @@ class _NotificationTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(notification.title,
-                            style: AppTextStyles.cardTitle(SevaCareColors.text)
+                            style: AppTextStyles.cardTitle(context.colors.text)
                                 .copyWith(fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600)),
                       ),
                       const SizedBox(width: 8),
-                      Text(_timeAgo, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      Text(_timeAgo, style: AppTextStyles.label(context.colors.textMuted)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(notification.body,
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                      style: AppTextStyles.bodyText(context.colors.textMuted),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis),
                 ],

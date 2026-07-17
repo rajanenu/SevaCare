@@ -199,6 +199,23 @@ class ApiClient {
     return fromJson != null ? fromJson(data) : data as T;
   }
 
+  /// Fetches raw bytes with no envelope unwrapping — the body *is* the payload.
+  /// Used for the content-addressed media store, whose URLs are immutable, so the
+  /// caller may cache the result forever. Returns empty bytes on a 404 (a
+  /// missing/legacy image is a fallback, not an error).
+  Future<Uint8List> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const []);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return Uint8List(0);
+      rethrow;
+    }
+  }
+
   /// A conditional GET: sends the [etag] the caller already holds and lets the
   /// server answer "still current" instead of resending the body.
   ///

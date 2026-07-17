@@ -25,23 +25,23 @@ class ConnectivityBanner extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: SevaCareColors.errorSurface,
+          color: context.colors.errorSurface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: SevaCareColors.danger.withValues(alpha: 0.3), width: 1),
+              color: context.colors.danger.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
-            const Icon(Icons.wifi_off_rounded,
-                size: 15, color: SevaCareColors.danger),
+            Icon(Icons.wifi_off_rounded,
+                size: 15, color: context.colors.danger),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                 'No internet connection — showing cached data',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: SevaCareColors.danger,
+                  color: context.colors.danger,
                 ),
               ),
             ),

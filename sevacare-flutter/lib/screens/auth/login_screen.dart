@@ -98,27 +98,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text(
           'Enable $_biometricLabel?',
-          style: AppTextStyles.cardTitle(SevaCareColors.text),
+          style: AppTextStyles.cardTitle(context.colors.text),
         ),
         content: Text(
           'Use $_biometricLabel to unlock SevaCare next time — '
           'OTP will always be available as a fallback.',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Not now',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: SevaCareColors.primary,
+              backgroundColor: context.colors.primary,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Enable', style: AppTextStyles.label(Colors.white)),
@@ -435,7 +435,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 8),
               Text(
                 'Please select your role above to continue',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -466,7 +466,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Radio<bool>(
                                 value: false,
                                 groupValue: _isIpStaff,
-                                activeColor: SevaCareColors.primary,
+                                activeColor: context.colors.primary,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
                                 onChanged: (_) =>
@@ -480,7 +480,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 5),
                               Text(
                                 'Admin',
-                                style: AppTextStyles.label(SevaCareColors.text),
+                                style: AppTextStyles.label(context.colors.text),
                               ),
                             ],
                           ),
@@ -501,7 +501,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Radio<bool>(
                                 value: true,
                                 groupValue: _isIpStaff,
-                                activeColor: SevaCareColors.primary,
+                                activeColor: context.colors.primary,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
                                 onChanged: (_) =>
@@ -515,7 +515,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 5),
                               Text(
                                 'IP-Staff',
-                                style: AppTextStyles.label(SevaCareColors.text),
+                                style: AppTextStyles.label(context.colors.text),
                               ),
                             ],
                           ),
@@ -572,14 +572,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Text(
                                 '${effectiveRole.label} access',
                                 style: AppTextStyles.sectionTitle(
-                                  SevaCareColors.text,
+                                  context.colors.text,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 _roleDescription(effectiveRole),
                                 style: AppTextStyles.label(
-                                  SevaCareColors.textMuted,
+                                  context.colors.textMuted,
                                 ),
                               ),
                             ],
@@ -649,7 +649,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
                         size: 20,
-                        color: SevaCareColors.textMuted,
+                        color: context.colors.textMuted,
                       ),
                       tooltip: _otpVisible ? 'Hide OTP' : 'Show OTP',
                       onPressed: () =>
@@ -698,8 +698,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : 'Resend OTP',
                         style: AppTextStyles.label(
                           _resendCountdown > 0
-                              ? SevaCareColors.textMuted
-                              : SevaCareColors.primary,
+                              ? context.colors.textMuted
+                              : context.colors.primary,
                         ).copyWith(
                           fontWeight: FontWeight.w600,
                           decoration: _resendCountdown > 0
@@ -763,7 +763,7 @@ class _BiometricUnlockCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radius),
             boxShadow: [
               BoxShadow(
-                color: SevaCareColors.primary.withValues(alpha: 0.30),
+                color: context.colors.primary.withValues(alpha: 0.30),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -828,10 +828,10 @@ class _OtpSentBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: SevaCareColors.mintSoft,
+        color: context.colors.mintSoft,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
-          color: SevaCareColors.mint.withValues(alpha: 0.35),
+          color: context.colors.mint.withValues(alpha: 0.35),
           width: 1,
         ),
       ),
@@ -840,8 +840,8 @@ class _OtpSentBanner extends StatelessWidget {
           Container(
             width: 24,
             height: 24,
-            decoration: const BoxDecoration(
-              color: SevaCareColors.mint,
+            decoration: BoxDecoration(
+              color: context.colors.mint,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -855,7 +855,7 @@ class _OtpSentBanner extends StatelessWidget {
               usesPasscode
                   ? 'Enter your 4-digit passcode to sign in'
                   : 'OTP sent to your mobile number',
-              style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+              style: AppTextStyles.bodyText(context.colors.mintForeground),
             ),
           ),
         ],
@@ -876,26 +876,26 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: SevaCareColors.errorSurface,
+        color: context.colors.errorSurface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
-          color: SevaCareColors.danger.withValues(alpha: 0.25),
+          color: context.colors.danger.withValues(alpha: 0.25),
           width: 1,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline,
             size: 18,
-            color: SevaCareColors.danger,
+            color: context.colors.danger,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: AppTextStyles.bodyText(SevaCareColors.danger),
+              style: AppTextStyles.bodyText(context.colors.danger),
             ),
           ),
         ],

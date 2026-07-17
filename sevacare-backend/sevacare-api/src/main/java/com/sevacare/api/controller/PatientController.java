@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.api.service.IdempotencyService;
+import com.sevacare.api.service.MediaService;
 import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.ContractResponse;
@@ -32,17 +33,20 @@ public class PatientController {
     private final ReferenceDataService referenceDataService;
     private final DoctorAvailabilityService doctorAvailabilityService;
     private final IdempotencyService idempotencyService;
+    private final MediaService mediaService;
 
     public PatientController(
             PatientDomainService patientDomainService,
             ReferenceDataService referenceDataService,
             DoctorAvailabilityService doctorAvailabilityService,
-            IdempotencyService idempotencyService
+            IdempotencyService idempotencyService,
+            MediaService mediaService
     ) {
         this.patientDomainService = patientDomainService;
         this.referenceDataService = referenceDataService;
         this.doctorAvailabilityService = doctorAvailabilityService;
         this.idempotencyService = idempotencyService;
+        this.mediaService = mediaService;
     }
 
     @GetMapping("/{tenantPublicId}/{patientPublicId}/home")
@@ -332,7 +336,8 @@ public class PatientController {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        patientDomainService.updatePatientPhoto(tenantPublicId, patientPublicId, request.photoBase64());
+        String mediaSha = mediaService.putBase64(request.photoBase64());
+        patientDomainService.updatePatientPhoto(tenantPublicId, patientPublicId, mediaSha);
         return ContractResponse.of("saved");
     }
 

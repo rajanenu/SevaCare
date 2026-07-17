@@ -23,9 +23,9 @@ class SearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: SevaCareColors.border, width: 1.5),
+        border: Border.all(color: context.colors.border, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -37,12 +37,12 @@ class SearchField extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: AppTextStyles.inputText(SevaCareColors.text),
+        style: AppTextStyles.inputText(context.colors.text),
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search, size: 20, color: SevaCareColors.textMuted),
+          prefixIcon: Icon(Icons.search, size: 20, color: context.colors.textMuted),
           suffixIcon: suffixIcon,
           hintText: placeholder,
-          hintStyle: AppTextStyles.inputHint(SevaCareColors.textMuted.withValues(alpha: 0.6)),
+          hintStyle: AppTextStyles.inputHint(context.colors.textMuted.withValues(alpha: 0.6)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),

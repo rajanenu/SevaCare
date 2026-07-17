@@ -121,20 +121,20 @@ class _PaymentModeChips extends StatelessWidget {
                 duration: const Duration(milliseconds: 120),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: selected == m.$1 ? m.$4.withValues(alpha: 0.14) : SevaCareColors.surfaceMuted,
+                  color: selected == m.$1 ? m.$4.withValues(alpha: 0.14) : context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: selected == m.$1 ? m.$4 : SevaCareColors.border,
+                    color: selected == m.$1 ? m.$4 : context.colors.border,
                     width: selected == m.$1 ? 1.5 : 1,
                   ),
                 ),
                 child: Column(children: [
-                  Icon(m.$2, size: 20, color: selected == m.$1 ? m.$4 : SevaCareColors.textMuted),
+                  Icon(m.$2, size: 20, color: selected == m.$1 ? m.$4 : context.colors.textMuted),
                   const SizedBox(height: 4),
                   Text(m.$3, style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: selected == m.$1 ? m.$4 : SevaCareColors.textMuted,
+                    color: selected == m.$1 ? m.$4 : context.colors.textMuted,
                   )),
                 ]),
               ),
@@ -204,7 +204,7 @@ class _PharmacyShellScreenState extends ConsumerState<PharmacyShellScreen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.person_outline),
-          color: SevaCareColors.textMuted,
+          color: context.colors.textMuted,
           tooltip: 'Profile',
           onPressed: () => context.push('/pharmacy/profile'),
         ),
@@ -259,7 +259,7 @@ class _SegmentedTabs extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: SevaCareColors.surfaceMuted,
+          color: context.colors.surfaceMuted,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -277,17 +277,17 @@ class _SegmentedTabs extends StatelessWidget {
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                       decoration: BoxDecoration(
-                        color: current == i ? SevaCareColors.surface : Colors.transparent,
+                        color: current == i ? context.colors.surface : Colors.transparent,
                         borderRadius: BorderRadius.circular(11),
                         boxShadow: current == i
-                            ? [BoxShadow(color: SevaCareColors.shadowColor.withValues(alpha: 0.08), blurRadius: 8)]
+                            ? [BoxShadow(color: context.colors.shadowColor.withValues(alpha: 0.08), blurRadius: 8)]
                             : null,
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(tabs[i].icon, size: 18,
-                              color: current == i ? SevaCareColors.primary : SevaCareColors.textMuted),
+                              color: current == i ? context.colors.primary : context.colors.textMuted),
                           if (labelAll || current == i) ...[
                             const SizedBox(width: 6),
                             Flexible(
@@ -298,7 +298,7 @@ class _SegmentedTabs extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: current == i ? SevaCareColors.primary : SevaCareColors.textMuted,
+                                  color: current == i ? context.colors.primary : context.colors.textMuted,
                                 ),
                               ),
                             ),
@@ -350,9 +350,9 @@ class _AccordionState extends State<_Accordion> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SevaCareColors.border, width: 0.8),
+        border: Border.all(color: context.colors.border, width: 0.8),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         InkWell(
@@ -369,7 +369,7 @@ class _AccordionState extends State<_Accordion> {
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
                   if (widget.subtitle != null)
                     Text(widget.subtitle!,
-                        style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                        style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                 ]),
               ),
               if (widget.count != null && widget.count! > 0)
@@ -386,7 +386,7 @@ class _AccordionState extends State<_Accordion> {
               AnimatedRotation(
                 turns: _open ? 0.5 : 0,
                 duration: const Duration(milliseconds: 150),
-                child: const Icon(Icons.expand_more, color: SevaCareColors.textMuted),
+                child: Icon(Icons.expand_more, color: context.colors.textMuted),
               ),
             ]),
           ),
@@ -625,8 +625,8 @@ class _SellTabState extends ConsumerState<_SellTab> {
       builder: (ctx) => AlertDialog(
         title: const Text('Add a charge'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('For anything that is not a catalog medicine — a courier bag, a delivery charge.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('For anything that is not a catalog medicine — a courier bag, a delivery charge.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 12),
           TextField(controller: labelCtrl, autofocus: true, decoration: const InputDecoration(labelText: 'Description')),
           const SizedBox(height: 10),
@@ -659,7 +659,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('How many ${sku.baseUnit.toLowerCase()} to sell? '
               'A strip of 10 with only 5 needed is simply 5 here.',
-              style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 12),
           TextField(
             controller: ctrl,
@@ -730,7 +730,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error),
+          SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error),
         );
       }
     } finally {
@@ -848,14 +848,14 @@ class _SellTabState extends ConsumerState<_SellTab> {
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
         builder: (_) => _InvoiceDetailSheet(sale: s, receipt: receipt, onChanged: () {}),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+          SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     }
   }
@@ -877,20 +877,20 @@ class _SellTabState extends ConsumerState<_SellTab> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: SevaCareColors.textMuted.withValues(alpha: 0.08),
+          color: context.colors.textMuted.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.person_add_alt_1_outlined, size: 14, color: SevaCareColors.textMuted),
+          Icon(Icons.person_add_alt_1_outlined, size: 14, color: context.colors.textMuted),
           const SizedBox(width: 6),
-          const Text('New customer — no earlier purchases here',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('New customer — no earlier purchases here',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         ]),
       );
     }
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
         borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
@@ -903,13 +903,13 @@ class _SellTabState extends ConsumerState<_SellTab> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(children: [
-              const Icon(Icons.history, size: 16, color: SevaCareColors.primary),
+              Icon(Icons.history, size: 16, color: context.colors.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text('Purchase history · ${h.totalCount} invoice${h.totalCount == 1 ? '' : 's'}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
               ),
-              Icon(_historyExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: SevaCareColors.textMuted),
+              Icon(_historyExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: context.colors.textMuted),
             ]),
           ),
         ),
@@ -947,20 +947,20 @@ class _SellTabState extends ConsumerState<_SellTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                        color: SevaCareColors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(5)),
-                    child: const Text('VOID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+                        color: context.colors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(5)),
+                    child: Text('VOID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: context.colors.error)),
                   ),
                 ],
               ]),
               const SizedBox(height: 2),
               Text('${(s.soldAt ?? '').split('T').first} · ${s.itemCount} item${s.itemCount == 1 ? '' : 's'} · ${s.paymentMode}',
-                  style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+                  style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
             ]),
           ),
           const SizedBox(width: 8),
           Text(_rupees(s.totalPaise), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(width: 2),
-          const Icon(Icons.chevron_right, size: 16, color: SevaCareColors.textMuted),
+          Icon(Icons.chevron_right, size: 16, color: context.colors.textMuted),
         ]),
       ),
     );
@@ -969,7 +969,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
   Widget _rebillChip() {
     final r = _lastPurchase!;
     return ActionChip(
-      avatar: const Icon(Icons.replay, size: 16, color: SevaCareColors.primary),
+      avatar: Icon(Icons.replay, size: 16, color: context.colors.primary),
       label: Text('Same as last time (${_rupees(r.totalPaise)}, ${r.lines.length} item${r.lines.length == 1 ? '' : 's'}) · Rebill'),
       onPressed: _rebillLast,
     );
@@ -1041,7 +1041,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
   void _showHeldSheet() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) {
         return Padding(
@@ -1050,7 +1050,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
             const Text('Held sales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             if (_held.isEmpty)
-              const Text('Nothing parked right now.', style: TextStyle(color: SevaCareColors.textMuted)),
+              Text('Nothing parked right now.', style: TextStyle(color: context.colors.textMuted)),
             for (final h in List.of(_held))
               GlassCard(
                 borderWidth: 0.8,
@@ -1061,7 +1061,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
                       Text(h.customerName.isEmpty ? '${h.cart.length} item${h.cart.length == 1 ? '' : 's'}' : h.customerName,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       Text('parked ${TimeOfDay.fromDateTime(h.heldAt).format(context)}',
-                          style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+                          style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
                     ]),
                   ),
                   TextButton(
@@ -1115,7 +1115,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error),
+          SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error),
         );
       }
     }
@@ -1125,7 +1125,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     _loadRefills();
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) {
@@ -1134,14 +1134,14 @@ class _SellTabState extends ConsumerState<_SellTab> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Due for refill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Regulars whose usual purchase gap says they are about to run out. '
               'They have been nudged on WhatsApp where possible.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted),
             ),
             const SizedBox(height: 12),
             if (_refillsDue.isEmpty)
-              const Text('No refills due right now.', style: TextStyle(color: SevaCareColors.textMuted)),
+              Text('No refills due right now.', style: TextStyle(color: context.colors.textMuted)),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
@@ -1165,13 +1165,13 @@ class _SellTabState extends ConsumerState<_SellTab> {
                               ),
                               if (r.notified) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.mark_chat_read_outlined,
-                                    size: 14, color: SevaCareColors.success),
+                                Icon(Icons.mark_chat_read_outlined,
+                                    size: 14, color: context.colors.success),
                               ],
                             ]),
                             Text(
                               '${r.brandName} · every ~${r.cadenceDays}d · due ${r.dueDate}',
-                              style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted),
+                              style: TextStyle(fontSize: 11, color: context.colors.textMuted),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ]),
@@ -1218,7 +1218,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(children: [
-          const Icon(Icons.check_circle, color: SevaCareColors.success),
+          Icon(Icons.check_circle, color: context.colors.success),
           const SizedBox(width: 8),
           Expanded(child: Text('Sold · ${r.invoiceNo}')),
         ]),
@@ -1251,13 +1251,13 @@ class _SellTabState extends ConsumerState<_SellTab> {
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: SevaCareColors.peachSoft,
+                        color: context.colors.peachSoft,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.info_outline, size: 16, color: SevaCareColors.peachForeground),
+                        Icon(Icons.info_outline, size: 16, color: context.colors.peachForeground),
                         const SizedBox(width: 6),
-                        Expanded(child: Text(w, style: const TextStyle(fontSize: 12, color: SevaCareColors.peachForeground))),
+                        Expanded(child: Text(w, style: TextStyle(fontSize: 12, color: context.colors.peachForeground))),
                       ]),
                     ),
                 ],
@@ -1291,7 +1291,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
   Widget _receiptRow(String k, String v, {bool bold = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(k, style: TextStyle(color: SevaCareColors.textMuted, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+          Text(k, style: TextStyle(color: context.colors.textMuted, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
           Text(v, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
         ]),
       );
@@ -1319,7 +1319,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
               ],
             ]),
           ),
-          Container(width: 1, color: SevaCareColors.border),
+          Container(width: 1, color: context.colors.border),
           SizedBox(
             width: 420,
             child: SingleChildScrollView(child: _checkoutPanel()),
@@ -1355,11 +1355,11 @@ class _SellTabState extends ConsumerState<_SellTab> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
-          border: Border(top: BorderSide(color: SevaCareColors.border)),
+          color: context.colors.surface,
+          border: Border(top: BorderSide(color: context.colors.border)),
           boxShadow: [
             BoxShadow(
-              color: SevaCareColors.shadowColor.withValues(alpha: 0.08),
+              color: context.colors.shadowColor.withValues(alpha: 0.08),
               blurRadius: 12,
               offset: const Offset(0, -2),
             ),
@@ -1377,7 +1377,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
                     Icon(
                       _customerDues != null ? Icons.menu_book_outlined : Icons.person_outline,
                       size: 16,
-                      color: _customerDues != null ? SevaCareColors.warning : SevaCareColors.textMuted,
+                      color: _customerDues != null ? context.colors.warning : context.colors.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Flexible(
@@ -1389,7 +1389,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
-                          color: _customerDues != null ? SevaCareColors.warning : SevaCareColors.textMuted,
+                          color: _customerDues != null ? context.colors.warning : context.colors.textMuted,
                         ),
                       ),
                     ),
@@ -1440,7 +1440,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
         // While the sheet is open, the debounced dues/last-purchase/history
@@ -1458,21 +1458,21 @@ class _SellTabState extends ConsumerState<_SellTab> {
             final bottom = MediaQuery.of(ctx).viewInsets.bottom;
             return Column(children: [
               const SizedBox(height: 10),
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
               Expanded(
                 child: ListView(
                   controller: scrollController,
                   padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
                   children: [
                     Row(children: [
-                      const Icon(Icons.person_outline, size: 20, color: SevaCareColors.primary),
+                      Icon(Icons.person_outline, size: 20, color: context.colors.primary),
                       const SizedBox(width: 8),
                       const Text('Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     ]),
                     const SizedBox(height: 4),
-                    const Text('Optional — but a mobile number puts this bill on their khata '
+                    Text('Optional — but a mobile number puts this bill on their khata '
                         'and lets you repeat or look up their past purchases.',
-                        style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                        style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
                     const SizedBox(height: 14),
                     AppFormField(
                       label: 'Name',
@@ -1497,15 +1497,15 @@ class _SellTabState extends ConsumerState<_SellTab> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: SevaCareColors.warning.withValues(alpha: 0.12),
+                          color: context.colors.warning.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(children: [
-                          const Icon(Icons.menu_book_outlined, size: 15, color: SevaCareColors.warning),
+                          Icon(Icons.menu_book_outlined, size: 15, color: context.colors.warning),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text('Already owes ${_rupees(_customerDues!.outstandingPaise)} on khata',
-                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SevaCareColors.warning)),
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.colors.warning)),
                           ),
                         ]),
                       ),
@@ -1544,23 +1544,23 @@ class _SellTabState extends ConsumerState<_SellTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: SevaCareColors.primarySoft,
+          color: context.colors.primarySoft,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.35)),
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.35)),
         ),
         child: Row(children: [
-          const Icon(Icons.replay, size: 20, color: SevaCareColors.primary),
+          Icon(Icons.replay, size: 20, color: context.colors.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Repeat last purchase',
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: SevaCareColors.primary)),
+              Text('Repeat last purchase',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: context.colors.primary)),
               const SizedBox(height: 2),
               Text('${r.lines.length} item${r.lines.length == 1 ? '' : 's'} · ${_rupees(r.totalPaise)} — adds them back to the cart',
-                  style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                  style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
             ]),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: SevaCareColors.primary),
+          Icon(Icons.chevron_right, size: 18, color: context.colors.primary),
         ]),
       ),
     );
@@ -1574,7 +1574,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     final chosen = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ConfirmSaleSheet(
         cart: List.of(_cart),
@@ -1619,7 +1619,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: ActionChip(
-                avatar: const Icon(Icons.autorenew, size: 16, color: SevaCareColors.primary),
+                avatar: Icon(Icons.autorenew, size: 16, color: context.colors.primary),
                 label: Text('Refills (${_refillsDue.length})'),
                 onPressed: _showRefillsSheet,
               ),
@@ -1628,7 +1628,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: ActionChip(
-                avatar: const Icon(Icons.pause_circle_outline, size: 16, color: SevaCareColors.warning),
+                avatar: Icon(Icons.pause_circle_outline, size: 16, color: context.colors.warning),
                 label: Text('Held (${_held.length})'),
                 onPressed: _showHeldSheet,
               ),
@@ -1646,9 +1646,9 @@ class _SellTabState extends ConsumerState<_SellTab> {
           constraints: const BoxConstraints(maxHeight: 260),
           margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           decoration: BoxDecoration(
-            color: SevaCareColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: SevaCareColors.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: ListView.separated(
             shrinkWrap: true,
@@ -1673,10 +1673,10 @@ class _SellTabState extends ConsumerState<_SellTab> {
         Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
           if (s.mrpPaise > 0) Text(_rupees(s.mrpPaise), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           Text(out ? 'out of stock' : '$remaining in stock',
-              style: TextStyle(fontSize: 11, color: out ? SevaCareColors.error : SevaCareColors.textMuted)),
+              style: TextStyle(fontSize: 11, color: out ? context.colors.error : context.colors.textMuted)),
         ]),
         IconButton(
-          icon: const Icon(Icons.edit_outlined, size: 16, color: SevaCareColors.textMuted),
+          icon: Icon(Icons.edit_outlined, size: 16, color: context.colors.textMuted),
           tooltip: 'Edit GST / details',
           padding: const EdgeInsets.all(6),
           constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
@@ -1692,7 +1692,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _EditSkuSheet(
         skuPublicId: s.skuPublicId,
@@ -1730,7 +1730,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 0, 8),
       child: Row(children: [
-        const Icon(Icons.bolt, size: 14, color: SevaCareColors.warning),
+        Icon(Icons.bolt, size: 14, color: context.colors.warning),
         const SizedBox(width: 4),
         Expanded(
           child: SizedBox(
@@ -1757,9 +1757,9 @@ class _SellTabState extends ConsumerState<_SellTab> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: SevaCareColors.surfaceMuted,
+          color: context.colors.surfaceMuted,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: SevaCareColors.border, width: 0.8),
+          border: Border.all(color: context.colors.border, width: 0.8),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(style.icon, size: 13, color: style.color),
@@ -1791,22 +1791,22 @@ class _SellTabState extends ConsumerState<_SellTab> {
           Container(
             width: 38, height: 38,
             decoration: BoxDecoration(
-              color: SevaCareColors.textMuted.withValues(alpha: 0.14),
+              color: context.colors.textMuted.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.receipt_long_outlined, size: 20, color: SevaCareColors.textMuted),
+            child: Icon(Icons.receipt_long_outlined, size: 20, color: context.colors.textMuted),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(line.manualLabel!, style: const TextStyle(fontWeight: FontWeight.w600)),
-              const Text('Manual charge · not a medicine',
-                  style: TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+              Text('Manual charge · not a medicine',
+                  style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
             ]),
           ),
           Text(_rupees(line.lineTotalPaise), style: const TextStyle(fontWeight: FontWeight.w700)),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: SevaCareColors.textMuted),
+            icon: Icon(Icons.delete_outline, color: context.colors.textMuted),
             onPressed: () => setState(() => _cart.remove(line)),
           ),
         ]),
@@ -1829,7 +1829,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
               sku.mrpPaise > 0
                   ? '${_rupees(sku.mrpPaise)} / ${sku.baseUnit.toLowerCase()} · ${_rupees(line.lineTotalPaise)}'
                   : 'MRP set at billing · ${sku.baseUnit.toLowerCase()}',
-              style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11, color: context.colors.textMuted),
             ),
             Text(
               noStock
@@ -1841,15 +1841,15 @@ class _SellTabState extends ConsumerState<_SellTab> {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: (noStock || short)
-                    ? SevaCareColors.error
-                    : (remaining <= 5 ? SevaCareColors.warning : SevaCareColors.success),
+                    ? context.colors.error
+                    : (remaining <= 5 ? context.colors.warning : context.colors.success),
               ),
             ),
           ]),
         ),
         _stepper(line),
         IconButton(
-          icon: const Icon(Icons.delete_outline, color: SevaCareColors.textMuted),
+          icon: Icon(Icons.delete_outline, color: context.colors.textMuted),
           onPressed: () => setState(() => _cart.remove(line)),
         ),
       ]),
@@ -1876,8 +1876,8 @@ class _SellTabState extends ConsumerState<_SellTab> {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(color: SevaCareColors.primarySoft, borderRadius: BorderRadius.circular(8)),
-          child: Icon(icon, size: 18, color: SevaCareColors.primary),
+          decoration: BoxDecoration(color: context.colors.primarySoft, borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 18, color: context.colors.primary),
         ),
       );
 
@@ -1886,8 +1886,8 @@ class _SellTabState extends ConsumerState<_SellTab> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
-        border: Border(top: BorderSide(color: SevaCareColors.border)),
+        color: context.colors.surface,
+        border: Border(top: BorderSide(color: context.colors.border)),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Customer (optional but encouraged) — name + mobile is enough.
@@ -1896,7 +1896,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(children: [
-              const Icon(Icons.person_outline, size: 18, color: SevaCareColors.textMuted),
+              Icon(Icons.person_outline, size: 18, color: context.colors.textMuted),
               const SizedBox(width: 8),
               Text(
                 _customerNameCtrl.text.trim().isEmpty
@@ -1905,7 +1905,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              Icon(_showCustomer ? Icons.expand_less : Icons.expand_more, color: SevaCareColors.textMuted),
+              Icon(_showCustomer ? Icons.expand_less : Icons.expand_more, color: context.colors.textMuted),
             ]),
           ),
         ),
@@ -1924,14 +1924,14 @@ class _SellTabState extends ConsumerState<_SellTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: SevaCareColors.warning.withValues(alpha: 0.12),
+                color: context.colors.warning.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.menu_book_outlined, size: 14, color: SevaCareColors.warning),
+                Icon(Icons.menu_book_outlined, size: 14, color: context.colors.warning),
                 const SizedBox(width: 6),
                 Text('Owes ${_rupees(_customerDues!.outstandingPaise)} on khata',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SevaCareColors.warning)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.colors.warning)),
               ]),
             ),
           ],
@@ -1960,7 +1960,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Subtotal (MRP incl. GST)', style: TextStyle(color: SevaCareColors.textMuted)),
+              Text('Subtotal (MRP incl. GST)', style: TextStyle(color: context.colors.textMuted)),
               Text(_rupees(_subtotalPaise), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
             ]),
           ),
@@ -2096,14 +2096,14 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.86),
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 12),
             Row(children: [
               const Expanded(
                 child: Text('Review the bill', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
               Text('${widget.cart.length} item${widget.cart.length == 1 ? '' : 's'}',
-                  style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                  style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ]),
             const SizedBox(height: 10),
 
@@ -2114,11 +2114,11 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
+                  color: context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.person_outline, size: 16, color: SevaCareColors.textMuted),
+                  Icon(Icons.person_outline, size: 16, color: context.colors.textMuted),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2128,7 +2128,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
-                  const Text('Change', style: TextStyle(fontSize: 12, color: SevaCareColors.primary)),
+                  Text('Change', style: TextStyle(fontSize: 12, color: context.colors.primary)),
                 ]),
               ),
             ),
@@ -2145,7 +2145,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Total payable', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               Text(_rupees(_total),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: SevaCareColors.primary)),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: context.colors.primary)),
             ]),
             const SizedBox(height: 14),
 
@@ -2153,7 +2153,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
             if (_missingPrescriber)
               _warn(
                 Icons.gpp_maybe_outlined,
-                SevaCareColors.error,
+                context.colors.error,
                 'Schedule H item without a prescriber',
                 'The law wants the prescribing doctor on record for '
                     '${widget.cart.where((c) => c.sku?.isPrescriptionOnly ?? false).map((c) => c.sku!.brandName).join(', ')}. '
@@ -2172,7 +2172,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
             for (final c in _overStock)
               _warn(
                 Icons.inventory_2_outlined,
-                SevaCareColors.warning,
+                context.colors.warning,
                 'More ${c.sku!.brandName} than the shelf shows',
                 'Selling ${c.qty} with ${c.sku!.qtyOnHand} on record. If the stock is really there, '
                     'a delivery was never entered — receive it, or the ledger stays wrong.',
@@ -2180,14 +2180,14 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
             if (_creditWithoutMobile)
               _warn(
                 Icons.menu_book_outlined,
-                SevaCareColors.warning,
+                context.colors.warning,
                 'Credit sale with no mobile number',
                 'A khata needs someone to chase. Without a mobile this debt is not tracked anywhere.',
               ),
             if (widget.duesPaise != null && widget.duesPaise! > 0)
               _warn(
                 Icons.account_balance_wallet_outlined,
-                SevaCareColors.warning,
+                context.colors.warning,
                 'This customer already owes ${_rupees(widget.duesPaise!)}',
                 'Consider collecting it before extending more credit.',
               ),
@@ -2218,8 +2218,8 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Change to return',
-                        style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                    Text('Change to return',
+                        style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
                     const SizedBox(height: 8),
                     Text(
                       change == null ? '—' : (change < 0 ? 'short ${_rupees(-change)}' : _rupees(change)),
@@ -2227,8 +2227,8 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: change == null
-                            ? SevaCareColors.textMuted
-                            : (change < 0 ? SevaCareColors.error : SevaCareColors.success),
+                            ? context.colors.textMuted
+                            : (change < 0 ? context.colors.error : context.colors.success),
                       ),
                     ),
                   ]),
@@ -2291,11 +2291,11 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: SevaCareColors.error.withValues(alpha: 0.12),
+                    color: context.colors.error.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: const Text('Rx',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: SevaCareColors.error)),
+                  child: Text('Rx',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: context.colors.error)),
                 ),
               ],
             ]),
@@ -2303,7 +2303,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
               c.isManual
                   ? 'Manual charge'
                   : '${c.qty} × ${_rupees(c.sku!.mrpPaise)} / ${c.sku!.baseUnit.toLowerCase()}',
-              style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11.5, color: context.colors.textMuted),
             ),
           ]),
         ),
@@ -2315,7 +2315,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
   Widget _totalRow(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(k, style: const TextStyle(color: SevaCareColors.textMuted, fontSize: 13)),
+          Text(k, style: TextStyle(color: context.colors.textMuted, fontSize: 13)),
           Text(v, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         ]),
       );
@@ -2335,7 +2335,7 @@ class _ConfirmSaleSheetState extends State<_ConfirmSaleSheet> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: c)),
               const SizedBox(height: 2),
-              Text(body, style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+              Text(body, style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
             ]),
           ),
         ]),
@@ -2416,7 +2416,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
       return null;
     }
@@ -2428,7 +2428,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _InvoiceDetailSheet(sale: s, receipt: receipt, onChanged: _load),
     );
@@ -2438,7 +2438,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ReturnSheet(sale: s, onDone: _load),
     );
@@ -2467,19 +2467,19 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         title: Text('Void ${s.invoiceNo}?', style: const TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text(
+        content: Text(
           'This reverses the stock this sale drew — every unit goes back on the shelf — '
           'and marks the bill VOID. It stays on the record, but no longer counts toward '
           'takings. This cannot be undone from here.',
-          style: TextStyle(color: SevaCareColors.textMuted),
+          style: TextStyle(color: context.colors.textMuted),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.error),
+            style: TextButton.styleFrom(foregroundColor: context.colors.error),
             child: const Text('Void Sale'),
           ),
         ],
@@ -2493,7 +2493,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     }
   }
@@ -2506,21 +2506,21 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: Row(children: [
-              Icon(Icons.search, size: 15, color: SevaCareColors.textMuted),
+              Icon(Icons.search, size: 15, color: context.colors.textMuted),
               SizedBox(width: 6),
               Expanded(
                 child: Text('Find a medicine above to start a bill.',
-                    style: TextStyle(fontSize: 12.5, color: SevaCareColors.textMuted)),
+                    style: TextStyle(fontSize: 12.5, color: context.colors.textMuted)),
               ),
             ]),
           ),
           _Accordion(
             title: 'Recent Invoices',
             icon: Icons.receipt_long_outlined,
-            color: SevaCareColors.primary,
+            color: context.colors.primary,
             subtitle: '${_iso(_range.start)} → ${_iso(_range.end)}',
             count: _sales.length,
             child: _invoicesBody(),
@@ -2540,9 +2540,9 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Column(children: [
-            Icon(Icons.receipt_long_outlined, size: 42, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
+            Icon(Icons.receipt_long_outlined, size: 42, color: context.colors.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 10),
-            const Text('No bills in this date range.', style: TextStyle(color: SevaCareColors.textMuted)),
+            Text('No bills in this date range.', style: TextStyle(color: context.colors.textMuted)),
           ]),
         ),
       ]);
@@ -2564,16 +2564,16 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.date_range, size: 14, color: SevaCareColors.textMuted),
+              Icon(Icons.date_range, size: 14, color: context.colors.textMuted),
               const SizedBox(width: 4),
-              const Text('Date range',
-                  style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+              Text('Date range',
+                  style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ]),
           ),
         ),
         const Spacer(),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.sort, size: 18, color: SevaCareColors.textMuted),
+          icon: Icon(Icons.sort, size: 18, color: context.colors.textMuted),
           tooltip: 'Sort',
           initialValue: _sortBy,
           onSelected: (v) { setState(() => _sortBy = v); _load(); },
@@ -2594,8 +2594,8 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     ].join();
     return Material(
       color: s.isVoid
-          ? SevaCareColors.error.withValues(alpha: 0.05)
-          : (striped ? SevaCareColors.surfaceMuted.withValues(alpha: 0.55) : Colors.transparent),
+          ? context.colors.error.withValues(alpha: 0.05)
+          : (striped ? context.colors.surfaceMuted.withValues(alpha: 0.55) : Colors.transparent),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: () => _openDetail(s),
@@ -2620,13 +2620,13 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
                       '${(s.soldAt ?? '').split('T').first} · ${s.itemCount} item${s.itemCount == 1 ? '' : 's'} · '
                       '${s.paymentMode}${who.isNotEmpty ? ' · $who' : ''}',
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted),
+                      style: TextStyle(fontSize: 11.5, color: context.colors.textMuted),
                     ),
                   ),
                   if ((s.customerMobile ?? '').isNotEmpty) ...[
-                    const Text(' · ', style: TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                    Text(' · ', style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                     MaskedText(s.customerMobile!,
-                        style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                        style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                   ],
                 ]),
               ]),
@@ -2645,7 +2645,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
     final to = (from + _pageSize - 1).clamp(from, _sales.length);
     return Row(children: [
       Text('$from–$to of ${_sales.length}',
-          style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
       const Spacer(),
       IconButton(
         icon: const Icon(Icons.chevron_left, size: 20),
@@ -2664,8 +2664,8 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
 
   Widget _voidBadge() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(color: SevaCareColors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-        child: const Text('VOID', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+        decoration: BoxDecoration(color: context.colors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+        child: Text('VOID', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: context.colors.error)),
       );
 
   /// Everything a bill can have done to it, behind one ⋮. Four icons per row
@@ -2673,7 +2673,7 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
   /// target on a phone, a tablet and a mouse alike, and it can afford words —
   /// "Void" beside a trash can is far less ambiguous than the can alone.
   Widget _actionMenu(SaleSummary s) => PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert, size: 18, color: SevaCareColors.textMuted),
+        icon: Icon(Icons.more_vert, size: 18, color: context.colors.textMuted),
         tooltip: 'Bill actions',
         onSelected: (v) {
           switch (v) {
@@ -2730,11 +2730,11 @@ class _InvoicesTableState extends ConsumerState<_InvoicesTable> {
           PopupMenuItem(
             value: 'void',
             enabled: !s.isVoid,
-            child: const ListTile(
+            child: ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.delete_outline, size: 18, color: SevaCareColors.error),
-              title: Text('Void this bill', style: TextStyle(color: SevaCareColors.error)),
+              leading: Icon(Icons.delete_outline, size: 18, color: context.colors.error),
+              title: Text('Void this bill', style: TextStyle(color: context.colors.error)),
             ),
           ),
         ],
@@ -2755,11 +2755,11 @@ class _InvoiceDetailSheet extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           Row(children: [
             Text('Invoice ${receipt.invoiceNo}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            if (sale.isVoid) ...[const SizedBox(width: 8), _staticVoidBadge()],
+            if (sale.isVoid) ...[const SizedBox(width: 8), _staticVoidBadge(context)],
           ]),
           if (receipt.customerName != null || receipt.customerMobile != null)
             Padding(
@@ -2768,10 +2768,10 @@ class _InvoiceDetailSheet extends ConsumerWidget {
                 if (receipt.customerName != null && receipt.customerName!.isNotEmpty)
                   Text(
                       '${receipt.customerName}${receipt.customerMobile != null && receipt.customerMobile!.isNotEmpty ? ' · ' : ''}',
-                      style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                      style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
                 if (receipt.customerMobile != null && receipt.customerMobile!.isNotEmpty)
                   MaskedText(receipt.customerMobile!,
-                      style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                      style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
               ]),
             ),
           const SizedBox(height: 12),
@@ -2793,10 +2793,10 @@ class _InvoiceDetailSheet extends ConsumerWidget {
     );
   }
 
-  Widget _staticVoidBadge() => Container(
+  Widget _staticVoidBadge(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(color: SevaCareColors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-        child: const Text('VOID', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+        decoration: BoxDecoration(color: context.colors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+        child: Text('VOID', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: context.colors.error)),
       );
 }
 
@@ -2871,7 +2871,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
           _Accordion(
             title: 'Expiring soon',
             icon: Icons.schedule,
-            color: SevaCareColors.warning,
+            color: context.colors.warning,
             subtitle: 'Next 90 days — sell or return these first',
             count: _nearExpiry.length,
             initiallyOpen: true,
@@ -2884,7 +2884,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
           _Accordion(
             title: 'Running low',
             icon: Icons.trending_down,
-            color: SevaCareColors.error,
+            color: context.colors.error,
             subtitle: 'Below the reorder level you set',
             count: _lowStock.length,
             child: _loading
@@ -2896,7 +2896,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
           _Accordion(
             title: 'Recent deliveries',
             icon: Icons.local_shipping_outlined,
-            color: SevaCareColors.primary,
+            color: context.colors.primary,
             subtitle: 'What came in, and from whom',
             count: _recentGrns.length,
             child: _loading
@@ -2922,7 +2922,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
               Text(
                 '${g.lineCount} item${g.lineCount == 1 ? '' : 's'} · ${g.totalQtyBase} units'
                 '${g.supplierInvoiceNo != null ? ' · Inv ${g.supplierInvoiceNo}' : ''}',
-                style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted),
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
               ),
             ]),
           ),
@@ -2933,14 +2933,14 @@ class _StockTabState extends ConsumerState<_StockTab> {
 
   Widget _emptyNote(String s) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(s, style: const TextStyle(color: SevaCareColors.textMuted)),
+        child: Text(s, style: TextStyle(color: context.colors.textMuted)),
       );
 
   void _openEditSku(String skuPublicId, String brandName) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _EditSkuSheet(
         skuPublicId: skuPublicId,
@@ -2972,10 +2972,10 @@ class _StockTabState extends ConsumerState<_StockTab> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(b.brandName, style: const TextStyle(fontWeight: FontWeight.w600)),
             Text('Batch ${b.batchNo} · exp ${b.expiryDate ?? '—'}',
-                style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           ]),
         ),
-        _pill('${b.qtyOnHand} left', b.batchStatus == 'EXPIRED' ? SevaCareColors.error : SevaCareColors.warning),
+        _pill('${b.qtyOnHand} left', b.batchStatus == 'EXPIRED' ? context.colors.error : context.colors.warning),
       ]),
     );
   }
@@ -3000,7 +3000,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
           }),
         ),
         Expanded(child: Text(l.brandName, style: const TextStyle(fontWeight: FontWeight.w600))),
-        _pill('${l.qtyOnHand} / ${l.reorderLevel}', SevaCareColors.error),
+        _pill('${l.qtyOnHand} / ${l.reorderLevel}', context.colors.error),
       ]),
     );
   }
@@ -3013,13 +3013,13 @@ class _StockTabState extends ConsumerState<_StockTab> {
   Widget _refillBar() => Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: SevaCareColors.primarySoft,
+          color: context.colors.primarySoft,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.3)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.local_shipping_outlined, size: 18, color: SevaCareColors.primary),
+            Icon(Icons.local_shipping_outlined, size: 18, color: context.colors.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text('${_refillSelection.length} item${_refillSelection.length == 1 ? '' : 's'} to order',
@@ -3052,7 +3052,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _RefillRequestSheet(
         items: _refillSelection.values.toList(),
@@ -3071,7 +3071,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ReceiveStockSheet(onDone: _load),
     );
@@ -3081,7 +3081,7 @@ class _StockTabState extends ConsumerState<_StockTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ImportCatalogSheet(onDone: _load),
     );
@@ -3195,19 +3195,19 @@ class _RefillRequestSheetState extends ConsumerState<_RefillRequestSheet> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           Text('Refill ${widget.items.length} item${widget.items.length == 1 ? '' : 's'}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('Pick who this goes to, then send by email or WhatsApp.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('Pick who this goes to, then send by email or WhatsApp.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 14),
           if (_loading)
             const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
           else if (_suppliers.isEmpty)
-            const Text('No suppliers on file yet — add one from Receive Delivery first.',
-                style: TextStyle(color: SevaCareColors.textMuted))
+            Text('No suppliers on file yet — add one from Receive Delivery first.',
+                style: TextStyle(color: context.colors.textMuted))
           else
             DropdownButtonFormField<String>(
               initialValue: _supplierId,
@@ -3227,8 +3227,8 @@ class _RefillRequestSheetState extends ConsumerState<_RefillRequestSheet> {
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: SevaCareColors.surfaceMuted, borderRadius: BorderRadius.circular(10)),
-            child: Text(_message, style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+            decoration: BoxDecoration(color: context.colors.surfaceMuted, borderRadius: BorderRadius.circular(10)),
+            child: Text(_message, style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           ),
           const SizedBox(height: 14),
           Row(children: [
@@ -3331,7 +3331,7 @@ class _EditSkuSheetState extends ConsumerState<_EditSkuSheet> {
       widget.onSaved?.call(updated);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.brandName} updated.'), backgroundColor: SevaCareColors.success));
+          SnackBar(content: Text('${widget.brandName} updated.'), backgroundColor: context.colors.success));
     } catch (e) {
       if (mounted) setState(() => _error = _friendly(e));
     } finally {
@@ -3346,12 +3346,12 @@ class _EditSkuSheetState extends ConsumerState<_EditSkuSheet> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           Text('Edit ${widget.brandName}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('Only what you fill in changes — blank fields keep their current value.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('Only what you fill in changes — blank fields keep their current value.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 14),
           Row(children: [
             Expanded(
@@ -3390,7 +3390,7 @@ class _EditSkuSheetState extends ConsumerState<_EditSkuSheet> {
           ]),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: SevaCareColors.error, fontSize: 13)),
+            Text(_error!, style: TextStyle(color: context.colors.error, fontSize: 13)),
           ],
           const SizedBox(height: 14),
           GradientButton(label: 'Save Changes', icon: Icons.check, fullWidth: true,
@@ -3630,7 +3630,7 @@ class _ReceiveStockSheetState extends ConsumerState<_ReceiveStockSheet> {
       widget.onDone();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Delivery ${posted.grnPublicId} posted — ${posted.totalQtyBase} units in.'),
-        backgroundColor: SevaCareColors.success,
+        backgroundColor: context.colors.success,
       ));
     } catch (e) {
       _toast(_friendly(e));
@@ -3641,7 +3641,7 @@ class _ReceiveStockSheetState extends ConsumerState<_ReceiveStockSheet> {
 
   void _toast(String s) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s), backgroundColor: SevaCareColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s), backgroundColor: context.colors.error));
     }
   }
 
@@ -3652,12 +3652,12 @@ class _ReceiveStockSheetState extends ConsumerState<_ReceiveStockSheet> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           const Text('Receive Delivery', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('One delivery, any number of items — they post together as one receipt.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('One delivery, any number of items — they post together as one receipt.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 16),
 
           // ── Supplier & invoice ────────────────────────────────────────────
@@ -3699,12 +3699,12 @@ class _ReceiveStockSheetState extends ConsumerState<_ReceiveStockSheet> {
                       Text(_lines[i].sku.brandName, style: const TextStyle(fontWeight: FontWeight.w600)),
                       Text(
                         'Batch ${_lines[i].batchNo} · ${_lines[i].qty}${_lines[i].freeQty > 0 ? '+${_lines[i].freeQty} free' : ''} units',
-                        style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: context.colors.textMuted),
                       ),
                     ]),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 18, color: SevaCareColors.textMuted),
+                    icon: Icon(Icons.close, size: 18, color: context.colors.textMuted),
                     onPressed: () => setState(() => _lines.removeAt(i)),
                   ),
                 ]),
@@ -3894,27 +3894,27 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
             GlassCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(_period == _Period.day ? "Today's takings" : 'Takings this period',
-                    style: const TextStyle(color: SevaCareColors.textMuted)),
+                    style: TextStyle(color: context.colors.textMuted)),
                 const SizedBox(height: 4),
-                Text(_rupees(s.totalPaise), style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: SevaCareColors.primary)),
+                Text(_rupees(s.totalPaise), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: context.colors.primary)),
                 Text('${s.saleCount} bill${s.saleCount == 1 ? '' : 's'} · GST ${_rupees(s.gstPaise)}'
                     '${m != null && m.refundsPaise > 0 ? ' · refunds ${_rupees(m.refundsPaise)}' : ''}',
-                    style: const TextStyle(color: SevaCareColors.textMuted)),
+                    style: TextStyle(color: context.colors.textMuted)),
                 if (m != null) ...[
                   const Divider(height: 20),
                   // True margin: takings − refunds − what those units cost at GRN.
                   // A day-close/drawer concept, so only shown for the Day filter.
                   Row(children: [
                     Expanded(child: _stat('Margin', _rupees(m.marginPaise),
-                        m.marginPaise >= 0 ? SevaCareColors.success : SevaCareColors.error)),
-                    Expanded(child: _stat('Cost of goods', _rupees(m.costPaise), SevaCareColors.textMuted)),
+                        m.marginPaise >= 0 ? context.colors.success : context.colors.error)),
+                    Expanded(child: _stat('Cost of goods', _rupees(m.costPaise), context.colors.textMuted)),
                   ]),
                   if (m.unknownCostLines > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         '${m.unknownCostLines} line${m.unknownCostLines == 1 ? '' : 's'} sold from batches with no purchase price — margin excludes them.',
-                        style: const TextStyle(fontSize: 11, color: SevaCareColors.warning),
+                        style: TextStyle(fontSize: 11, color: context.colors.warning),
                       ),
                     ),
                 ],
@@ -3961,7 +3961,7 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
                 _load();
               }
             },
-            selectedColor: SevaCareColors.primarySoft,
+            selectedColor: context.colors.primarySoft,
           ),
       ]);
 
@@ -4013,7 +4013,7 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
     for (final m in _paymentModes) {
       if (m.$1 == mode) return m.$4;
     }
-    return SevaCareColors.textMuted;
+    return context.colors.textMuted;
   }
 
   Widget _trendLineCard() {
@@ -4022,8 +4022,8 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Sales trend', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 4),
-        const Text('The shape of the business over this period, not just one number.',
-            style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+        Text('The shape of the business over this period, not just one number.',
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         const SizedBox(height: 12),
         SizedBox(
           height: 140,
@@ -4046,10 +4046,10 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
               LineChartBarData(
                 spots: [for (int i = 0; i < _trend.length; i++) FlSpot(i.toDouble(), _trend[i].totalPaise.toDouble())],
                 isCurved: true,
-                color: SevaCareColors.primary,
+                color: context.colors.primary,
                 barWidth: 3,
                 dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(show: true, color: SevaCareColors.primarySoft),
+                belowBarData: BarAreaData(show: true, color: context.colors.primarySoft),
               ),
             ],
           )),
@@ -4061,17 +4061,17 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
   Widget _refundsSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Icon(Icons.keyboard_return, size: 18, color: SevaCareColors.warning),
+        Icon(Icons.keyboard_return, size: 18, color: context.colors.warning),
         const SizedBox(width: 8),
         const Text('Refunds', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
       ]),
       const SizedBox(height: 4),
-      const Text('Where refunded money went — most recent first.',
-          style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+      Text('Where refunded money went — most recent first.',
+          style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
       const SizedBox(height: 8),
       if (_refunds.isEmpty)
-        const Padding(padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('No refunds yet.', style: TextStyle(color: SevaCareColors.textMuted)))
+        Padding(padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('No refunds yet.', style: TextStyle(color: context.colors.textMuted)))
       else
         for (final r in _refunds) _refundTile(r),
     ]);
@@ -4086,11 +4086,11 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
               Text('Invoice ${r.invoiceNo}', style: const TextStyle(fontWeight: FontWeight.w600)),
               Text('${r.lineCount} item${r.lineCount == 1 ? '' : 's'} · via ${r.refundMode}'
                   '${r.reason != null && r.reason!.isNotEmpty ? ' · ${r.reason}' : ''}',
-                  style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+                  style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
             ]),
           ),
           Text('- ${_rupees(r.refundPaise)}',
-              style: const TextStyle(fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+              style: TextStyle(fontWeight: FontWeight.w700, color: context.colors.error)),
         ]),
       );
 
@@ -4100,29 +4100,29 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
     final close = m.dayClose;
     if (close != null) {
       final varianceColor = close.variancePaise == 0
-          ? SevaCareColors.success
-          : (close.variancePaise > 0 ? SevaCareColors.warning : SevaCareColors.error);
+          ? context.colors.success
+          : (close.variancePaise > 0 ? context.colors.warning : context.colors.error);
       return GlassCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.lock_outline, size: 18, color: SevaCareColors.success),
+            Icon(Icons.lock_outline, size: 18, color: context.colors.success),
             const SizedBox(width: 8),
             const Text('Day closed', style: TextStyle(fontWeight: FontWeight.w700)),
             const Spacer(),
             if (close.closedBy != null)
-              Text('by ${close.closedBy}', style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+              Text('by ${close.closedBy}', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            Expanded(child: _stat('Expected cash', _rupees(close.expectedCashPaise), SevaCareColors.textMuted)),
-            Expanded(child: _stat('Counted', _rupees(close.countedCashPaise), SevaCareColors.text)),
+            Expanded(child: _stat('Expected cash', _rupees(close.expectedCashPaise), context.colors.textMuted)),
+            Expanded(child: _stat('Counted', _rupees(close.countedCashPaise), context.colors.text)),
             Expanded(child: _stat('Variance',
                 '${close.variancePaise > 0 ? '+' : ''}${_rupees(close.variancePaise)}', varianceColor)),
           ]),
           if (close.note != null && close.note!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(close.note!, style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+              child: Text(close.note!, style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ),
         ]),
       );
@@ -4130,14 +4130,14 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
     return GlassCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.point_of_sale_outlined, size: 18, color: SevaCareColors.primary),
+          Icon(Icons.point_of_sale_outlined, size: 18, color: context.colors.primary),
           const SizedBox(width: 8),
           const Text('Close the day', style: TextStyle(fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 6),
         Text('The drawer should hold ${_rupees(m.expectedCashPaise)} in cash '
             '(cash sales minus cash refunds). Count it and close.',
-            style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         const SizedBox(height: 10),
         OutlinedButton.icon(
           icon: const Icon(Icons.calculate_outlined, size: 18),
@@ -4152,7 +4152,7 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _DayCloseSheet(expectedCashPaise: m.expectedCashPaise, onDone: _load),
     );
@@ -4161,7 +4161,7 @@ class _TodayTabState extends ConsumerState<_TodayTab> {
   Widget _stat(String label, String value, Color color) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
           Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
         ],
       );
@@ -4206,11 +4206,11 @@ class _KhataCardState extends ConsumerState<_KhataCard> {
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
         return AlertDialog(
-          backgroundColor: SevaCareColors.surface,
+          backgroundColor: context.colors.surface,
           title: Text('Receive from ${c.customerName ?? c.customerMobile}'),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Outstanding: ${_rupees(c.outstandingPaise)}',
-                style: const TextStyle(color: SevaCareColors.textMuted, fontSize: 13)),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 13)),
             const SizedBox(height: 12),
             TextField(
               controller: amountCtrl,
@@ -4250,7 +4250,7 @@ class _KhataCardState extends ConsumerState<_KhataCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     }
   }
@@ -4261,22 +4261,22 @@ class _KhataCardState extends ConsumerState<_KhataCard> {
     return GlassCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.menu_book_outlined, size: 18, color: SevaCareColors.warning),
+          Icon(Icons.menu_book_outlined, size: 18, color: context.colors.warning),
           const SizedBox(width: 8),
           const Text('Credit ledger (Khata)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const Spacer(),
           if (total > 0)
-            Text(_rupees(total), style: const TextStyle(fontWeight: FontWeight.w800, color: SevaCareColors.warning)),
+            Text(_rupees(total), style: TextStyle(fontWeight: FontWeight.w800, color: context.colors.warning)),
         ]),
         const SizedBox(height: 4),
-        const Text('Customers who bought on credit and what they still owe.',
-            style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+        Text('Customers who bought on credit and what they still owe.',
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         const SizedBox(height: 10),
         if (_loading)
           const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator()))
         else if (_dues.isEmpty)
-          const Text('No credit outstanding — everyone has settled up.',
-              style: TextStyle(color: SevaCareColors.textMuted))
+          Text('No credit outstanding — everyone has settled up.',
+              style: TextStyle(color: context.colors.textMuted))
         else
           for (final c in _dues)
             Padding(
@@ -4292,14 +4292,14 @@ class _KhataCardState extends ConsumerState<_KhataCard> {
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                     if (c.customerName != null)
                       MaskedText(c.customerMobile,
-                          style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted))
+                          style: TextStyle(fontSize: 11, color: context.colors.textMuted))
                     else
-                      const Text('no name on record',
-                          style: TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+                      Text('no name on record',
+                          style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
                   ]),
                 ),
                 Text(_rupees(c.outstandingPaise),
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: SevaCareColors.warning)),
+                    style: TextStyle(fontWeight: FontWeight.w700, color: context.colors.warning)),
                 const SizedBox(width: 4),
                 TextButton(
                   onPressed: () => _receivePayment(c),
@@ -4356,14 +4356,14 @@ class _TrendsCardState extends ConsumerState<_TrendsCard> {
     final maxQty = _top.isEmpty ? 1 : _top.map((t) => t.qtySold).reduce((a, b) => a > b ? a : b);
     return GlassCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: const [
-          Icon(Icons.trending_up, size: 18, color: SevaCareColors.primary),
+        Row(children: [
+          Icon(Icons.trending_up, size: 18, color: context.colors.primary),
           SizedBox(width: 8),
           Text('Top sellers', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         ]),
         const SizedBox(height: 4),
-        const Text('Plan your next order — what is moving over the window.',
-            style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+        Text('Plan your next order — what is moving over the window.',
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         const SizedBox(height: 10),
         Wrap(spacing: 8, children: [
           for (final p in _periods)
@@ -4376,16 +4376,16 @@ class _TrendsCardState extends ConsumerState<_TrendsCard> {
                   _load();
                 }
               },
-              selectedColor: SevaCareColors.primarySoft,
+              selectedColor: context.colors.primarySoft,
             ),
         ]),
         const SizedBox(height: 12),
         if (_loading)
           const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
         else if (_top.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('No sales in this period yet.', style: TextStyle(color: SevaCareColors.textMuted)),
+            child: Text('No sales in this period yet.', style: TextStyle(color: context.colors.textMuted)),
           )
         else
           for (final t in _top) _trendRow(t, maxQty),
@@ -4406,7 +4406,7 @@ class _TrendsCardState extends ConsumerState<_TrendsCard> {
               overflow: TextOverflow.ellipsis)),
           Text('${t.qtySold} sold', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           const SizedBox(width: 8),
-          Text(_rupees(t.revenuePaise), style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text(_rupees(t.revenuePaise), style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         ]),
         const SizedBox(height: 4),
         ClipRRect(
@@ -4414,7 +4414,7 @@ class _TrendsCardState extends ConsumerState<_TrendsCard> {
           child: LinearProgressIndicator(
             value: frac.toDouble(),
             minHeight: 6,
-            backgroundColor: SevaCareColors.surfaceMuted,
+            backgroundColor: context.colors.surfaceMuted,
             valueColor: AlwaysStoppedAnimation(style.color),
           ),
         ),
@@ -4473,7 +4473,7 @@ class _ReportsCardState extends ConsumerState<_ReportsCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -4499,7 +4499,7 @@ class _ReportsCardState extends ConsumerState<_ReportsCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -4510,14 +4510,14 @@ class _ReportsCardState extends ConsumerState<_ReportsCard> {
   Widget build(BuildContext context) {
     return GlassCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: const [
-          Icon(Icons.summarize_outlined, size: 18, color: SevaCareColors.primary),
+        Row(children: [
+          Icon(Icons.summarize_outlined, size: 18, color: context.colors.primary),
           SizedBox(width: 8),
           Text('Reports', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         ]),
         const SizedBox(height: 4),
-        const Text('The sales register and GST slab summary for a date range — for your accountant or a drug inspector.',
-            style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+        Text('The sales register and GST slab summary for a date range — for your accountant or a drug inspector.',
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
         const SizedBox(height: 10),
         InkWell(
           onTap: _pickRange,
@@ -4525,12 +4525,12 @@ class _ReportsCardState extends ConsumerState<_ReportsCard> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: SevaCareColors.surfaceMuted,
+              color: context.colors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: SevaCareColors.border),
+              border: Border.all(color: context.colors.border),
             ),
             child: Row(children: [
-              const Icon(Icons.date_range, size: 16, color: SevaCareColors.textMuted),
+              Icon(Icons.date_range, size: 16, color: context.colors.textMuted),
               const SizedBox(width: 8),
               Text('${_iso(_range.start)}  →  ${_iso(_range.end)}',
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -4598,8 +4598,8 @@ class _DayCloseSheetState extends ConsumerState<_DayCloseSheet> {
   Future<void> _close() async {
     final counted = _countedPaise;
     if (counted == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Enter the cash you counted.'), backgroundColor: SevaCareColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Enter the cash you counted.'), backgroundColor: context.colors.error));
       return;
     }
     final auth = ref.read(authProvider);
@@ -4612,12 +4612,12 @@ class _DayCloseSheetState extends ConsumerState<_DayCloseSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       widget.onDone();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Day closed.'), backgroundColor: SevaCareColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Day closed.'), backgroundColor: context.colors.success));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -4632,12 +4632,12 @@ class _DayCloseSheetState extends ConsumerState<_DayCloseSheet> {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 12),
         const Text('Close the day', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text('Expected in drawer: ${_rupees(widget.expectedCashPaise)}',
-            style: const TextStyle(color: SevaCareColors.textMuted)),
+            style: TextStyle(color: context.colors.textMuted)),
         const SizedBox(height: 16),
         AppFormField(
           label: 'Cash counted (₹)',
@@ -4655,8 +4655,8 @@ class _DayCloseSheetState extends ConsumerState<_DayCloseSheet> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: variance == 0
-                  ? SevaCareColors.success
-                  : (variance > 0 ? SevaCareColors.warning : SevaCareColors.error),
+                  ? context.colors.success
+                  : (variance > 0 ? context.colors.warning : context.colors.error),
             ),
           ),
         ],
@@ -4720,8 +4720,8 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
   Future<void> _post() async {
     final picked = _lines.where((l) => (_qty[_key(l)] ?? 0) > 0).toList();
     if (picked.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choose at least one item to return.'), backgroundColor: SevaCareColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Choose at least one item to return.'), backgroundColor: context.colors.error));
       return;
     }
     final auth = ref.read(authProvider);
@@ -4745,12 +4745,12 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
       widget.onDone();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Refunded ${_rupees(posted.refundPaise)} against ${widget.sale.invoiceNo}.'),
-        backgroundColor: SevaCareColors.success,
+        backgroundColor: context.colors.success,
       ));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+            SnackBar(content: Text(_friendly(e)), backgroundColor: context.colors.error));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -4764,20 +4764,20 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           Text('Return items — ${widget.sale.invoiceNo}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('Restock what can be resold; quarantine anything opened or doubtful.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('Restock what can be resold; quarantine anything opened or doubtful.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 14),
           if (_loading)
             const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
           else if (_lines.every((l) => l.qtyReturnable == 0))
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('Everything on this bill has already been returned.',
-                  style: TextStyle(color: SevaCareColors.textMuted)),
+                  style: TextStyle(color: context.colors.textMuted)),
             )
           else
             for (final l in _lines.where((l) => l.qtyReturnable > 0)) _lineTile(l),
@@ -4815,7 +4815,7 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(l.brandName, style: const TextStyle(fontWeight: FontWeight.w600)),
               Text('bought ${l.qtySold}${l.qtyAlreadyReturned > 0 ? ' · returned ${l.qtyAlreadyReturned}' : ''} · ${_rupees(l.perUnitPaise)}/unit',
-                  style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                  style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ]),
           ),
           IconButton(
@@ -4830,7 +4830,7 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
         ]),
         if (qty > 0)
           Row(children: [
-            const Text('Quarantine (not resellable)', style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+            Text('Quarantine (not resellable)', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             const Spacer(),
             Switch(
               value: quarantined,
@@ -4912,7 +4912,7 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name can now sign in with OTP 0000'), backgroundColor: SevaCareColors.success),
+          SnackBar(content: Text('$name can now sign in with OTP 0000'), backgroundColor: context.colors.success),
         );
       }
     } catch (e) {
@@ -4940,12 +4940,12 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 12),
           const Text('Counter Staff', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Text('Add the people who run your counter. Each signs in with their own mobile and OTP 0000.',
-              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+          Text('Add the people who run your counter. Each signs in with their own mobile and OTP 0000.',
+              style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
           const SizedBox(height: 16),
           AppFormField(label: 'Name', controller: _nameCtrl, required: true, placeholder: 'e.g. Suresh'),
           const SizedBox(height: 10),
@@ -4959,7 +4959,7 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: SevaCareColors.error, fontSize: 13)),
+            Text(_error!, style: TextStyle(color: context.colors.error, fontSize: 13)),
           ],
           const SizedBox(height: 14),
           GradientButton(label: 'Add Staff', icon: Icons.person_add_alt, fullWidth: true, isLoading: _saving,
@@ -4968,7 +4968,7 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
           Text('Your team (${active.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 8),
           if (_loading) const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
-          else if (active.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No staff yet — you run the counter alone.', style: TextStyle(color: SevaCareColors.textMuted)))
+          else if (active.isEmpty) Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No staff yet — you run the counter alone.', style: TextStyle(color: context.colors.textMuted)))
           else for (final s in active) _staffTile(s),
           const SizedBox(height: 8),
         ]),
@@ -4980,22 +4980,22 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
         borderWidth: 0.8,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(children: [
-          const CircleAvatar(radius: 16, backgroundColor: SevaCareColors.primarySoft,
-              child: Icon(Icons.person_outline, size: 18, color: SevaCareColors.primary)),
+          CircleAvatar(radius: 16, backgroundColor: context.colors.primarySoft,
+              child: Icon(Icons.person_outline, size: 18, color: context.colors.primary)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(s.fullName, style: const TextStyle(fontWeight: FontWeight.w600)),
               if (s.mobileNumber != null && s.mobileNumber!.isNotEmpty)
                 MaskedText(s.mobileNumber!,
-                    style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted))
+                    style: TextStyle(fontSize: 12, color: context.colors.textMuted))
               else
-                const Text('—', style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                Text('—', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ]),
           ),
           TextButton(
             onPressed: () => _deactivate(s),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.error),
+            style: TextButton.styleFrom(foregroundColor: context.colors.error),
             child: const Text('Remove'),
           ),
         ]),
@@ -5324,7 +5324,7 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('$created added, $stocked stocked, $updated updated, $skipped unchanged'
             '${errors.isNotEmpty ? ', ${errors.length} row(s) had problems' : ''}.'),
-        backgroundColor: errors.isNotEmpty ? SevaCareColors.warning : SevaCareColors.success,
+        backgroundColor: errors.isNotEmpty ? context.colors.warning : context.colors.success,
       ));
       // Row-level problems deserve more than a count — show which rows and why,
       // so the pharmacist can fix the file instead of guessing.
@@ -5332,7 +5332,7 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
         showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: SevaCareColors.surface,
+            backgroundColor: context.colors.surface,
             title: const Text('Rows that did not import'),
             content: SizedBox(
               width: 400,
@@ -5372,13 +5372,13 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.88),
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: context.colors.border, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 12),
             const Text('Import medicines', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('Pick the supplier\'s price list — .csv, .tsv or .xlsx. '
+            Text('Pick the supplier\'s price list — .csv, .tsv or .xlsx. '
                 'The first row must name the columns.',
-                style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             const SizedBox(height: 14),
             if (!_hasFile) ..._sourceStep() else ..._mappingStep(),
             if (_error != null) ...[
@@ -5386,13 +5386,13 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.error.withValues(alpha: 0.08),
+                  color: context.colors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: SevaCareColors.error),
+                  Icon(Icons.error_outline, size: 16, color: context.colors.error),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(_error!, style: const TextStyle(color: SevaCareColors.error, fontSize: 12.5))),
+                  Expanded(child: Text(_error!, style: TextStyle(color: context.colors.error, fontSize: 12.5))),
                 ]),
               ),
             ],
@@ -5421,11 +5421,11 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
         if (_showPaste) ...[
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: SevaCareColors.surfaceMuted, borderRadius: BorderRadius.circular(8)),
-            child: const Text(
+            decoration: BoxDecoration(color: context.colors.surfaceMuted, borderRadius: BorderRadius.circular(8)),
+            child: Text(
               'Name, Type, Strength, GST, MRP, Batch, Expiry, Qty\n'
               'Dolo 650, Tablet, 650mg, 12, 2.10, B1234, 2027-06, 200',
-              style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: context.colors.textMuted),
             ),
           ),
           const SizedBox(height: 10),
@@ -5460,9 +5460,9 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
       // Source
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(color: SevaCareColors.surfaceMuted, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: context.colors.surfaceMuted, borderRadius: BorderRadius.circular(10)),
         child: Row(children: [
-          const Icon(Icons.description_outlined, size: 16, color: SevaCareColors.primary),
+          Icon(Icons.description_outlined, size: 16, color: context.colors.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text('$_sourceName · ${_grid.length - 1} row${_grid.length - 1 == 1 ? '' : 's'}',
@@ -5485,19 +5485,19 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
       // Column mapping — one row per column of their file.
       const Text('Check the columns', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       const SizedBox(height: 2),
-      const Text('This is what each column of your file will become. Fix anything that is wrong — '
+      Text('This is what each column of your file will become. Fix anything that is wrong — '
           'these values are written straight into your catalog and stock.',
-          style: TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+          style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
       const SizedBox(height: 10),
       for (var c = 0; c < _grid.first.length; c++) _columnRow(c),
 
       if (!_nameMapped) ...[
         const SizedBox(height: 8),
-        _flag(SevaCareColors.error, Icons.error_outline,
+        _flag(context.colors.error, Icons.error_outline,
             'No column is mapped to the medicine name. Nothing can be imported without it.'),
       ],
       for (final d in dupes)
-        _flag(SevaCareColors.error, Icons.error_outline,
+        _flag(context.colors.error, Icons.error_outline,
             'Two columns are both mapped to "${_importFields.firstWhere((f) => f.key == d).label}". Pick one.'),
 
       const SizedBox(height: 14),
@@ -5508,12 +5508,12 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       const SizedBox(height: 6),
       if (rows.isEmpty)
-        _flag(SevaCareColors.warning, Icons.warning_amber_outlined,
+        _flag(context.colors.warning, Icons.warning_amber_outlined,
             'No row has a medicine name — nothing would be imported.')
       else
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: SevaCareColors.border),
+            border: Border.all(color: context.colors.border),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(children: [
@@ -5522,7 +5522,7 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text('…and ${rows.length - 5} more',
-                    style: const TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                    style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
               ),
           ]),
         ),
@@ -5564,13 +5564,13 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             Text(sample.isEmpty ? 'blank' : 'e.g. $sample',
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+                style: TextStyle(fontSize: 11, color: context.colors.textMuted)),
           ]),
         ),
         Icon(
           value == null ? Icons.block : Icons.arrow_forward,
           size: 14,
-          color: value == null ? SevaCareColors.textMuted : SevaCareColors.success,
+          color: value == null ? context.colors.textMuted : context.colors.success,
         ),
         const SizedBox(width: 8),
         SizedBox(
@@ -5581,9 +5581,9 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
             isExpanded: true,
             decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
             items: [
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
-                child: Text('Ignore', style: TextStyle(fontSize: 12.5, color: SevaCareColors.textMuted)),
+                child: Text('Ignore', style: TextStyle(fontSize: 12.5, color: context.colors.textMuted)),
               ),
               for (final f in _importFields)
                 DropdownMenuItem<String?>(
@@ -5609,7 +5609,7 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      color: i.isOdd ? SevaCareColors.surfaceMuted.withValues(alpha: 0.5) : null,
+      color: i.isOdd ? context.colors.surfaceMuted.withValues(alpha: 0.5) : null,
       child: Row(children: [
         _MedBadge(dosageForm: r['dosageForm'] as String?, baseUnit: r['baseUnit'] as String?, size: 26),
         const SizedBox(width: 8),
@@ -5627,13 +5627,13 @@ class _ImportCatalogSheetState extends ConsumerState<_ImportCatalogSheet> {
                 if (r['expiryDate'] != null) 'exp ${r['expiryDate']}',
               ].join(' · '),
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11, color: context.colors.textMuted),
             ),
           ]),
         ),
         if (r['openingQty'] != null)
           Text('+${r['openingQty']}',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SevaCareColors.success)),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.colors.success)),
       ]),
     );
   }

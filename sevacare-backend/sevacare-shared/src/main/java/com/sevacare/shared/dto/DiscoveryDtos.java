@@ -21,8 +21,13 @@ public final class DiscoveryDtos {
             String themeKey, String pinCode, boolean hasClinical, boolean hasPharmacy) {
     }
 
-    /** Hero image for a hospital — base64 payload; fields are null when the tenant has no image. */
-    public record TenantHeroImage(String tenantPublicId, String imageBase64, String contentType) {
+    /**
+     * Hero image for a hospital's login background. Once migrated, {@code mediaSha}
+     * carries a content-addressed reference (fetch from /api/v1/public/media/{sha})
+     * and the base64 fields are null; legacy rows still return base64 + contentType.
+     * All fields are null when the tenant has no image.
+     */
+    public record TenantHeroImage(String tenantPublicId, String imageBase64, String contentType, String mediaSha) {
     }
 
     public record DoctorSummary(String doctorPublicId, String name, String specialty, String availability, String fee,

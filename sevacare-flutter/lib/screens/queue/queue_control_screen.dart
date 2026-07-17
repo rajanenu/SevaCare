@@ -8,6 +8,7 @@ import '../../core/utils/date_utils.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/shimmer_loader.dart';
 
 /// Interactive live queue control, shared by doctors and front-desk staff.
 ///
@@ -192,7 +193,7 @@ class _QueueControlScreenState extends ConsumerState<QueueControlScreen> {
     final sessions = _pendingBySession;
 
     return Scaffold(
-      backgroundColor: SevaCareColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: const Text('Live Queue Control'),
         actions: [
@@ -204,7 +205,10 @@ class _QueueControlScreenState extends ConsumerState<QueueControlScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.all(16),
+              child: ShimmerList(count: 4, cardHeight: 100),
+            )
           : _error != null
               ? _ErrorState(message: _error!, onRetry: _load)
               : RefreshIndicator(
@@ -214,11 +218,11 @@ class _QueueControlScreenState extends ConsumerState<QueueControlScreen> {
                     children: [
                       Text(
                         widget.doctorName,
-                        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                        style: AppTextStyles.sectionTitle(context.colors.text),
                       ),
                       Text(
                         AppDateUtils.weekdayDateLabel(AppDateUtils.todayApi()),
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                        style: AppTextStyles.label(context.colors.textMuted),
                       ),
                       const SizedBox(height: 16),
                       if (sessions.isEmpty)
@@ -276,12 +280,12 @@ class _SessionSection extends StatelessWidget {
           children: [
             Text(
               session == 'EVENING' ? 'Evening session' : 'Morning session',
-              style: AppTextStyles.labelCaps(SevaCareColors.primary),
+              style: AppTextStyles.labelCaps(context.colors.primary),
             ),
             const Spacer(),
             Text(
               '${pending.length} waiting · $completed done',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ],
         ),
@@ -325,8 +329,8 @@ class _NowServingCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: SevaCareColors.heroGradient,
+        gradient: LinearGradient(
+          colors: context.colors.heroGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -422,9 +426,9 @@ class _WaitingRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         children: [
@@ -432,13 +436,13 @@ class _WaitingRow extends StatelessWidget {
             width: 44,
             child: Text(
               '#${facet.tokenNumber}',
-              style: AppTextStyles.sectionTitle(SevaCareColors.primary),
+              style: AppTextStyles.sectionTitle(context.colors.primary),
             ),
           ),
           Expanded(
             child: Text(
               facet.patientName,
-              style: AppTextStyles.bodyText(SevaCareColors.text),
+              style: AppTextStyles.bodyText(context.colors.text),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -455,13 +459,13 @@ class _WaitingRow extends StatelessWidget {
             IconButton(
               tooltip: 'Mark done',
               icon: const Icon(Icons.check_circle_outline_rounded),
-              color: SevaCareColors.primary,
+              color: context.colors.primary,
               onPressed: onDone,
             ),
             IconButton(
               tooltip: 'No-show',
               icon: const Icon(Icons.person_off_outlined),
-              color: SevaCareColors.textMuted,
+              color: context.colors.textMuted,
               onPressed: onNoShow,
             ),
           ],
@@ -488,7 +492,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = filled ? SevaCareColors.primary : Colors.white;
+    final fg = filled ? context.colors.primary : Colors.white;
     final bg = filled ? Colors.white : Colors.white.withValues(alpha: 0.16);
     return Material(
       color: bg,
@@ -532,12 +536,12 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.only(top: 60),
       child: Column(
         children: [
-          const Icon(Icons.event_available_rounded,
-              size: 56, color: SevaCareColors.textMuted),
+          Icon(Icons.event_available_rounded,
+              size: 56, color: context.colors.textMuted),
           const SizedBox(height: 12),
           Text(
             'No one waiting in the queue',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
         ],
       ),
@@ -556,10 +560,10 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.wifi_off_rounded,
-              size: 40, color: SevaCareColors.textMuted),
+          Icon(Icons.wifi_off_rounded,
+              size: 40, color: context.colors.textMuted),
           const SizedBox(height: 12),
-          Text(message, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+          Text(message, style: AppTextStyles.bodyText(context.colors.textMuted)),
           const SizedBox(height: 16),
           TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],

@@ -249,7 +249,7 @@ class _AppointmentCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   appointment.doctorName,
-                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                  style: AppTextStyles.cardTitle(context.colors.text),
                 ),
               ),
               StatusBadge(status: _effectiveStatus),
@@ -271,25 +271,25 @@ class _AppointmentCard extends ConsumerWidget {
                 Icon(
                   Icons.access_time,
                   size: 13,
-                  color: SevaCareColors.textMuted,
+                  color: context.colors.textMuted,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   appointment.slot,
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  style: AppTextStyles.bodyText(context.colors.textMuted),
                 ),
               ],
             ),
           const SizedBox(height: 4),
           Text(
             appointment.appointmentPublicId,
-            style: AppTextStyles.badgeText(SevaCareColors.textMuted),
+            style: AppTextStyles.badgeText(context.colors.textMuted),
           ),
           if (appointment.note != null && appointment.note!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
               appointment.note!,
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           ],
           if (_canCancel) ...[
@@ -319,7 +319,7 @@ class _AppointmentCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: Text(tr(ref, 'Yes, Cancel')),
           ),
         ],
@@ -359,11 +359,11 @@ class _TokenTicket extends StatelessWidget {
     this.slotLabel,
   });
 
-  Color get _accent => switch (variant) {
-    MetricVariant.mint => SevaCareColors.mint,
-    MetricVariant.danger => SevaCareColors.danger,
-    MetricVariant.peach => SevaCareColors.peach,
-    MetricVariant.primary => SevaCareColors.primary,
+  Color _accent(BuildContext context) => switch (variant) {
+    MetricVariant.mint => context.colors.mint,
+    MetricVariant.danger => context.colors.danger,
+    MetricVariant.peach => context.colors.peach,
+    MetricVariant.primary => context.colors.primary,
   };
 
   @override
@@ -371,21 +371,21 @@ class _TokenTicket extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _accent.withValues(alpha: 0.08),
+        color: _accent(context).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _accent.withValues(alpha: 0.25)),
+        border: Border.all(color: _accent(context).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Icon(Icons.confirmation_number_rounded, size: 18, color: _accent),
+          Icon(Icons.confirmation_number_rounded, size: 18, color: _accent(context)),
           const SizedBox(width: 8),
-          Text('Token #$tokenNumber', style: AppTextStyles.cardTitle(_accent)),
+          Text('Token #$tokenNumber', style: AppTextStyles.cardTitle(_accent(context))),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               slotLabel ??
                   (session == 'EVENING' ? 'Evening session' : 'Morning session'),
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -409,7 +409,7 @@ class _EmptyState extends ConsumerWidget {
             Icon(
               Icons.calendar_today_outlined,
               size: 48,
-              color: SevaCareColors.border,
+              color: context.colors.border,
             ),
             const SizedBox(height: 12),
             Text(
@@ -419,7 +419,7 @@ class _EmptyState extends ConsumerWidget {
                 'cancelled' => 'No cancelled appointments',
                 _ => 'No appointments yet',
               }),
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           ],
         ),
@@ -441,7 +441,7 @@ class _ErrorState extends ConsumerWidget {
           const SizedBox(height: 32),
           Text(
             tr(ref, 'Failed to load appointments'),
-            style: AppTextStyles.bodyText(SevaCareColors.danger),
+            style: AppTextStyles.bodyText(context.colors.danger),
           ),
           const SizedBox(height: 12),
           SecondaryButton(label: tr(ref, 'Retry'), onPressed: onRetry),

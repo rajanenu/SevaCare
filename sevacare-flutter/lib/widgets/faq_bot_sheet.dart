@@ -144,8 +144,8 @@ class _FaqBotSheetState extends ConsumerState<FaqBotSheet> {
         expand: false,
         builder: (context, controller) {
           return Container(
-            decoration: const BoxDecoration(
-              color: SevaCareColors.background,
+            decoration: BoxDecoration(
+              color: context.colors.background,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
@@ -195,7 +195,7 @@ class _FaqBotSheetState extends ConsumerState<FaqBotSheet> {
           label: Text('Book Appointment at $hospitalName',
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.label(Colors.white).copyWith(fontWeight: FontWeight.w700)),
-          backgroundColor: SevaCareColors.mint,
+          backgroundColor: context.colors.mint,
           side: BorderSide.none,
           onPressed: _openBookingForm,
         ),
@@ -206,9 +206,9 @@ class _FaqBotSheetState extends ConsumerState<FaqBotSheet> {
   Widget _header(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: SevaCareColors.heroGradient,
+          colors: context.colors.heroGradient,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -254,9 +254,9 @@ class _FaqBotSheetState extends ConsumerState<FaqBotSheet> {
         itemBuilder: (_, i) {
           final e = _suggestions[i];
           return ActionChip(
-            label: Text(e.question, style: AppTextStyles.label(SevaCareColors.primary)),
-            backgroundColor: SevaCareColors.primarySoft,
-            side: BorderSide(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+            label: Text(e.question, style: AppTextStyles.label(context.colors.primary)),
+            backgroundColor: context.colors.primarySoft,
+            side: BorderSide(color: context.colors.primary.withValues(alpha: 0.25)),
             onPressed: () => _ask(e.question),
           );
         },
@@ -279,23 +279,23 @@ class _FaqBotSheetState extends ConsumerState<FaqBotSheet> {
                 decoration: InputDecoration(
                   hintText: 'Ask a question…',
                   filled: true,
-                  fillColor: SevaCareColors.surface,
+                  fillColor: context.colors.surface,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: SevaCareColors.border),
+                    borderSide: BorderSide(color: context.colors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: SevaCareColors.border),
+                    borderSide: BorderSide(color: context.colors.border),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Material(
-              color: SevaCareColors.primary,
+              color: context.colors.primary,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
@@ -329,19 +329,19 @@ class _Bubble extends StatelessWidget {
           maxWidth: MediaQuery.sizeOf(context).width * 0.78,
         ),
         decoration: BoxDecoration(
-          color: isBot ? SevaCareColors.surface : SevaCareColors.primary,
+          color: isBot ? context.colors.surface : context.colors.primary,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isBot ? 4 : 16),
             bottomRight: Radius.circular(isBot ? 16 : 4),
           ),
-          border: isBot ? Border.all(color: SevaCareColors.border) : null,
+          border: isBot ? Border.all(color: context.colors.border) : null,
         ),
         child: Text(
           msg.text,
           style: AppTextStyles.bodyText(
-            isBot ? SevaCareColors.text : Colors.white,
+            isBot ? context.colors.text : Colors.white,
           ),
         ),
       ),
@@ -481,14 +481,14 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
         padding: const EdgeInsets.all(14),
         constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.82),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
             bottomRight: Radius.circular(16),
             bottomLeft: Radius.circular(4),
           ),
-          border: Border.all(color: SevaCareColors.border),
+          border: Border.all(color: context.colors.border),
         ),
         child: _submitted ? _successContent() : _formContent(),
       ),
@@ -513,20 +513,20 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
               decoration: BoxDecoration(
                 color: confirmed
                     ? const Color(0xFFE7F8F0)
-                    : SevaCareColors.primarySoft,
+                    : context.colors.primarySoft,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 confirmed ? Icons.check_rounded : Icons.schedule_rounded,
                 size: 20,
-                color: confirmed ? const Color(0xFF12A150) : SevaCareColors.primary,
+                color: confirmed ? const Color(0xFF12A150) : context.colors.primary,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 confirmed ? 'Appointment Confirmed!' : 'Request Submitted!',
-                style: AppTextStyles.bodyText(SevaCareColors.text)
+                style: AppTextStyles.bodyText(context.colors.text)
                     .copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -538,37 +538,37 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: SevaCareColors.primarySoft,
+              color: context.colors.primarySoft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               _assignedToken!,
-              style: AppTextStyles.bodyText(SevaCareColors.primary)
+              style: AppTextStyles.bodyText(context.colors.primary)
                   .copyWith(fontWeight: FontWeight.w800, fontSize: 15),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Your token is booked. Show this token number at $hospital reception on your visit.',
-            style: AppTextStyles.label(SevaCareColors.textMuted),
+            style: AppTextStyles.label(context.colors.textMuted),
           ),
         ] else
           Text(
             'Your request has been sent to the doctor. They will review it and confirm your slot. '
             '$hospital will contact you on ${_mobileCtrl.text.trim()}.',
-            style: AppTextStyles.label(SevaCareColors.textMuted),
+            style: AppTextStyles.label(context.colors.textMuted),
           ),
         if (_requestPublicId != null && _requestPublicId!.isNotEmpty) ...[
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: SevaCareColors.background,
+              color: context.colors.background,
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: SevaCareColors.border),
+              border: Border.all(color: context.colors.border),
             ),
             child: Text('Request ID: ${_requestPublicId!}',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
           ),
         ],
       ],
@@ -580,10 +580,10 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Book Appointment', style: AppTextStyles.bodyText(SevaCareColors.text).copyWith(fontWeight: FontWeight.w700)),
+        Text('Book Appointment', style: AppTextStyles.bodyText(context.colors.text).copyWith(fontWeight: FontWeight.w700)),
         if (widget.hospitalName.isNotEmpty) ...[
           const SizedBox(height: 2),
-          Text('🏥 ${widget.hospitalName}', style: AppTextStyles.label(SevaCareColors.textMuted)),
+          Text('🏥 ${widget.hospitalName}', style: AppTextStyles.label(context.colors.textMuted)),
         ],
         const SizedBox(height: 10),
         _field(_nameCtrl, 'Full Name *', TextInputType.name),
@@ -595,7 +595,7 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
         DropdownButtonFormField<String>(
           initialValue: _doctorPublicId,
           isExpanded: true,
-          style: AppTextStyles.bodyText(SevaCareColors.text),
+          style: AppTextStyles.bodyText(context.colors.text),
           decoration: _inputDecoration('Select Doctor *'),
           items: _doctors
               .map((d) => DropdownMenuItem(
@@ -616,9 +616,9 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
             decoration: _inputDecoration('Preferred Date *'),
             child: Row(
               children: [
-                const Icon(Icons.event_outlined, size: 16, color: SevaCareColors.textMuted),
+                Icon(Icons.event_outlined, size: 16, color: context.colors.textMuted),
                 const SizedBox(width: 8),
-                Text(_dateLabel, style: AppTextStyles.bodyText(SevaCareColors.text)),
+                Text(_dateLabel, style: AppTextStyles.bodyText(context.colors.text)),
               ],
             ),
           ),
@@ -627,7 +627,7 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
         _field(_symptomsCtrl, 'Symptoms / Reason for Visit *', TextInputType.text, maxLines: 2),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!, style: AppTextStyles.label(SevaCareColors.danger)),
+          Text(_error!, style: AppTextStyles.label(context.colors.danger)),
         ],
         const SizedBox(height: 10),
         SizedBox(
@@ -635,7 +635,7 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
           child: ElevatedButton(
             onPressed: _submitting ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: SevaCareColors.primary,
+              backgroundColor: context.colors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -658,15 +658,15 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
       labelText: label,
       isDense: true,
       filled: true,
-      fillColor: SevaCareColors.background,
+      fillColor: context.colors.background,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: SevaCareColors.border),
+        borderSide: BorderSide(color: context.colors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: SevaCareColors.border),
+        borderSide: BorderSide(color: context.colors.border),
       ),
     );
   }
@@ -677,20 +677,20 @@ class _BookingFormBubbleState extends ConsumerState<_BookingFormBubble> {
       controller: ctrl,
       keyboardType: type,
       maxLines: maxLines,
-      style: AppTextStyles.bodyText(SevaCareColors.text),
+      style: AppTextStyles.bodyText(context.colors.text),
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
         filled: true,
-        fillColor: SevaCareColors.background,
+        fillColor: context.colors.background,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: SevaCareColors.border),
+          borderSide: BorderSide(color: context.colors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: SevaCareColors.border),
+          borderSide: BorderSide(color: context.colors.border),
         ),
       ),
     );

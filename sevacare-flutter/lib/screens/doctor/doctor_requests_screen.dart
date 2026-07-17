@@ -172,7 +172,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(extractErrorMessage(e, fallback: 'Failed to submit request.')),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
     } finally {
@@ -217,7 +217,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(extractErrorMessage(e, fallback: 'Failed to send message.')),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
     } finally {
@@ -263,7 +263,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: active ? SevaCareColors.primary : Colors.transparent,
+                        color: active ? context.colors.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(AppTheme.radius - 2),
                       ),
                       child: Text(
@@ -272,7 +272,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                          color: active ? Colors.white : SevaCareColors.textMuted,
+                          color: active ? Colors.white : context.colors.textMuted,
                         ),
                       ),
                     ),
@@ -296,14 +296,14 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: SevaCareColors.mintSoft,
+                          color: context.colors.mintSoft,
                           borderRadius: BorderRadius.circular(AppTheme.radius),
-                          border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3)),
+                          border: Border.all(color: context.colors.mint.withValues(alpha: 0.3)),
                         ),
                         child: Row(children: [
-                          const Icon(Icons.check_circle_outline, color: SevaCareColors.mint, size: 20),
+                          Icon(Icons.check_circle_outline, color: context.colors.mint, size: 20),
                           const SizedBox(width: 10),
-                          Expanded(child: Text(_successMsg!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground))),
+                          Expanded(child: Text(_successMsg!, style: AppTextStyles.bodyText(context.colors.mintForeground))),
                         ]),
                       ),
                       const SizedBox(height: 12),
@@ -333,7 +333,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tr(ref, 'Apply for Leave'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          Text(tr(ref, 'Apply for Leave'), style: AppTextStyles.sectionTitle(context.colors.text)),
           const SizedBox(height: 16),
           AppDropdown<String>(
             label: tr(ref, 'Leave Type'),
@@ -378,7 +378,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
           ),
           const SizedBox(height: 8),
           // ── Full day vs hourly leave ─────────────────────────────────────
-          Text(tr(ref, 'Duration'), style: AppTextStyles.label(SevaCareColors.textMuted)),
+          Text(tr(ref, 'Duration'), style: AppTextStyles.label(context.colors.textMuted)),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -421,7 +421,7 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
             const SizedBox(height: 6),
             Text(
               'Only this time window is blocked — you stay bookable for the rest of the day.',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ],
           const SizedBox(height: 8),
@@ -449,11 +449,11 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tr(ref, 'Message to Admin'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+          Text(tr(ref, 'Message to Admin'), style: AppTextStyles.sectionTitle(context.colors.text)),
           const SizedBox(height: 6),
           Text(
             'Send an urgent query, scheduling concern, or any communication to the hospital admin.',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
           const SizedBox(height: 16),
           AppFormField(
@@ -477,13 +477,10 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
 
   Widget _historyList() {
     if (_loadingHistory) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(32),
-        child: CircularProgressIndicator(),
-      ));
+      return const ShimmerList(count: 3, cardHeight: 84);
     }
     if (_historyError != null) {
-      return AppCard(child: Center(child: Text(_historyError!, style: AppTextStyles.bodyText(SevaCareColors.danger))));
+      return AppCard(child: Center(child: Text(_historyError!, style: AppTextStyles.bodyText(context.colors.danger))));
     }
     final requests = _history?.requests ?? [];
     if (requests.isEmpty) {
@@ -491,12 +488,12 @@ class _DoctorRequestsScreenState extends ConsumerState<DoctorRequestsScreen>
         child: Column(
           children: [
             const SizedBox(height: 24),
-            Icon(Icons.inbox_outlined, size: 48, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
+            Icon(Icons.inbox_outlined, size: 48, color: context.colors.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
-            Text(tr(ref, 'No requests yet'), style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+            Text(tr(ref, 'No requests yet'), style: AppTextStyles.sectionTitle(context.colors.textMuted)),
             const SizedBox(height: 6),
             Text(tr(ref, 'Submit a leave request or message to see it here.'),
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
           ],
@@ -536,10 +533,10 @@ class _DurationChip extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? SevaCareColors.primarySoft : SevaCareColors.surface,
+            color: selected ? context.colors.primarySoft : context.colors.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? SevaCareColors.primary : SevaCareColors.border,
+              color: selected ? context.colors.primary : context.colors.border,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -547,10 +544,10 @@ class _DurationChip extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 15,
-                  color: selected ? SevaCareColors.primary : SevaCareColors.textMuted),
+                  color: selected ? context.colors.primary : context.colors.textMuted),
               const SizedBox(width: 6),
               Text(label, style: AppTextStyles.label(
-                  selected ? SevaCareColors.primary : SevaCareColors.textMuted)),
+                  selected ? context.colors.primary : context.colors.textMuted)),
             ],
           ),
         ),
@@ -574,27 +571,27 @@ class _TimePickTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+        Text(label, style: AppTextStyles.label(context.colors.textMuted)),
         const SizedBox(height: 4),
         GestureDetector(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: SevaCareColors.surface,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: SevaCareColors.border, width: 1.5),
+              border: Border.all(color: context.colors.border, width: 1.5),
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time, size: 15, color: SevaCareColors.textMuted),
+                Icon(Icons.access_time, size: 15, color: context.colors.textMuted),
                 const SizedBox(width: 8),
                 Text(
                   value,
                   style: AppTextStyles.body(
                     size: 13,
                     weight: placeholder ? FontWeight.w400 : FontWeight.w600,
-                    color: placeholder ? SevaCareColors.textMuted : SevaCareColors.text,
+                    color: placeholder ? context.colors.textMuted : context.colors.text,
                   ),
                 ),
               ],
@@ -612,14 +609,12 @@ class _RequestTile extends StatelessWidget {
   final LeaveRequestRecord request;
   const _RequestTile({required this.request});
 
-  static final _statusColors = <String, Color>{
-    'PENDING':      Color(0xFFD97706),
-    'APPROVED':     SevaCareColors.mint,
-    'AUTO_APPROVED': SevaCareColors.mint,
-    'DECLINED':     SevaCareColors.danger,
-  };
-
-  Color get _statusColor => _statusColors[request.status] ?? SevaCareColors.textMuted;
+  Color _statusColor(BuildContext context) => switch (request.status) {
+        'PENDING' => const Color(0xFFD97706),
+        'APPROVED' || 'AUTO_APPROVED' => context.colors.mint,
+        'DECLINED' => context.colors.danger,
+        _ => context.colors.textMuted,
+      };
 
   String get _typeLabel {
     return switch (request.leaveType.toUpperCase()) {
@@ -647,7 +642,7 @@ class _RequestTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMessage = request.leaveType.toUpperCase() == 'MESSAGE';
     final icon = isMessage ? Icons.chat_bubble_outline : Icons.event_busy_outlined;
-    final iconColor = isMessage ? SevaCareColors.primary : SevaCareColors.peachForeground;
+    final iconColor = isMessage ? context.colors.primary : context.colors.peachForeground;
 
     return AppCard(
       child: Column(
@@ -671,16 +666,16 @@ class _RequestTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text(_typeLabel, style: AppTextStyles.cardTitle(SevaCareColors.text))),
+                        Expanded(child: Text(_typeLabel, style: AppTextStyles.cardTitle(context.colors.text))),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: _statusColor.withValues(alpha: 0.14),
+                            color: _statusColor(context).withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             request.status == 'AUTO_APPROVED' ? 'Auto-Approved' : request.status,
-                            style: AppTextStyles.badgeText(_statusColor),
+                            style: AppTextStyles.badgeText(_statusColor(context)),
                           ),
                         ),
                       ],
@@ -690,19 +685,19 @@ class _RequestTile extends StatelessWidget {
                       Text(
                         '${request.fromDate}  →  ${request.toDate}'
                         '${request.isHourly ? '  ·  ${request.startTime}–${request.endTime}' : ''}',
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                        style: AppTextStyles.label(context.colors.textMuted),
                       ),
                     ],
                     if (request.message.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(request.message,
-                          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                          style: AppTextStyles.bodyText(context.colors.textMuted),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                     ],
                     const SizedBox(height: 4),
                     Text(_timeAgo(request.submittedAt),
-                        style: AppTextStyles.label(SevaCareColors.textMuted)),
+                        style: AppTextStyles.label(context.colors.textMuted)),
                   ],
                 ),
               ),
@@ -715,20 +710,20 @@ class _RequestTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.20)),
+                border: Border.all(color: context.colors.primary.withValues(alpha: 0.20)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.admin_panel_settings_outlined,
-                      size: 14, color: SevaCareColors.primary),
+                  Icon(Icons.admin_panel_settings_outlined,
+                      size: 14, color: context.colors.primary),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Admin: ${request.adminResponse!}',
-                      style: AppTextStyles.label(SevaCareColors.primary),
+                      style: AppTextStyles.label(context.colors.primary),
                     ),
                   ),
                 ],

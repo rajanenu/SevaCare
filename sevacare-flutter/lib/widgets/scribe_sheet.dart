@@ -21,7 +21,7 @@ class ScribeSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<ScribeDraft>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -166,7 +166,7 @@ class _ScribeSheetState extends ConsumerState<ScribeSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.mic_none_rounded, color: SevaCareColors.primary),
+              Icon(Icons.mic_none_rounded, color: context.colors.primary),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text('Dictate the consult',
@@ -178,10 +178,10 @@ class _ScribeSheetState extends ConsumerState<ScribeSheet> {
               ),
             ],
           ),
-          const Text(
+          Text(
             'Speak naturally — mixing English, Hindi or Telugu is fine. '
             'You review the draft before anything is saved.',
-            style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted),
+            style: TextStyle(fontSize: 12, color: context.colors.textMuted),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -212,7 +212,7 @@ class _ScribeSheetState extends ConsumerState<ScribeSheet> {
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(_error!,
-                style: const TextStyle(fontSize: 12, color: SevaCareColors.error)),
+                style: TextStyle(fontSize: 12, color: context.colors.error)),
           ],
           const SizedBox(height: 14),
           Row(
@@ -222,7 +222,7 @@ class _ScribeSheetState extends ConsumerState<ScribeSheet> {
                   heroTag: 'scribe_mic',
                   onPressed: _drafting ? null : _toggleListening,
                   backgroundColor:
-                      _listening ? SevaCareColors.danger : SevaCareColors.primary,
+                      _listening ? context.colors.danger : context.colors.primary,
                   child: Icon(_listening ? Icons.stop_rounded : Icons.mic_rounded,
                       color: Colors.white),
                 ),
@@ -231,7 +231,7 @@ class _ScribeSheetState extends ConsumerState<ScribeSheet> {
                 child: FilledButton.icon(
                   onPressed: _drafting ? null : _draft,
                   style: FilledButton.styleFrom(
-                    backgroundColor: SevaCareColors.primary,
+                    backgroundColor: context.colors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

@@ -6,18 +6,18 @@ import '../core/theme/app_theme.dart';
 enum MetricVariant { primary, mint, peach, danger }
 
 extension _MetricVariantX on MetricVariant {
-  List<Color> get gradient => switch (this) {
-    MetricVariant.primary => SevaCareColors.buttonGradient,
-    MetricVariant.mint    => SevaCareColors.mintGradient,
-    MetricVariant.peach   => SevaCareColors.peachGradient,
-    MetricVariant.danger  => SevaCareColors.dangerGradient,
+  List<Color> gradient(BuildContext context) => switch (this) {
+    MetricVariant.primary => context.colors.buttonGradient,
+    MetricVariant.mint    => context.colors.mintGradient,
+    MetricVariant.peach   => context.colors.peachGradient,
+    MetricVariant.danger  => context.colors.dangerGradient,
   };
 
-  Color get valueColor => switch (this) {
-    MetricVariant.primary => SevaCareColors.primary,
-    MetricVariant.mint    => SevaCareColors.mint,
-    MetricVariant.peach   => SevaCareColors.peach,
-    MetricVariant.danger  => SevaCareColors.danger,
+  Color valueColor(BuildContext context) => switch (this) {
+    MetricVariant.primary => context.colors.primary,
+    MetricVariant.mint    => context.colors.mint,
+    MetricVariant.peach   => context.colors.peach,
+    MetricVariant.danger  => context.colors.danger,
   };
 }
 
@@ -41,9 +41,9 @@ class MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tile = Container(
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.border, width: 1),
+        border: Border.all(color: context.colors.border, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -64,7 +64,7 @@ class MetricTile extends StatelessWidget {
               width: 4,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: variant.gradient,
+                  colors: variant.gradient(context),
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -80,12 +80,12 @@ class MetricTile extends StatelessWidget {
                   children: [
                     Text(
                       label.toUpperCase(),
-                      style: AppTextStyles.metricLabel(SevaCareColors.textMuted),
+                      style: AppTextStyles.metricLabel(context.colors.textMuted),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       value,
-                      style: AppTextStyles.metricValue(variant.valueColor),
+                      style: AppTextStyles.metricValue(variant.valueColor(context)),
                     ),
                     if (trend != null && trend!.isNotEmpty) ...[
                       const SizedBox(height: 2),
@@ -93,7 +93,7 @@ class MetricTile extends StatelessWidget {
                         trend!,
                         style: AppTextStyles.body(
                           size: 11,
-                          color: SevaCareColors.textMuted,
+                          color: context.colors.textMuted,
                         ),
                       ),
                     ],

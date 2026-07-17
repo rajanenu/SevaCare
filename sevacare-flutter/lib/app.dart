@@ -446,16 +446,16 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: SevaCareColors.textMuted),
+              Icon(Icons.error_outline, size: 48, color: context.colors.textMuted),
               const SizedBox(height: 12),
               Text(
                 'Page not found',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: SevaCareColors.text),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.colors.text),
               ),
               const SizedBox(height: 6),
               Text(
                 state.uri.path,
-                style: const TextStyle(color: SevaCareColors.textMuted),
+                style: TextStyle(color: context.colors.textMuted),
               ),
               const SizedBox(height: 20),
               ElevatedButton(

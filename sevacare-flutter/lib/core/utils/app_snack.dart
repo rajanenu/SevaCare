@@ -10,15 +10,15 @@ class AppSnack {
   const AppSnack._();
 
   static void success(BuildContext context, String message) =>
-      _show(context, message, SevaCareColors.mint, Icons.check_circle_rounded,
+      _show(context, message, context.colors.mint, Icons.check_circle_rounded,
           haptic: HapticFeedback.lightImpact);
 
   static void error(BuildContext context, String message) =>
-      _show(context, message, SevaCareColors.danger, Icons.error_rounded,
+      _show(context, message, context.colors.danger, Icons.error_rounded,
           haptic: HapticFeedback.heavyImpact);
 
   static void info(BuildContext context, String message) =>
-      _show(context, message, SevaCareColors.primary, Icons.info_rounded,
+      _show(context, message, context.colors.primary, Icons.info_rounded,
           haptic: HapticFeedback.selectionClick);
 
   static void _show(

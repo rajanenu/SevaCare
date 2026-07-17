@@ -186,15 +186,15 @@ class _CinematicIntroState extends State<CinematicIntro>
             width: 84,
             height: 84,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: SevaCareColors.buttonGradient,
+              gradient: LinearGradient(
+                colors: context.colors.buttonGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
-                  color: SevaCareColors.primary.withValues(alpha: 0.45),
+                  color: context.colors.primary.withValues(alpha: 0.45),
                   blurRadius: 34,
                   offset: const Offset(0, 10),
                 ),
@@ -206,7 +206,7 @@ class _CinematicIntroState extends State<CinematicIntro>
                 style: AppTextStyles.display(
                   size: 42,
                   weight: FontWeight.w800,
-                  color: SevaCareColors.textOnPrimary,
+                  color: context.colors.textOnPrimary,
                 ),
               ),
             ),
@@ -259,7 +259,7 @@ class _CinematicIntroState extends State<CinematicIntro>
             style: AppTextStyles.display(
               size: 36,
               weight: FontWeight.w800,
-              color: SevaCareColors.primary,
+              color: context.colors.primary,
             ),
           ),
         ),
@@ -274,7 +274,7 @@ class _CinematicIntroState extends State<CinematicIntro>
     // Muted-on-cream once the backdrop has warmed; soft white before that
     final color = Color.lerp(
       Colors.white.withValues(alpha: 0.75),
-      SevaCareColors.textMuted,
+      context.colors.textMuted,
       bgT,
     )!;
 

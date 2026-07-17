@@ -85,42 +85,42 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
               icon: Icons.email_outlined,
               label: 'Email',
               value: 'support@sevacare.in',
-              color: SevaCareColors.primary,
+              color: context.colors.primary,
             ),
             const SizedBox(height: 10),
             _ContactCard(
               icon: Icons.phone_outlined,
               label: 'Toll-Free',
               value: '1800-SEVA-CARE',
-              color: SevaCareColors.mint,
+              color: context.colors.mint,
             ),
             const SizedBox(height: 10),
             _ContactCard(
               icon: Icons.access_time_rounded,
               label: 'Support Hours',
               value: 'Mon – Sat, 9 AM – 6 PM IST',
-              color: SevaCareColors.peach,
+              color: context.colors.peach,
             ),
           ] else ...[
             _ContactCard(
               icon: isPharmacy ? Icons.storefront_rounded : Icons.local_hospital_rounded,
               label: entityLabel,
               value: hospitalName,
-              color: SevaCareColors.primary,
+              color: context.colors.primary,
             ),
             const SizedBox(height: 10),
             _ContactCard(
               icon: Icons.email_outlined,
               label: 'Email',
               value: 'support@${hospitalName.toLowerCase().replaceAll(' ', '')}.in',
-              color: SevaCareColors.mint,
+              color: context.colors.mint,
             ),
             const SizedBox(height: 10),
             _ContactCard(
               icon: Icons.access_time_rounded,
               label: 'Response Time',
               value: 'Within 24 hours on working days',
-              color: SevaCareColors.peach,
+              color: context.colors.peach,
             ),
           ],
           const SizedBox(height: 24),
@@ -129,13 +129,13 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
           if (_submitted)
             _SuccessBanner(isPlatformAdmin: isPlatformAdmin)
           else ...[
-            Text('Send a Message', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Send a Message', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 4),
             Text(
               isPlatformAdmin
                   ? 'Describe your issue or question and our team will get back to you.'
                   : 'Send a message to the $hospitalName support team.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             const SizedBox(height: 16),
             AppCard(
@@ -174,13 +174,13 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
           AppCard(
             padding: EdgeInsets.zero,
             child: ListTile(
-              leading: const Icon(Icons.verified_user_outlined,
-                  color: SevaCareColors.primary),
+              leading: Icon(Icons.verified_user_outlined,
+                  color: context.colors.primary),
               title: Text('Terms of Service',
-                  style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                  style: AppTextStyles.cardTitle(context.colors.text)),
               subtitle: Text('What SevaCare does with your data — and what it is not answerable for',
-                  style: AppTextStyles.label(SevaCareColors.textMuted)),
-              trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                  style: AppTextStyles.label(context.colors.textMuted)),
+              trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
               onTap: () => context.push('/terms'),
             ),
           ),
@@ -204,9 +204,9 @@ class _AssistantCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
         ),
         child: Row(
           children: [
@@ -214,8 +214,8 @@ class _AssistantCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: SevaCareColors.heroGradient,
+                gradient: LinearGradient(
+                  colors: context.colors.heroGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -229,14 +229,14 @@ class _AssistantCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Ask the SevaCare Assistant',
-                      style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                      style: AppTextStyles.cardTitle(context.colors.text)),
                   const SizedBox(height: 2),
                   Text('Quick answers to common questions',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: SevaCareColors.textMuted),
+            Icon(Icons.chevron_right_rounded, color: context.colors.textMuted),
           ],
         ),
       ),
@@ -337,9 +337,9 @@ class _ContactCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text(label, style: AppTextStyles.label(context.colors.textMuted)),
               const SizedBox(height: 1),
-              Text(value, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              Text(value, style: AppTextStyles.cardTitle(context.colors.text)),
             ],
           ),
         ],
@@ -359,29 +359,29 @@ class _SuccessBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: SevaCareColors.mintSoft,
+        color: context.colors.mintSoft,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.mint.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: context.colors.mint.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
           Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
-              color: SevaCareColors.mint,
+            decoration: BoxDecoration(
+              color: context.colors.mint,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check_rounded, color: Colors.white, size: 26),
           ),
           const SizedBox(height: 12),
-          Text('Message Sent!', style: AppTextStyles.sectionTitle(SevaCareColors.mintForeground)),
+          Text('Message Sent!', style: AppTextStyles.sectionTitle(context.colors.mintForeground)),
           const SizedBox(height: 6),
           Text(
             isPlatformAdmin
                 ? 'Our SevaCare team will respond within 1 business day.'
                 : 'The hospital support team will respond within 24 hours.',
-            style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+            style: AppTextStyles.bodyText(context.colors.mintForeground),
             textAlign: TextAlign.center,
           ),
         ],

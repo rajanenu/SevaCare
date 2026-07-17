@@ -38,16 +38,16 @@ class PharmacyHelpScreen extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: SevaCareColors.surface,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+              border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
             ),
             child: Row(children: [
               Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: SevaCareColors.heroGradient,
+                  gradient: LinearGradient(
+                    colors: context.colors.heroGradient,
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -57,13 +57,13 @@ class PharmacyHelpScreen extends ConsumerWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Ask the SevaCare Assistant', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                  Text('Ask the SevaCare Assistant', style: AppTextStyles.cardTitle(context.colors.text)),
                   const SizedBox(height: 2),
                   Text('Quick answers to common counter questions',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                 ]),
               ),
-              const Icon(Icons.chevron_right_rounded, color: SevaCareColors.textMuted),
+              Icon(Icons.chevron_right_rounded, color: context.colors.textMuted),
             ]),
           ),
         ),
@@ -101,24 +101,24 @@ class PharmacyHelpScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
 
-        _contact(Icons.email_outlined, 'SevaCare Support Email', 'support@sevacare.in', SevaCareColors.primary),
+        _contact(context, Icons.email_outlined, 'SevaCare Support Email', 'support@sevacare.in', context.colors.primary),
         const SizedBox(height: 10),
-        _contact(Icons.phone_outlined, 'Toll-Free', '1800-SEVA-CARE', SevaCareColors.mint),
+        _contact(context, Icons.phone_outlined, 'Toll-Free', '1800-SEVA-CARE', context.colors.mint),
         const SizedBox(height: 10),
-        _contact(Icons.access_time_rounded, 'Support Hours', 'Mon – Sat, 9 AM – 6 PM IST', SevaCareColors.peach),
+        _contact(context, Icons.access_time_rounded, 'Support Hours', 'Mon – Sat, 9 AM – 6 PM IST', context.colors.peach),
         const SizedBox(height: 20),
 
         AppCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Common questions', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Common questions', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 6),
-            _faq('How do I refill stock?',
+            _faq(context, 'How do I refill stock?',
                 'Stock tab → tick the low or expiring items → Send Order → send it to your supplier by WhatsApp or email.'),
-            _faq('A customer wants to pay later?',
+            _faq(context, 'A customer wants to pay later?',
                 'Complete the sale with payment mode CREDIT and their mobile number — it lands in the Khata on the Dashboard, where you receive the payment later.'),
-            _faq('GST rate changed for a medicine?',
+            _faq(context, 'GST rate changed for a medicine?',
                 'Search it on the Sell tab and tap the pencil icon, or tap the item in the Stock tab alerts — update the GST % there.'),
-            _faq('Made a wrong bill?',
+            _faq(context, 'Made a wrong bill?',
                 'Open Invoices on the Sell tab: refund lines the customer returned, or void the whole bill — stock goes back automatically.'),
           ]),
         ),
@@ -129,11 +129,11 @@ class PharmacyHelpScreen extends ConsumerWidget {
         AppCard(
           padding: EdgeInsets.zero,
           child: ListTile(
-            leading: const Icon(Icons.verified_user_outlined, color: SevaCareColors.primary),
-            title: Text('Terms of Service', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            leading: Icon(Icons.verified_user_outlined, color: context.colors.primary),
+            title: Text('Terms of Service', style: AppTextStyles.cardTitle(context.colors.text)),
             subtitle: Text('What SevaCare does with your data — and what it is not answerable for',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
-            trailing: const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted)),
+            trailing: Icon(Icons.chevron_right, color: context.colors.textMuted),
             onTap: () => context.push('/terms'),
           ),
         ),
@@ -142,7 +142,7 @@ class PharmacyHelpScreen extends ConsumerWidget {
     );
   }
 
-  Widget _contact(IconData icon, String label, String value, Color color) => AppCard(
+  Widget _contact(BuildContext context, IconData icon, String label, String value, Color color) => AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(children: [
           Container(
@@ -155,19 +155,19 @@ class PharmacyHelpScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+            Text(label, style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 1),
-            Text(value, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+            Text(value, style: AppTextStyles.cardTitle(context.colors.text)),
           ]),
         ]),
       );
 
-  Widget _faq(String q, String a) => Padding(
+  Widget _faq(BuildContext context, String q, String a) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(q, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
           const SizedBox(height: 2),
-          Text(a, style: const TextStyle(fontSize: 12.5, color: SevaCareColors.textMuted)),
+          Text(a, style: TextStyle(fontSize: 12.5, color: context.colors.textMuted)),
         ]),
       );
 }

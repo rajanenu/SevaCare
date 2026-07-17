@@ -17,10 +17,10 @@ Future<bool> showConfirmDialog(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: SevaCareColors.surface,
+      backgroundColor: context.colors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(title, style: AppTextStyles.sectionTitle(SevaCareColors.text)),
-      content: Text(message, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+      title: Text(title, style: AppTextStyles.sectionTitle(context.colors.text)),
+      content: Text(message, style: AppTextStyles.bodyText(context.colors.textMuted)),
       actions: [
         SecondaryButton(label: cancelLabel, onPressed: () => Navigator.of(ctx).pop(false)),
         const SizedBox(width: 8),

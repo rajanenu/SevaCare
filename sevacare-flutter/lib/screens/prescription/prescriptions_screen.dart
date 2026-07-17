@@ -129,16 +129,16 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.error_outline,
-                          color: SevaCareColors.danger,
+                          color: context.colors.danger,
                           size: 40,
                         ),
                         const SizedBox(height: 12),
                         Text(
                           _error!,
                           style: AppTextStyles.bodyText(
-                            SevaCareColors.textMuted,
+                            context.colors.textMuted,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -154,23 +154,23 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.medication_outlined,
-                          color: SevaCareColors.textMuted,
+                          color: context.colors.textMuted,
                           size: 48,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No prescriptions found',
                           style: AppTextStyles.sectionTitle(
-                            SevaCareColors.textMuted,
+                            context.colors.textMuted,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Your prescriptions will appear here once issued by a doctor.',
                           style: AppTextStyles.bodyText(
-                            SevaCareColors.textMuted,
+                            context.colors.textMuted,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -208,14 +208,14 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
                                       Text(
                                         _rxLabel(rx.prescriptionPublicId),
                                         style: AppTextStyles.cardTitle(
-                                          SevaCareColors.text,
+                                          context.colors.text,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         'Dr. ${rx.doctorName}',
                                         style: AppTextStyles.label(
-                                          SevaCareColors.textMuted,
+                                          context.colors.textMuted,
                                         ),
                                       ),
                                     ],
@@ -232,8 +232,8 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
                                   label:
                                       '${rx.medicines.length} medicine${rx.medicines.length == 1 ? '' : 's'}',
                                   icon: Icons.medication_outlined,
-                                  bgColor: SevaCareColors.primarySoft,
-                                  fgColor: SevaCareColors.primary,
+                                  bgColor: context.colors.primarySoft,
+                                  fgColor: context.colors.primary,
                                 ),
                                 const SizedBox(width: 8),
                                 _Chip(
@@ -241,8 +241,8 @@ class _PrescriptionsScreenState extends ConsumerState<PrescriptionsScreen> {
                                     rx.issuedOn,
                                   ),
                                   icon: Icons.calendar_today_outlined,
-                                  bgColor: SevaCareColors.surfaceMuted,
-                                  fgColor: SevaCareColors.textMuted,
+                                  bgColor: context.colors.surfaceMuted,
+                                  fgColor: context.colors.textMuted,
                                 ),
                               ],
                             ),

@@ -79,12 +79,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             textField: true,
             child: Container(
               decoration: BoxDecoration(
-                color: SevaCareColors.surface,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(AppTheme.radius),
-                border: Border.all(color: SevaCareColors.border, width: 1.5),
+                border: Border.all(color: context.colors.border, width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: SevaCareColors.shadowColor.withValues(alpha: 0.05),
+                    color: context.colors.shadowColor.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -94,12 +94,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 controller: _searchCtrl,
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
-                style: AppTextStyles.inputText(SevaCareColors.text),
+                style: AppTextStyles.inputText(context.colors.text),
                 decoration: InputDecoration(
                   hintText: 'Doctor name, specialty…',
-                  hintStyle: AppTextStyles.inputText(SevaCareColors.textMuted),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      color: SevaCareColors.primary, size: 20),
+                  hintStyle: AppTextStyles.inputText(context.colors.textMuted),
+                  prefixIcon: Icon(Icons.search_rounded,
+                      color: context.colors.primary, size: 20),
                   suffixIcon: _query.isNotEmpty
                       ? Semantics(
                           label: 'Clear search',
@@ -112,8 +112,8 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                                 _searchCtrl.clear();
                                 setState(() => _query = '');
                               },
-                              child: const Icon(Icons.close_rounded,
-                                  color: SevaCareColors.textMuted, size: 18),
+                              child: Icon(Icons.close_rounded,
+                                  color: context.colors.textMuted, size: 18),
                             ),
                           ),
                         )
@@ -141,7 +141,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               physics: const BouncingScrollPhysics(),
               child: AppCard(
                 child: Text(extractErrorMessage(e),
-                    style: AppTextStyles.bodyText(SevaCareColors.danger)),
+                    style: AppTextStyles.bodyText(context.colors.danger)),
               ),
             ),
             data: (docs) {
@@ -186,13 +186,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                                   horizontal: 14, vertical: 6),
                               decoration: BoxDecoration(
                                 color: active
-                                    ? SevaCareColors.primary
-                                    : SevaCareColors.surfaceMuted,
+                                    ? context.colors.primary
+                                    : context.colors.surfaceMuted,
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
                                   color: active
-                                      ? SevaCareColors.primary
-                                      : SevaCareColors.border,
+                                      ? context.colors.primary
+                                      : context.colors.border,
                                 ),
                               ),
                               child: Text(
@@ -202,7 +202,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                                   fontWeight: FontWeight.w600,
                                   color: active
                                       ? Colors.white
-                                      : SevaCareColors.textMuted,
+                                      : context.colors.textMuted,
                                 ),
                               ),
                             ),
@@ -221,15 +221,15 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                             child: AppCard(
                               child: Column(
                                 children: [
-                                  const Icon(Icons.search_off_rounded,
-                                      size: 40, color: SevaCareColors.textMuted),
+                                  Icon(Icons.search_off_rounded,
+                                      size: 40, color: context.colors.textMuted),
                                   const SizedBox(height: 10),
                                   Text(
                                     _query.isEmpty
                                         ? 'No doctors found in this hospital.'
                                         : 'No results for "$_query"',
                                     style: AppTextStyles.bodyText(
-                                        SevaCareColors.textMuted),
+                                        context.colors.textMuted),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -243,7 +243,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                             children: [
                               Text(
                                 '${results.length} doctor${results.length == 1 ? '' : 's'} found',
-                                style: AppTextStyles.label(SevaCareColors.textMuted),
+                                style: AppTextStyles.label(context.colors.textMuted),
                               ),
                               const SizedBox(height: 10),
                               ...results.map((d) => Padding(
@@ -287,7 +287,7 @@ class _DoctorSearchCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: SevaCareColors.mintSoft,
+                color: context.colors.mintSoft,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -298,7 +298,7 @@ class _DoctorSearchCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: SevaCareColors.mintForeground,
+                    color: context.colors.mintForeground,
                   ),
                 ),
               ),
@@ -315,7 +315,7 @@ class _DoctorSearchCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'Dr. ${doctor.fullName}',
-                          style: AppTextStyles.cardTitle(SevaCareColors.text),
+                          style: AppTextStyles.cardTitle(context.colors.text),
                         ),
                       ),
                       if (!doctor.active)
@@ -323,20 +323,20 @@ class _DoctorSearchCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: SevaCareColors.surfaceMuted,
+                            color: context.colors.surfaceMuted,
                             borderRadius: BorderRadius.circular(99),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.pause_circle_outline_rounded,
                                   size: 10,
-                                  color: SevaCareColors.textMuted),
+                                  color: context.colors.textMuted),
                               SizedBox(width: 3),
                               Text('Inactive',
                                   style: TextStyle(
                                       fontSize: 10,
-                                      color: SevaCareColors.textMuted)),
+                                      color: context.colors.textMuted)),
                             ],
                           ),
                         ),
@@ -344,21 +344,21 @@ class _DoctorSearchCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Row(children: [
-                    const Icon(Icons.local_hospital_outlined,
-                        size: 12, color: SevaCareColors.primary),
+                    Icon(Icons.local_hospital_outlined,
+                        size: 12, color: context.colors.primary),
                     const SizedBox(width: 4),
                     Text(doctor.specialty,
-                        style: AppTextStyles.label(SevaCareColors.primary)),
+                        style: AppTextStyles.label(context.colors.primary)),
                   ]),
                   if (doctor.availability.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Row(children: [
-                      const Icon(Icons.schedule_outlined,
-                          size: 12, color: SevaCareColors.textMuted),
+                      Icon(Icons.schedule_outlined,
+                          size: 12, color: context.colors.textMuted),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(doctor.availability,
-                            style: AppTextStyles.label(SevaCareColors.textMuted),
+                            style: AppTextStyles.label(context.colors.textMuted),
                             overflow: TextOverflow.ellipsis),
                       ),
                     ]),
@@ -369,15 +369,15 @@ class _DoctorSearchCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: SevaCareColors.primarySoft,
+                        color: context.colors.primarySoft,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '₹${doctor.fee}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: SevaCareColors.primary,
+                          color: context.colors.primary,
                         ),
                       ),
                     ),
@@ -391,8 +391,8 @@ class _DoctorSearchCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 5),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: SevaCareColors.buttonGradient,
+                              gradient: LinearGradient(
+                                colors: context.colors.buttonGradient,
                               ),
                               borderRadius: BorderRadius.circular(8),
                             ),

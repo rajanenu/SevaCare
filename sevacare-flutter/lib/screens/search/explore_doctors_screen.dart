@@ -184,7 +184,7 @@ class _DoctorProfileCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                      style: AppTextStyles.cardTitle(context.colors.text),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -194,7 +194,7 @@ class _DoctorProfileCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                     if (doctor.qualification != null &&
                         doctor.qualification!.isNotEmpty) ...[
@@ -204,7 +204,7 @@ class _DoctorProfileCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                        style: AppTextStyles.label(context.colors.textMuted),
                       ),
                     ],
                     if (doctor.averageRating != null) ...[
@@ -262,15 +262,15 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline,
             size: 32,
-            color: SevaCareColors.danger,
+            color: context.colors.danger,
           ),
           const SizedBox(height: 12),
           Text(
             'Could not load doctors',
-            style: AppTextStyles.cardTitle(SevaCareColors.danger),
+            style: AppTextStyles.cardTitle(context.colors.danger),
           ),
           const SizedBox(height: 12),
           PrimaryButton(
@@ -294,21 +294,21 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.medical_services_outlined,
             size: 32,
-            color: SevaCareColors.textMuted,
+            color: context.colors.textMuted,
           ),
           const SizedBox(height: 12),
           Text(
             'No doctors registered yet',
-            style: AppTextStyles.cardTitle(SevaCareColors.text),
+            style: AppTextStyles.cardTitle(context.colors.text),
           ),
           const SizedBox(height: 6),
           Text(
             'This hospital hasn\'t added any doctors yet. Please check back soon.',
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
         ],
       ),

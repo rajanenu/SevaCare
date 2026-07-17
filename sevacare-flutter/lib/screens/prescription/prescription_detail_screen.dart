@@ -67,7 +67,7 @@ class _PrescriptionDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate PDF: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Failed to generate PDF: $e'), backgroundColor: context.colors.danger),
         );
       }
     } finally {
@@ -97,32 +97,22 @@ class _PrescriptionDetailScreenState
           const SizedBox(height: 16),
 
           if (_loading)
-            const SizedBox(
-              height: 400,
-              child: Center(child: CircularProgressIndicator()),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: ShimmerList(count: 3, cardHeight: 120),
             )
           else if (_error != null)
             SizedBox(
               height: 400,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: SevaCareColors.danger, size: 40),
-                    const SizedBox(height: 12),
-                    Text(_error!,
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                    const SizedBox(height: 16),
-                    PrimaryButton(label: 'Retry', onPressed: _load),
-                  ],
-                ),
-              ),
+              child: AppErrorState(message: _error!, onRetry: _load),
             )
           else if (rx == null)
             const SizedBox(
               height: 400,
-              child: Center(child: Text('Prescription not found')),
+              child: AppEmptyState(
+                icon: Icons.receipt_long_rounded,
+                title: 'Prescription not found',
+              ),
             )
           else ...[
             // ── Page header
@@ -151,7 +141,7 @@ class _PrescriptionDetailScreenState
                   Row(
                     children: [
                       Text('Status',
-                          style: AppTextStyles.label(SevaCareColors.textMuted)),
+                          style: AppTextStyles.label(context.colors.textMuted)),
                       const SizedBox(width: 12),
                       StatusBadge(status: rx.status),
                     ],
@@ -162,7 +152,7 @@ class _PrescriptionDetailScreenState
             const SizedBox(height: 16),
 
             // ── Medicines card
-            Text('Medicines', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Medicines', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 12),
             if (rx.medicines.isEmpty)
               AppCard(
@@ -170,7 +160,7 @@ class _PrescriptionDetailScreenState
                 child: Center(
                   child: Text(
                     'No medicines listed',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                    style: AppTextStyles.bodyText(context.colors.textMuted),
                   ),
                 ),
               )
@@ -190,7 +180,7 @@ class _PrescriptionDetailScreenState
                         // Medicine name
                         Text(
                           med.name,
-                          style: AppTextStyles.cardTitle(SevaCareColors.text),
+                          style: AppTextStyles.cardTitle(context.colors.text),
                         ),
                         const SizedBox(height: 8),
                         // Chips: strength, frequency, duration
@@ -211,7 +201,7 @@ class _PrescriptionDetailScreenState
                           const SizedBox(height: 8),
                           Text(
                             med.instructions!,
-                            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                            style: AppTextStyles.bodyText(context.colors.textMuted),
                           ),
                         ],
                       ],
@@ -223,13 +213,13 @@ class _PrescriptionDetailScreenState
 
             // ── Notes card (if any)
             if (rx.notes != null && rx.notes!.isNotEmpty) ...[
-              Text('Notes', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              Text('Notes', style: AppTextStyles.sectionTitle(context.colors.text)),
               const SizedBox(height: 12),
               AppCard(
                 padding: const EdgeInsets.all(20),
                 child: Text(
                   rx.notes!,
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  style: AppTextStyles.bodyText(context.colors.textMuted),
                 ),
               ),
               const SizedBox(height: 16),
@@ -263,19 +253,19 @@ class _MedChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: SevaCareColors.mintSoft,
+        color: context.colors.mintSoft,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: Border.all(
-          color: SevaCareColors.mint.withValues(alpha: 0.3),
+          color: context.colors.mint.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: SevaCareColors.mintForeground),
+          Icon(icon, size: 13, color: context.colors.mintForeground),
           const SizedBox(width: 5),
-          Text(label, style: AppTextStyles.chipLabel(SevaCareColors.mintForeground)),
+          Text(label, style: AppTextStyles.chipLabel(context.colors.mintForeground)),
         ],
       ),
     );

@@ -188,7 +188,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: Text(tr(ref, 'Yes, Cancel')),
           ),
         ],
@@ -237,7 +237,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                       const SizedBox(height: 8),
                       Text(
                         tr(ref, 'Rate your visit'),
-                        style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                        style: AppTextStyles.sectionTitle(context.colors.text),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
@@ -245,7 +245,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                         appt.doctorName.isNotEmpty
                             ? 'Dr. ${stripDoctorPrefix(appt.doctorName)}'
                             : '',
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        style: AppTextStyles.bodyText(context.colors.textMuted),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -272,9 +272,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                     top: 0,
                     right: 0,
                     child: IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close,
-                        color: SevaCareColors.textMuted,
+                        color: context.colors.textMuted,
                       ),
                       tooltip: tr(ref, 'Skip'),
                       onPressed: () => Navigator.pop(sheetContext, false),
@@ -372,15 +372,15 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline,
-                      color: SevaCareColors.danger,
+                      color: context.colors.danger,
                       size: 40,
                     ),
                     const SizedBox(height: 12),
                     Text(
                       _error!,
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                      style: AppTextStyles.bodyText(context.colors.textMuted),
                     ),
                     const SizedBox(height: 16),
                     PrimaryButton(label: tr(ref, 'Retry'), onPressed: _load),
@@ -483,7 +483,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                             child: Text(
                               timelineLabel,
                               style: AppTextStyles.label(
-                                SevaCareColors.text,
+                                context.colors.text,
                               ).copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
@@ -509,7 +509,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                         alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: SevaCareColors.primarySoft,
+                          color: context.colors.primarySoft,
                           borderRadius: BorderRadius.circular(
                             AppTheme.radiusPill,
                           ),
@@ -517,7 +517,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                         child: Text(
                           AppDateUtils.dayLabel(_dayOffset),
                           style: AppTextStyles.chipLabel(
-                            SevaCareColors.primary,
+                            context.colors.primary,
                           ),
                         ),
                       ),
@@ -562,7 +562,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                     // ── #2: Journey appointment cards ───────────────────────
                     Text(
                       tr(ref, 'Patient Queue'),
-                      style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                      style: AppTextStyles.sectionTitle(context.colors.text),
                     ),
                     const SizedBox(height: 12),
                     if (dayAppts.isEmpty)
@@ -571,16 +571,16 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
                         alignment: Alignment.center,
                         child: Column(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.calendar_today_outlined,
-                              color: SevaCareColors.textMuted,
+                              color: context.colors.textMuted,
                               size: 36,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               '${tr(ref, 'No appointments for')} ${AppDateUtils.dayLabel(_dayOffset)}',
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted,
+                                context.colors.textMuted,
                               ),
                             ),
                           ],
@@ -932,12 +932,12 @@ class _JourneyCard extends ConsumerWidget {
                       appt.doctorName.isNotEmpty
                           ? 'Dr. ${stripDoctorPrefix(appt.doctorName)}'
                           : 'Doctor',
-                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                      style: AppTextStyles.cardTitle(context.colors.text),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       AppDateUtils.formatSlot(appt.slot),
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                     const SizedBox(height: 8),
                     StatusBadge(
@@ -971,8 +971,8 @@ class _JourneyCard extends ConsumerWidget {
                 icon: const Icon(Icons.star_outline_rounded, size: 18),
                 label: Text(tr(ref, 'Rate your visit')),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: SevaCareColors.primary,
-                  side: const BorderSide(color: SevaCareColors.primary),
+                  foregroundColor: context.colors.primary,
+                  side: BorderSide(color: context.colors.primary),
                 ),
               ),
             ),
@@ -1012,11 +1012,11 @@ class _JourneyTimeline extends StatelessWidget {
                 height: 2,
                 decoration: BoxDecoration(
                   gradient: (done || active)
-                      ? const LinearGradient(
-                          colors: [SevaCareColors.primary, SevaCareColors.mint],
+                      ? LinearGradient(
+                          colors: [context.colors.primary, context.colors.mint],
                         )
                       : null,
-                  color: (done || active) ? null : SevaCareColors.border,
+                  color: (done || active) ? null : context.colors.border,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
@@ -1029,7 +1029,7 @@ class _JourneyTimeline extends StatelessWidget {
         // The final "Done" step reads better as a completion color (green)
         // rather than the same brand purple used for in-progress steps.
         final isFinalDone = done && idx == steps.length - 1;
-        final doneColor = isFinalDone ? SevaCareColors.success : SevaCareColors.primary;
+        final doneColor = isFinalDone ? context.colors.success : context.colors.primary;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1040,17 +1040,17 @@ class _JourneyTimeline extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: (done && !isFinalDone)
-                    ? const LinearGradient(
-                        colors: SevaCareColors.buttonGradient,
+                    ? LinearGradient(
+                        colors: context.colors.buttonGradient,
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       )
                     : null,
                 color: done
-                    ? (isFinalDone ? SevaCareColors.success : null)
-                    : (active ? null : SevaCareColors.surfaceMuted),
+                    ? (isFinalDone ? context.colors.success : null)
+                    : (active ? null : context.colors.surfaceMuted),
                 border: active
-                    ? Border.all(color: SevaCareColors.primary, width: 2)
+                    ? Border.all(color: context.colors.primary, width: 2)
                     : null,
                 boxShadow: done
                     ? [
@@ -1068,8 +1068,8 @@ class _JourneyTimeline extends StatelessWidget {
                 color: done
                     ? Colors.white
                     : (active
-                          ? SevaCareColors.primary
-                          : SevaCareColors.textMuted),
+                          ? context.colors.primary
+                          : context.colors.textMuted),
               ),
             ),
             const SizedBox(height: 4),
@@ -1083,8 +1083,8 @@ class _JourneyTimeline extends StatelessWidget {
                   color: done
                       ? doneColor
                       : (active
-                            ? SevaCareColors.primary
-                            : SevaCareColors.textMuted),
+                            ? context.colors.primary
+                            : context.colors.textMuted),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1136,12 +1136,12 @@ class _QuickActionTileState extends State<_QuickActionTile> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            color: SevaCareColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
               color: _pressed
                   ? _accentColor.withValues(alpha: 0.30)
-                  : SevaCareColors.border,
+                  : context.colors.border,
               width: 1,
             ),
             boxShadow: [
@@ -1182,7 +1182,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   widget.label,
-                  style: AppTextStyles.label(SevaCareColors.text),
+                  style: AppTextStyles.label(context.colors.text),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                 ),
@@ -1352,8 +1352,8 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
     );
 
     final accentColor = info.almostYourTurn
-        ? SevaCareColors.danger
-        : SevaCareColors.primary;
+        ? context.colors.danger
+        : context.colors.primary;
 
     return AnimatedBuilder(
       animation: _pulse,
@@ -1362,7 +1362,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            color: SevaCareColors.primarySoft,
+            color: context.colors.primarySoft,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: accentColor.withValues(alpha: 0.20 + glow * 0.15),
@@ -1394,7 +1394,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                     height: 26,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: SevaCareColors.primarySoft,
+                      color: context.colors.primarySoft,
                       border: Border.all(
                         color: accentColor.withValues(alpha: 0.30),
                       ),
@@ -1424,7 +1424,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                           height: 6,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: SevaCareColors.mint.withValues(
+                            color: context.colors.mint.withValues(
                               alpha: 0.5 + glow * 0.5,
                             ),
                           ),
@@ -1432,7 +1432,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                         const SizedBox(width: 5),
                         Text(
                           'LIVE · Queue Position',
-                          style: AppTextStyles.label(SevaCareColors.primary),
+                          style: AppTextStyles.label(context.colors.primary),
                         ),
                       ],
                     ),
@@ -1444,7 +1444,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                       style: AppTextStyles.body(
                         size: 13,
                         weight: FontWeight.w700,
-                        color: SevaCareColors.text,
+                        color: context.colors.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1470,7 +1470,7 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
                       status.estimatedCallAt != null
                           ? 'around ${status.estimatedCallAt}'
                           : 'est. wait',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                 ],
               ),
@@ -1567,9 +1567,9 @@ class _AppointmentCountdownBannerState
   }
 
   Color get _urgencyColor {
-    if (_remaining.inMinutes <= 15) return SevaCareColors.danger;
-    if (_remaining.inMinutes <= 60) return SevaCareColors.peach;
-    return SevaCareColors.primary;
+    if (_remaining.inMinutes <= 15) return context.colors.danger;
+    if (_remaining.inMinutes <= 60) return context.colors.peach;
+    return context.colors.primary;
   }
 
   String get _urgencyLabel {
@@ -1618,7 +1618,7 @@ class _AppointmentCountdownBannerState
                   style: AppTextStyles.body(
                     size: 13,
                     weight: FontWeight.w700,
-                    color: SevaCareColors.text,
+                    color: context.colors.text,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1640,7 +1640,7 @@ class _AppointmentCountdownBannerState
               ),
               Text(
                 'remaining',
-                style: AppTextStyles.label(SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted),
               ),
             ],
           ),

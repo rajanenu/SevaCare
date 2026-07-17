@@ -3,8 +3,12 @@ package com.sevacare.api.controller;
 import java.time.LocalDate;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.MediaService;
 import com.sevacare.api.service.ScribeService;
 import com.sevacare.doctor.service.DoctorAvailabilityService;
 import com.sevacare.doctor.service.DoctorDomainService;
@@ -35,19 +40,22 @@ public class DoctorController {
     private final SlotBlockService slotBlockService;
     private final DoctorAvailabilityService doctorAvailabilityService;
     private final ScribeService scribeService;
+    private final MediaService mediaService;
 
     public DoctorController(
             DoctorDomainService doctorDomainService,
             PatientDomainService patientDomainService,
             SlotBlockService slotBlockService,
             DoctorAvailabilityService doctorAvailabilityService,
-            ScribeService scribeService
+            ScribeService scribeService,
+            MediaService mediaService
     ) {
         this.doctorDomainService = doctorDomainService;
         this.patientDomainService = patientDomainService;
         this.slotBlockService = slotBlockService;
         this.doctorAvailabilityService = doctorAvailabilityService;
         this.scribeService = scribeService;
+        this.mediaService = mediaService;
     }
 
     /**
@@ -76,17 +84,28 @@ public class DoctorController {
         return ContractResponse.of(doctorDomainService.dashboard(tenantPublicId, doctorPublicId));
     }
 
+    // Tagged with a version of the queue's actual state (bookings, statuses,
+    // completions). The app polls this on a short interval and sends the version
+    // back as If-None-Match; an unchanged queue is a 304 with no body, so the
+    // board can refresh far more often than the old timer for near-zero cost.
     @GetMapping("/{tenantPublicId}/{doctorPublicId}/queue")
     @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
-    public ContractResponse<PatientDtos.DoctorQueueDayView> queueByDate(
+    public ResponseEntity<ContractResponse<PatientDtos.DoctorQueueDayView>> queueByDate(
             @PathVariable String tenantPublicId,
             @PathVariable String doctorPublicId,
-            @RequestParam String date
+            @RequestParam String date,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch
     ) {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        return ContractResponse.of(doctorDomainService.queueForDate(tenantPublicId, doctorPublicId, LocalDate.parse(date)));
+        PatientDtos.DoctorQueueDayView view =
+                doctorDomainService.queueForDate(tenantPublicId, doctorPublicId, LocalDate.parse(date));
+        String etag = "\"" + view.version() + "\"";
+        if (etag.equals(ifNoneMatch)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
+        return ResponseEntity.ok().eTag(etag).body(ContractResponse.of(view));
     }
 
     @PostMapping("/{tenantPublicId}/{doctorPublicId}/patients/{patientPublicId}/disable")
@@ -196,7 +215,8 @@ public class DoctorController {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        doctorDomainService.updateDoctorPhoto(tenantPublicId, doctorPublicId, request.photoBase64());
+        String mediaSha = mediaService.putBase64(request.photoBase64());
+        doctorDomainService.updateDoctorPhoto(tenantPublicId, doctorPublicId, mediaSha);
         return ContractResponse.of("saved");
     }
 

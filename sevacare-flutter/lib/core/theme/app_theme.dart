@@ -37,6 +37,7 @@ class AppTheme {
         brightness: Brightness.light,
       ),
       textTheme: textTheme,
+      extensions: [colors],
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
         foregroundColor: colors.text,
@@ -96,12 +97,13 @@ class AppTheme {
   }
 
   static ThemeData buildDarkTheme() {
-    const scaffoldBg = Color(0xFF0F172A);
-    const cardBg = Color(0xFF1E293B);
-    const borderColor = Color(0xFF334155);
-    const textColor = Colors.white;
-    const textMutedColor = Color(0xFF94A3B8);
-    const primaryColor = Color(0xFF6366F1);
+    const colors = AppThemeColors.dark;
+    final scaffoldBg = colors.background;
+    final cardBg = colors.surface;
+    final borderColor = colors.border;
+    final textColor = colors.text;
+    final textMutedColor = colors.textMuted;
+    final primaryColor = colors.primary;
 
     final textTheme = GoogleFonts.interTextTheme().copyWith(
       displayLarge: GoogleFonts.sora(fontSize: 32, fontWeight: FontWeight.w800, color: textColor),
@@ -124,10 +126,11 @@ class AppTheme {
         seedColor: primaryColor,
         primary: primaryColor,
         surface: cardBg,
-        error: const Color(0xFFEF4444),
+        error: colors.error,
         brightness: Brightness.dark,
       ),
       textTheme: textTheme,
+      extensions: const [colors],
       appBarTheme: AppBarTheme(
         backgroundColor: cardBg,
         foregroundColor: textColor,
@@ -145,15 +148,15 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: borderColor, width: 1.5),
+          borderSide: BorderSide(color: borderColor, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: borderColor, width: 1.5),
+          borderSide: BorderSide(color: borderColor, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
+          borderSide: BorderSide(color: primaryColor, width: 2),
         ),
         hintStyle: GoogleFonts.inter(fontSize: 14, color: textMutedColor),
         labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: textMutedColor),
@@ -173,12 +176,12 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: const BorderSide(color: borderColor, width: 1),
+          side: BorderSide(color: borderColor, width: 1),
         ),
         margin: EdgeInsets.zero,
       ),
       dividerColor: borderColor,
-      dividerTheme: const DividerThemeData(color: borderColor, thickness: 1, space: 0),
+      dividerTheme: DividerThemeData(color: borderColor, thickness: 1, space: 0),
     );
   }
 }

@@ -755,14 +755,21 @@ public class PatientDomainService {
     public PatientDtos.PhotoView getPatientPhoto(String tenantPublicId, String patientPublicId) {
         Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
-        return new PatientDtos.PhotoView(patient.getPhotoBase64());
+        String sha = patient.getPhotoMediaSha();
+        return new PatientDtos.PhotoView(sha != null ? null : patient.getPhotoBase64(), sha);
     }
 
+    /**
+     * Store the media reference for a patient's photo (bytes already live in
+     * public.media). A null sha clears the photo. base64 is nulled so the legacy
+     * column stops shadowing the reference.
+     */
     @Transactional
-    public void updatePatientPhoto(String tenantPublicId, String patientPublicId, String photoBase64) {
+    public void updatePatientPhoto(String tenantPublicId, String patientPublicId, String mediaSha) {
         Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientPublicId, tenantPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found for tenant"));
-        patient.setPhotoBase64(photoBase64);
+        patient.setPhotoMediaSha(mediaSha);
+        patient.setPhotoBase64(null);
         patientRepository.save(patient);
     }
 
@@ -1625,8 +1632,38 @@ public class PatientDomainService {
                 totalAppointments,
                 pendingNotes,
                 dayAppointments.isEmpty() ? 0 : avgConsultMinutes,
-                facets
+                facets,
+                computeQueueVersion(dayAppointments)
         );
+    }
+
+    /**
+     * A content version of the queue's real state — each appointment's id, status,
+     * token and completion time. It changes on a new booking, a status transition
+     * or a completed consult, and deliberately excludes the clock-derived call-time
+     * estimates so a mere passage of time does not bust the client's cache.
+     */
+    private static String computeQueueVersion(List<Appointment> appointments) {
+        StringBuilder sb = new StringBuilder();
+        appointments.stream()
+                .sorted(Comparator.comparing(Appointment::getAppointmentPublicId,
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
+                .forEach(a -> sb.append(a.getAppointmentPublicId()).append(':')
+                        .append(a.getAppointmentStatus()).append(':')
+                        .append(a.getTokenNumber()).append(':')
+                        .append(a.getCompletedAt()).append(';'));
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                hex.append(Character.forDigit((digest[i] >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(digest[i] & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            return Integer.toHexString(sb.toString().hashCode());
+        }
     }
 
     // Fetch a single attachment's bytes on demand — the queue ships metadata only,

@@ -73,7 +73,7 @@ class _DoctorPrescriptionsScreenState
           ),
           const SizedBox(height: 16),
           if (_loading)
-            const Center(child: CircularProgressIndicator())
+            const ShimmerList(count: 4, cardHeight: 88)
           else if (_error != null)
             _ErrorView(error: _error!, onRetry: _load)
           else if (list.isEmpty)
@@ -107,7 +107,7 @@ class _PrescriptionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   rx.prescriptionPublicId,
-                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                  style: AppTextStyles.cardTitle(context.colors.text),
                 ),
               ),
               StatusBadge(status: rx.status),
@@ -116,21 +116,21 @@ class _PrescriptionCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Dr. ${rx.doctorName}',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
               _Chip(
                 label: '${rx.medicines.length} medicine${rx.medicines.length == 1 ? '' : 's'}',
-                bg: SevaCareColors.mintSoft,
-                fg: SevaCareColors.mintForeground,
+                bg: context.colors.mintSoft,
+                fg: context.colors.mintForeground,
               ),
               const SizedBox(width: 8),
               _Chip(
                 label: AppDateUtils.formatDisplay(rx.issuedOn),
-                bg: SevaCareColors.primarySoft,
-                fg: SevaCareColors.primary,
+                bg: context.colors.primarySoft,
+                fg: context.colors.primary,
               ),
             ],
           ),
@@ -143,12 +143,12 @@ class _PrescriptionCard extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.circle, size: 6, color: SevaCareColors.primary),
+                    Icon(Icons.circle, size: 6, color: context.colors.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${m.name}  ${m.strength}  ${m.frequency}',
-                        style: AppTextStyles.bodyText(SevaCareColors.text),
+                        style: AppTextStyles.bodyText(context.colors.text),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -159,7 +159,7 @@ class _PrescriptionCard extends StatelessWidget {
             if (rx.medicines.length > 3)
               Text(
                 '+${rx.medicines.length - 3} more',
-                style: AppTextStyles.badgeText(SevaCareColors.textMuted),
+                style: AppTextStyles.badgeText(context.colors.textMuted),
               ),
           ] else if (rx.notes != null && rx.notes!.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -167,7 +167,7 @@ class _PrescriptionCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               rx.notes!,
-              style: AppTextStyles.bodyText(SevaCareColors.text),
+              style: AppTextStyles.bodyText(context.colors.text),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -202,9 +202,9 @@ class _EmptyView extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.medication_outlined, size: 48, color: SevaCareColors.border),
+            Icon(Icons.medication_outlined, size: 48, color: context.colors.border),
             const SizedBox(height: 12),
-            Text('No prescriptions issued yet', style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            Text('No prescriptions issued yet', style: AppTextStyles.bodyText(context.colors.textMuted)),
           ],
         ),
       ),
@@ -223,7 +223,7 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          Text('Failed to load', style: AppTextStyles.bodyText(SevaCareColors.danger)),
+          Text('Failed to load', style: AppTextStyles.bodyText(context.colors.danger)),
           const SizedBox(height: 12),
           SecondaryButton(label: 'Retry', onPressed: onRetry),
         ],

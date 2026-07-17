@@ -11,7 +11,7 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg, icon, label) = _resolve(status.toLowerCase());
+    final (bg, fg, icon, label) = _resolve(context, status.toLowerCase());
     return Semantics(
       label: 'Status: $label',
       child: Container(
@@ -33,70 +33,70 @@ class StatusBadge extends StatelessWidget {
     );
   }
 
-  (Color, Color, IconData, String) _resolve(String s) => switch (s) {
+  (Color, Color, IconData, String) _resolve(BuildContext context, String s) => switch (s) {
         'active' => (
-          SevaCareColors.mintSoft,
-          SevaCareColors.mintForeground,
+          context.colors.mintSoft,
+          context.colors.mintForeground,
           Icons.check_circle_outline_rounded,
           'Active'
         ),
         'inactive' || 'disabled' => (
-          SevaCareColors.surfaceMuted,
-          SevaCareColors.textMuted,
+          context.colors.surfaceMuted,
+          context.colors.textMuted,
           Icons.cancel_outlined,
           'Inactive'
         ),
         'upcoming' => (
-          SevaCareColors.primarySoft,
-          SevaCareColors.primary,
+          context.colors.primarySoft,
+          context.colors.primary,
           Icons.schedule_rounded,
           'Upcoming'
         ),
         'completed' => (
-          SevaCareColors.mintSoft,
-          SevaCareColors.mintForeground,
+          context.colors.mintSoft,
+          context.colors.mintForeground,
           Icons.task_alt_rounded,
           'Completed'
         ),
         'past' => (
-          SevaCareColors.surfaceMuted,
-          SevaCareColors.textMuted,
+          context.colors.surfaceMuted,
+          context.colors.textMuted,
           Icons.history_rounded,
           'Past'
         ),
         'cancelled' || 'canceled' => (
-          SevaCareColors.errorSurface,
-          SevaCareColors.danger,
+          context.colors.errorSurface,
+          context.colors.danger,
           Icons.block_rounded,
           'Cancelled'
         ),
         'pending' => (
-          SevaCareColors.warningSurface,
-          SevaCareColors.warning,
+          context.colors.warningSurface,
+          context.colors.warning,
           Icons.hourglass_empty_rounded,
           'Pending'
         ),
         'approved' => (
-          SevaCareColors.mintSoft,
-          SevaCareColors.mintForeground,
+          context.colors.mintSoft,
+          context.colors.mintForeground,
           Icons.verified_rounded,
           'Approved'
         ),
         'declined' => (
-          SevaCareColors.errorSurface,
-          SevaCareColors.danger,
+          context.colors.errorSurface,
+          context.colors.danger,
           Icons.thumb_down_outlined,
           'Declined'
         ),
         'auto_approved' => (
-          SevaCareColors.mintSoft,
-          SevaCareColors.mintForeground,
+          context.colors.mintSoft,
+          context.colors.mintForeground,
           Icons.auto_awesome_rounded,
           'Auto-Approved'
         ),
         _ => (
-          SevaCareColors.surfaceMuted,
-          SevaCareColors.textMuted,
+          context.colors.surfaceMuted,
+          context.colors.textMuted,
           Icons.info_outline_rounded,
           s
         ),

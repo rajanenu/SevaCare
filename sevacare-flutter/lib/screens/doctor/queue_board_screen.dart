@@ -141,14 +141,14 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     final hospital = ref.watch(hospitalProvider);
 
     return Scaffold(
-      backgroundColor: SevaCareColors.primaryStrong,
+      backgroundColor: context.colors.primaryStrong,
       body: SafeArea(
         child: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: SevaCareColors.heroGradient,
+                  colors: context.colors.heroGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

@@ -40,15 +40,15 @@ class GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: backgroundColor ?? (Theme.of(context).brightness == Brightness.dark
                 ? const Color(0xFF1E293B).withValues(alpha: 0.9)
-                : SevaCareColors.glassSurface),
+                : context.colors.glassSurface),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: borderColor ?? SevaCareColors.glassBorder,
+              color: borderColor ?? context.colors.glassBorder,
               width: borderWidth,
             ),
             boxShadow: [
               BoxShadow(
-                color: SevaCareColors.shadowColor.withValues(alpha: 0.06),
+                color: context.colors.shadowColor.withValues(alpha: 0.06),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -89,12 +89,12 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF1E293B)
-            : SevaCareColors.surface,
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: Theme.of(context).brightness == Brightness.dark
               ? const Color(0xFF334155)
-              : SevaCareColors.border,
+              : context.colors.border,
           width: 1,
         ),
         boxShadow: [

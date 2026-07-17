@@ -159,10 +159,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
             title: Row(
               children: [
-                const Icon(Icons.check_circle, color: SevaCareColors.mint, size: 28),
+                Icon(Icons.check_circle, color: context.colors.mint, size: 28),
                 const SizedBox(width: 10),
                 Text('Request Submitted!',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
               ],
             ),
             content: Column(
@@ -173,23 +173,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   result.message.isNotEmpty
                       ? result.message
                       : 'Your onboarding request has been received.',
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                  style: AppTextStyles.bodyText(context.colors.textMuted),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: SevaCareColors.primarySoft,
+                    color: context.colors.primarySoft,
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Request ID: ',
-                          style: AppTextStyles.label(SevaCareColors.textMuted)),
+                          style: AppTextStyles.label(context.colors.textMuted)),
                       Text(
                         result.requestPublicId,
-                        style: AppTextStyles.label(SevaCareColors.primary),
+                        style: AppTextStyles.label(context.colors.primary),
                       ),
                     ],
                   ),
@@ -222,15 +222,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
             title: Row(
               children: [
-                const Icon(Icons.error_outline, color: SevaCareColors.danger, size: 26),
+                Icon(Icons.error_outline, color: context.colors.danger, size: 26),
                 const SizedBox(width: 10),
                 Text('Submission Failed',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
               ],
             ),
             content: Text(
               e.toString(),
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             actions: [
               SecondaryButton(
@@ -267,19 +267,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: SevaCareColors.errorSurface,
+                color: context.colors.errorSurface,
                 borderRadius: BorderRadius.circular(AppTheme.radius),
                 border: Border.all(
-                    color: SevaCareColors.danger.withValues(alpha: 0.4), width: 1),
+                    color: context.colors.danger.withValues(alpha: 0.4), width: 1),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline,
-                      color: SevaCareColors.danger, size: 18),
+                  Icon(Icons.error_outline,
+                      color: context.colors.danger, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_error!,
-                        style: AppTextStyles.label(SevaCareColors.danger)),
+                        style: AppTextStyles.label(context.colors.danger)),
                   ),
                 ],
               ),
@@ -294,7 +294,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Hospital Details',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 16),
                 AppFormField(
                   label: 'Hospital Name',
@@ -373,7 +373,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Contact Details',
-                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                    style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 16),
                 AppFormField(
                   label: 'Contact Name',

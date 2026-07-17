@@ -61,7 +61,7 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
                 const Text('Profile photo updated — tap Save Profile to keep it.'),
               ],
             ),
-            backgroundColor: SevaCareColors.mint,
+            backgroundColor: context.colors.mint,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(
@@ -74,7 +74,7 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not pick image: ${_friendlyError(e)}'),
-            backgroundColor: SevaCareColors.danger,
+            backgroundColor: context.colors.danger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
@@ -151,12 +151,12 @@ class _ProfileAvatarPickerState extends State<ProfileAvatarPicker> {
                 width: editSize,
                 height: editSize,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.primary,
+                  color: context.colors.primary,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: SevaCareColors.primary.withValues(alpha: 0.4),
+                      color: context.colors.primary.withValues(alpha: 0.4),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -214,7 +214,7 @@ class _PickerSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               'Update Profile Photo',
-              style: AppTextStyles.sectionTitle(SevaCareColors.text),
+              style: AppTextStyles.sectionTitle(context.colors.text),
             ),
           ),
           const SizedBox(height: 16),
@@ -233,7 +233,7 @@ class _PickerSheet extends StatelessWidget {
               icon:  Icons.delete_outline,
               label: 'Remove photo',
               onTap: onRemove!,
-              color: SevaCareColors.danger,
+              color: context.colors.danger,
             ),
           const SizedBox(height: 12),
           Padding(
@@ -243,7 +243,7 @@ class _PickerSheet extends StatelessWidget {
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text('Cancel',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
               ),
             ),
           ),
@@ -269,7 +269,7 @@ class _SheetOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? SevaCareColors.text;
+    final c = color ?? context.colors.text;
     return InkWell(
       onTap: onTap,
       child: Padding(

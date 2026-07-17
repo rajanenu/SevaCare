@@ -153,7 +153,7 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
               hintText: _loading
                   ? 'Loading the shop…'
                   : 'Medicine, supplier, invoice no. or customer…',
-              prefixIcon: const Icon(Icons.search_rounded, color: SevaCareColors.primary),
+              prefixIcon: Icon(Icons.search_rounded, color: context.colors.primary),
               suffixIcon: _q.isEmpty
                   ? null
                   : IconButton(
@@ -164,14 +164,14 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
                       },
                     ),
               filled: true,
-              fillColor: SevaCareColors.surface,
+              fillColor: context.colors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: SevaCareColors.border),
+                borderSide: BorderSide(color: context.colors.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: SevaCareColors.border),
+                borderSide: BorderSide(color: context.colors.border),
               ),
             ),
           ),
@@ -187,7 +187,7 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
                 }),
                 selected: _scope == s,
                 onSelected: (_) => setState(() => _scope = s),
-                selectedColor: SevaCareColors.primarySoft,
+                selectedColor: context.colors.primarySoft,
               ),
           ]),
           const SizedBox(height: 10),
@@ -224,7 +224,7 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
   Widget _sectionTitle(String t, IconData icon, int n) => Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 6),
         child: Row(children: [
-          Icon(icon, size: 16, color: SevaCareColors.primary),
+          Icon(icon, size: 16, color: context.colors.primary),
           const SizedBox(width: 6),
           Text('$t · $n',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
@@ -233,17 +233,17 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
 
   Widget _hint() => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.storefront_outlined, size: 46, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
+          Icon(Icons.storefront_outlined, size: 46, color: context.colors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 10),
           const Text('Search your shop', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               'Medicines with their rack and stock, suppliers with their numbers, '
               'and any bill from the last 90 days.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 12.5, color: context.colors.textMuted),
             ),
           ),
         ]),
@@ -251,10 +251,10 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
 
   Widget _empty() => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.search_off_rounded, size: 40, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
+          Icon(Icons.search_off_rounded, size: 40, color: context.colors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 10),
           Text('Nothing matches “${_ctrl.text.trim()}”.',
-              style: const TextStyle(color: SevaCareColors.textMuted)),
+              style: TextStyle(color: context.colors.textMuted)),
         ]),
       );
 
@@ -274,16 +274,16 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
                 if ((s.manufacturer ?? '').isNotEmpty) s.manufacturer,
                 if (s.isPrescriptionOnly) 'Rx ${s.scheduleClass ?? ''}'.trim(),
               ].join(' · '),
-              style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11.5, color: context.colors.textMuted),
             ),
             if ((s.rackLocation ?? '').isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Row(children: [
-                  const Icon(Icons.shelves, size: 12, color: SevaCareColors.primary),
+                  Icon(Icons.shelves, size: 12, color: context.colors.primary),
                   const SizedBox(width: 4),
                   Text('Rack ${s.rackLocation}',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: SevaCareColors.primary)),
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: context.colors.primary)),
                 ]),
               ),
           ]),
@@ -296,7 +296,7 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: out ? SevaCareColors.error : SevaCareColors.textMuted,
+                color: out ? context.colors.error : context.colors.textMuted,
               )),
         ]),
       ]),
@@ -329,19 +329,19 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
                 if ((s.gstin ?? '').isNotEmpty) 'GSTIN ${s.gstin}',
                 'returns ${s.returnWindowDays}d',
               ].join(' · '),
-              style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted),
+              style: TextStyle(fontSize: 11.5, color: context.colors.textMuted),
             ),
           ]),
         ),
         if (mobile.isNotEmpty)
           IconButton(
-            icon: const Icon(Icons.call_outlined, size: 18, color: SevaCareColors.success),
+            icon: Icon(Icons.call_outlined, size: 18, color: context.colors.success),
             tooltip: 'Call',
             onPressed: () => _dial('tel', mobile),
           ),
         if (email.isNotEmpty)
           IconButton(
-            icon: const Icon(Icons.email_outlined, size: 18, color: SevaCareColors.primary),
+            icon: Icon(Icons.email_outlined, size: 18, color: context.colors.primary),
             tooltip: 'Email',
             onPressed: () => _dial('mailto', email),
           ),
@@ -362,23 +362,23 @@ class _PharmacySearchScreenState extends ConsumerState<PharmacySearchScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                        color: SevaCareColors.error.withValues(alpha: 0.12),
+                        color: context.colors.error.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6)),
-                    child: const Text('VOID',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+                    child: Text('VOID',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: context.colors.error)),
                   ),
                 ],
               ]),
               Row(children: [
                 Text('${(s.soldAt ?? '').split('T').first} · ${s.paymentMode}',
-                    style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                    style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                 if ((s.customerName ?? '').isNotEmpty)
                   Text(' · ${s.customerName}',
-                      style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                      style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                 if ((s.customerMobile ?? '').isNotEmpty) ...[
-                  const Text(' · ', style: TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                  Text(' · ', style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                   MaskedText(s.customerMobile!,
-                      style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+                      style: TextStyle(fontSize: 11.5, color: context.colors.textMuted)),
                 ],
               ]),
             ]),

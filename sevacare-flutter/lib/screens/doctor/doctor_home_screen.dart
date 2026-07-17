@@ -54,11 +54,13 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
     _loadQueue();
     _loadBookingRequestCount();
     // Near-real-time queue: silently refetch the visible day + request badge.
+    // Poll on a short interval — the queue read is a conditional GET, so an
+    // unchanged queue costs a 304 with no body and no rebuild, making the board
+    // feel live without a heavier per-tick cost than the old 20s timer.
     startAutoRefresh(() async {
-      _queueCache.remove(_dayOffset);
       await _loadQueue(silent: true);
       await _loadBookingRequestCount();
-    });
+    }, interval: const Duration(seconds: 7));
   }
 
   @override
@@ -87,8 +89,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
 
   Future<void> _loadQueue({bool silent = false}) async {
     final requestedOffset = _dayOffset;
-    final cached = silent ? null : _queueCache[requestedOffset];
-    if (cached != null) {
+    final cached = _queueCache[requestedOffset];
+    if (!silent && cached != null) {
       // Already fetched this day this session — swap instantly, no spinner.
       setState(() {
         _queueView = cached;
@@ -108,12 +110,20 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
       final hospital = ref.read(hospitalProvider);
       final repo = ref.read(repositoryProvider);
       final doctorId = auth.subjectPublicId ?? '';
-      final view = await repo.getDoctorQueue(
+      // Revalidate against the version we already hold for this day; the server
+      // answers 304 when the queue has not changed, so nothing is re-rendered.
+      final etag = (silent && cached != null && cached.version.isNotEmpty)
+          ? '"${cached.version}"'
+          : null;
+      final result = await repo.getDoctorQueueRevalidated(
         hospital.tenantPublicId,
         doctorId,
         _selectedDate,
         auth.token ?? '',
+        etag,
       );
+      if (result.notModified) return; // queue unchanged — keep what we have
+      final view = result.data!;
       _queueCache[requestedOffset] = view;
       // Ignore if the user already switched to a different day while this
       // fetch was in flight — don't clobber the day they're now looking at.
@@ -232,9 +242,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
             borderRadius: BorderRadius.circular(16),
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: SevaCareColors.heroGradient,
+                  colors: context.colors.heroGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -263,13 +273,13 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                               Text(
                                 '${tr(ref, _greetingKey())}, Doctor',
                                 style: AppTextStyles.label(
-                                  SevaCareColors.textOnPrimary.withValues(alpha: 0.80),
+                                  context.colors.textOnPrimary.withValues(alpha: 0.80),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 subjectId,
-                                style: AppTextStyles.cardTitle(SevaCareColors.textOnPrimary),
+                                style: AppTextStyles.cardTitle(context.colors.textOnPrimary),
                               ),
                               const SizedBox(height: 6),
                               Wrap(
@@ -280,7 +290,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: SevaCareColors.mint.withValues(alpha: 0.25),
+                                      color: context.colors.mint.withValues(alpha: 0.25),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Row(
@@ -288,15 +298,15 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                                       children: [
                                         Container(
                                           width: 6, height: 6,
-                                          decoration: const BoxDecoration(
-                                            color: SevaCareColors.mint,
+                                          decoration: BoxDecoration(
+                                            color: context.colors.mint,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
                                         const SizedBox(width: 5),
                                         Text(
                                           tr(ref, 'Available'),
-                                          style: AppTextStyles.label(SevaCareColors.mint),
+                                          style: AppTextStyles.label(context.colors.mint),
                                         ),
                                       ],
                                     ),
@@ -403,7 +413,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
               ),
               Text(
                 _timelineLabel(_selectedDate),
-                style: AppTextStyles.label(SevaCareColors.textMuted),
+                style: AppTextStyles.label(context.colors.textMuted),
               ),
               GestureDetector(
                 onTap: () => _changeDay(_dayOffset + 1),
@@ -456,9 +466,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr(ref, 'Failed to load queue'), style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                  Text(tr(ref, 'Failed to load queue'), style: AppTextStyles.cardTitle(context.colors.danger)),
                   const SizedBox(height: 8),
-                  Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                  Text(_error!, style: AppTextStyles.bodyText(context.colors.textMuted)),
                   const SizedBox(height: 12),
                   PrimaryButton(label: tr(ref, 'Retry'), onPressed: _loadQueue),
                 ],
@@ -492,7 +502,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
             const SizedBox(height: 24),
 
             // ── Patient Queue ────────────────────────────────────────────────
-            Text(tr(ref, 'Patient Queue'), style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text(tr(ref, 'Patient Queue'), style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 12),
             SegmentedControl<int>(
               items: queueFilterSegments,
@@ -511,11 +521,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.self_improvement_rounded, size: 32, color: SevaCareColors.border),
+                      Icon(Icons.self_improvement_rounded, size: 32, color: context.colors.border),
                       const SizedBox(height: 10),
                       Text(
                         tr(ref, "You're free! Lighter day today"),
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                        style: AppTextStyles.bodyText(context.colors.textMuted),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -539,7 +549,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: SevaCareColors.mint,
+                                color: context.colors.mint,
                                 borderRadius: BorderRadius.circular(99),
                               ),
                               child: Row(
@@ -561,11 +571,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                                   children: [
                                     Text(
                                       facet.patientName,
-                                      style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                      style: AppTextStyles.cardTitle(context.colors.text),
                                     ),
                                     Text(
                                       facet.appointmentPublicId,
-                                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                                      style: AppTextStyles.label(context.colors.textMuted),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -577,7 +587,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                                       style: AppTextStyles.body(
                                         size: 13,
                                         weight: FontWeight.w500,
-                                        color: SevaCareColors.primary,
+                                        color: context.colors.primary,
                                       ),
                                     ),
                                   ],
@@ -599,25 +609,25 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen>
                                   _Chip(
                                     label: tr(ref, 'IP-Staff Booking'),
                                     color: const Color(0xFFFFF4EE),
-                                    textColor: SevaCareColors.peachForeground,
+                                    textColor: context.colors.peachForeground,
                                   ),
                                 if (facet.isQrBooking)
                                   _Chip(
                                     label: tr(ref, 'QR Booking'),
-                                    color: SevaCareColors.primarySoft,
-                                    textColor: SevaCareColors.primary,
+                                    color: context.colors.primarySoft,
+                                    textColor: context.colors.primary,
                                   ),
                                 if (facet.medicines.isNotEmpty)
                                   _Chip(
                                     label: '${facet.medicines.length} medicine(s)',
-                                    color: SevaCareColors.primarySoft,
-                                    textColor: SevaCareColors.primary,
+                                    color: context.colors.primarySoft,
+                                    textColor: context.colors.primary,
                                   ),
                                 if (facet.followUp)
                                   _Chip(
                                     label: tr(ref, 'Follow-up'),
-                                    color: SevaCareColors.peachSoft,
-                                    textColor: SevaCareColors.peachForeground,
+                                    color: context.colors.peachSoft,
+                                    textColor: context.colors.peachForeground,
                                   ),
                               ],
                             ),
@@ -686,7 +696,7 @@ class _BookingRequestsCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: const Color(0xFFD97706).withValues(alpha: 0.45),
@@ -699,16 +709,16 @@ class _BookingRequestsCard extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: SevaCareColors.primarySoft,
+                color: context.colors.primarySoft,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.qr_code_scanner_rounded, color: SevaCareColors.primary, size: 22),
+              child: Icon(Icons.qr_code_scanner_rounded, color: context.colors.primary, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 '$pendingCount new QR booking${pendingCount == 1 ? '' : 's'}',
-                style: AppTextStyles.cardTitle(SevaCareColors.text),
+                style: AppTextStyles.cardTitle(context.colors.text),
               ),
             ),
             Container(
@@ -720,7 +730,7 @@ class _BookingRequestsCard extends StatelessWidget {
               child: Text('$pendingCount', style: AppTextStyles.badgeText(Colors.white)),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, color: SevaCareColors.textMuted, size: 20),
+            Icon(Icons.chevron_right_rounded, color: context.colors.textMuted, size: 20),
           ],
         ),
       ),
@@ -774,8 +784,8 @@ class _NowServingStrip extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: SevaCareColors.heroGradient,
+          gradient: LinearGradient(
+            colors: context.colors.heroGradient,
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),

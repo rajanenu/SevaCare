@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sevacare.api.service.MediaService;
 import com.sevacare.api.service.PasscodeService;
 import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.dto.ContractResponse;
@@ -25,10 +26,13 @@ public class PlatformAdminController {
 
     private final PlatformAdminService platformAdminService;
     private final PasscodeService passcodeService;
+    private final MediaService mediaService;
 
-    public PlatformAdminController(PlatformAdminService platformAdminService, PasscodeService passcodeService) {
+    public PlatformAdminController(PlatformAdminService platformAdminService, PasscodeService passcodeService,
+            MediaService mediaService) {
         this.platformAdminService = platformAdminService;
         this.passcodeService = passcodeService;
+        this.mediaService = mediaService;
     }
 
     /**
@@ -99,7 +103,21 @@ public class PlatformAdminController {
             @PathVariable String tenantPublicId,
             @RequestBody PlatformAdminDtos.PlatformTenantHeroImageRequest request
     ) {
-        platformAdminService.updateTenantHeroImage(tenantPublicId, request);
+        String base64 = request.imageBase64();
+        String mediaSha = null;
+        if (base64 != null && !base64.isBlank()) {
+            if (base64.length() > 4_000_000) {
+                throw new IllegalArgumentException("Hero image too large — please upload an image under ~3 MB.");
+            }
+            MediaService.DecodedImage decoded = MediaService.decode(base64);
+            if (decoded != null) {
+                String contentType = (request.contentType() != null && !request.contentType().isBlank())
+                        ? request.contentType()
+                        : decoded.contentType();
+                mediaSha = mediaService.put(decoded.bytes(), contentType);
+            }
+        }
+        platformAdminService.updateTenantHeroImage(tenantPublicId, mediaSha);
         return ContractResponse.of(tenantPublicId);
     }
 

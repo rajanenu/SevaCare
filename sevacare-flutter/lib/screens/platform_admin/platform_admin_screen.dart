@@ -45,19 +45,19 @@ class _PlatformAdminScreenState extends ConsumerState<PlatformAdminScreen> {
         TextButton(
           onPressed: () => setState(() => _tabIndex = 0),
           style: TextButton.styleFrom(
-            foregroundColor: _tabIndex == 0 ? SevaCareColors.primary : SevaCareColors.textMuted,
+            foregroundColor: _tabIndex == 0 ? context.colors.primary : context.colors.textMuted,
           ),
           child: Text(
             'Dashboard',
             style: AppTextStyles.label(
-              _tabIndex == 0 ? SevaCareColors.primary : SevaCareColors.textMuted,
+              _tabIndex == 0 ? context.colors.primary : context.colors.textMuted,
             ),
           ),
         ),
         TextButton(
           onPressed: () => context.push('/platform-admin/profile'),
-          style: TextButton.styleFrom(foregroundColor: SevaCareColors.textMuted),
-          child: Text('Profile', style: AppTextStyles.label(SevaCareColors.textMuted)),
+          style: TextButton.styleFrom(foregroundColor: context.colors.textMuted),
+          child: Text('Profile', style: AppTextStyles.label(context.colors.textMuted)),
         ),
       ],
       body: Column(
@@ -166,9 +166,9 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Failed to load overview', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+            Text('Failed to load overview', style: AppTextStyles.cardTitle(context.colors.danger)),
             const SizedBox(height: 8),
-            Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+            Text(_error!, style: AppTextStyles.bodyText(context.colors.textMuted)),
             const SizedBox(height: 12),
             PrimaryButton(label: 'Retry', onPressed: _load),
           ],
@@ -222,7 +222,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
         const SizedBox(height: 24),
 
         // By module — hospitals and pharmacies at a glance, active vs total.
-        Text('By Module', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        Text('By Module', style: AppTextStyles.sectionTitle(context.colors.text)),
         const SizedBox(height: 12),
         IntrinsicHeight(
           child: Row(
@@ -234,7 +234,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                   label: 'Hospitals',
                   active: activeOf(hospitals),
                   total: hospitals.length,
-                  accent: SevaCareColors.primary,
+                  accent: context.colors.primary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -253,13 +253,13 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
         const SizedBox(height: 24),
 
         // Onboarding requests
-        Text('Onboarding Requests', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        Text('Onboarding Requests', style: AppTextStyles.sectionTitle(context.colors.text)),
         const SizedBox(height: 12),
         if (_requests.isEmpty)
           AppCard(
             child: Text(
               'No onboarding requests yet.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           )
         else
@@ -275,7 +275,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                           Expanded(
                             child: Text(
                               req.hospitalName,
-                              style: AppTextStyles.cardTitle(SevaCareColors.text),
+                              style: AppTextStyles.cardTitle(context.colors.text),
                             ),
                           ),
                           StatusBadge(status: req.status),
@@ -489,14 +489,14 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Hospital image updated for ${tenant.hospitalName}. '
               'It now appears on the login screen background.'),
-          backgroundColor: SevaCareColors.mintForeground,
+          backgroundColor: context.colors.mintForeground,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Image upload failed: $e'),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
     }
@@ -506,12 +506,12 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Delete Hospital', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        title: Text('Delete Hospital', style: AppTextStyles.sectionTitle(context.colors.text)),
         content: Text(
           'Are you sure you want to delete "$hospitalName"? This action cannot be undone.',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           SecondaryButton(label: 'Cancel', onPressed: () => Navigator.of(ctx).pop(false)),
@@ -528,7 +528,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -551,7 +551,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -575,7 +575,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
       if (mounted) {
         setState(() => _generatingQrFor = null);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('QR generation failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('QR generation failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -592,14 +592,14 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('QR Code — $hospitalName', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+        title: Text('QR Code — $hospitalName', style: AppTextStyles.sectionTitle(context.colors.text)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('QR ID: $publicId', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            Text('QR ID: $publicId', style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 16),
             // Actual QR code image — rendered after frame to avoid freezing the UI
             Center(child: _QrDialogContent(qrLink: qrLink)),
@@ -608,18 +608,18 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: SevaCareColors.surfaceMuted,
+                color: context.colors.surfaceMuted,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
                 qrLink,
-                style: AppTextStyles.bodyText(SevaCareColors.primary),
+                style: AppTextStyles.bodyText(context.colors.primary),
               ),
             ),
             const SizedBox(height: 10),
             Text(
               'Patients can scan this QR code or visit the link to book an appointment.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -656,11 +656,11 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hospital Management', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              Text('Hospital Management', style: AppTextStyles.sectionTitle(context.colors.text)),
               const SizedBox(height: 4),
               Text(
                 'Create and manage hospital tenants on the platform.',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
               ),
               const SizedBox(height: 12),
               Row(
@@ -690,7 +690,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New Hospital', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('New Hospital', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 12),
                 AppFormField(
                   label: 'Hospital Name',
@@ -740,7 +740,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                   padding: const EdgeInsets.only(top: 4, bottom: 4),
                   child: Text(
                     'This number becomes the admin login. They can add more admins after signing in.',
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                    style: AppTextStyles.label(context.colors.textMuted),
                   ),
                 ),
                 AppFormField(
@@ -758,10 +758,10 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.errorSurface,
+                      color: context.colors.errorSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
+                    child: Text(_formError!, style: AppTextStyles.bodyText(context.colors.danger)),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -769,12 +769,12 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.successSurface,
+                      color: context.colors.successSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       _formSuccess!,
-                      style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+                      style: AppTextStyles.bodyText(context.colors.mintForeground),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -799,9 +799,9 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Error loading hospitals', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                Text('Error loading hospitals', style: AppTextStyles.cardTitle(context.colors.danger)),
                 const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                Text(_error!, style: AppTextStyles.bodyText(context.colors.textMuted)),
                 const SizedBox(height: 12),
                 PrimaryButton(label: 'Retry', onPressed: _loadTenants),
               ],
@@ -811,7 +811,7 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
           AppCard(
             child: Text(
               'No hospitals found. Add your first hospital above.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           )
         else
@@ -850,18 +850,18 @@ class _HospitalsTabState extends ConsumerState<_HospitalsTab> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.surfaceMuted,
+                      color: context.colors.surfaceMuted,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SevaCareColors.border, width: 1),
+                      border: Border.all(color: context.colors.border, width: 1),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.expand_more, size: 16, color: SevaCareColors.textMuted),
+                        Icon(Icons.expand_more, size: 16, color: context.colors.textMuted),
                         const SizedBox(width: 6),
                         Text(
                           'Load More (${hospitals.length - _visibleCount} remaining)',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                          style: AppTextStyles.label(context.colors.textMuted),
                         ),
                       ],
                     ),
@@ -916,7 +916,7 @@ class _HospitalCard extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: SevaCareColors.primarySoft,
+                    color: context.colors.primarySoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -927,7 +927,7 @@ class _HospitalCard extends StatelessWidget {
                       style: AppTextStyles.body(
                         size: 16,
                         weight: FontWeight.w700,
-                        color: SevaCareColors.primary,
+                        color: context.colors.primary,
                       ),
                     ),
                   ),
@@ -939,17 +939,17 @@ class _HospitalCard extends StatelessWidget {
                     children: [
                       Text(
                         tenant.hospitalName,
-                        style: AppTextStyles.cardTitle(SevaCareColors.text),
+                        style: AppTextStyles.cardTitle(context.colors.text),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (tenant.city.isNotEmpty)
                         Text(
                           '${tenant.city}${tenant.pinCode.isNotEmpty ? ' · ${tenant.pinCode}' : ''}',
-                          style: AppTextStyles.label(SevaCareColors.primary),
+                          style: AppTextStyles.label(context.colors.primary),
                         ),
                       Text(
                         tenant.tenantPublicId,
-                        style: AppTextStyles.label(SevaCareColors.textMuted),
+                        style: AppTextStyles.label(context.colors.textMuted),
                       ),
                       const SizedBox(height: 4),
                       // Wrap, not Row: on a narrow phone two chips beside a long
@@ -972,7 +972,7 @@ class _HospitalCard extends StatelessWidget {
                 Icon(
                   isExpanded ? Icons.expand_less : Icons.expand_more,
                   size: 18,
-                  color: SevaCareColors.textMuted,
+                  color: context.colors.textMuted,
                 ),
               ],
             ),
@@ -985,8 +985,8 @@ class _HospitalCard extends StatelessWidget {
                 children: [
                   IconBtn(
                     icon: Icons.delete_outline,
-                    iconColor: SevaCareColors.danger,
-                    bgColor: SevaCareColors.errorSurface,
+                    iconColor: context.colors.danger,
+                    bgColor: context.colors.errorSurface,
                     tooltip: 'Delete hospital',
                     onPressed: onDelete,
                   ),
@@ -996,11 +996,11 @@ class _HospitalCard extends StatelessWidget {
                         ? Icons.pause_circle_outline
                         : Icons.play_circle_outline,
                     iconColor: tenant.status.toLowerCase() == 'active'
-                        ? SevaCareColors.peachForeground
-                        : SevaCareColors.mintForeground,
+                        ? context.colors.peachForeground
+                        : context.colors.mintForeground,
                     bgColor: tenant.status.toLowerCase() == 'active'
-                        ? SevaCareColors.peachSoft
-                        : SevaCareColors.mintSoft,
+                        ? context.colors.peachSoft
+                        : context.colors.mintSoft,
                     tooltip: tenant.status.toLowerCase() == 'active'
                         ? 'Deactivate'
                         : 'Activate',
@@ -1022,23 +1022,23 @@ class _HospitalCard extends StatelessWidget {
                   else
                     IconBtn(
                       icon: Icons.qr_code_outlined,
-                      iconColor: SevaCareColors.primary,
-                      bgColor: SevaCareColors.primarySoft,
+                      iconColor: context.colors.primary,
+                      bgColor: context.colors.primarySoft,
                       tooltip: qrGenerated ? 'Show QR Code' : 'Generate QR Code',
                       onPressed: qrGenerated ? onShowQr : onGenerateQr,
                     ),
                   const SizedBox(width: 8),
                   IconBtn(
                     icon: Icons.image_outlined,
-                    iconColor: SevaCareColors.mintForeground,
-                    bgColor: SevaCareColors.mintSoft,
+                    iconColor: context.colors.mintForeground,
+                    bgColor: context.colors.mintSoft,
                     tooltip: 'Upload hospital image (login background)',
                     onPressed: onUploadImage,
                   ),
                   const Spacer(),
                   Text(
                     tenant.themeKey.toUpperCase(),
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                    style: AppTextStyles.label(context.colors.textMuted),
                   ),
                 ],
               ),
@@ -1228,7 +1228,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -1246,7 +1246,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -1262,11 +1262,11 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pharmacy Management', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              Text('Pharmacy Management', style: AppTextStyles.sectionTitle(context.colors.text)),
               const SizedBox(height: 4),
               Text(
                 'Onboard and manage standalone medical stores on the platform.',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
               ),
               const SizedBox(height: 12),
               Row(
@@ -1295,7 +1295,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New Pharmacy', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('New Pharmacy', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 12),
                 if (_profiles.isNotEmpty)
                   AppDropdown<String>(
@@ -1308,7 +1308,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                   ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(_profileDescription, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                  child: Text(_profileDescription, style: AppTextStyles.label(context.colors.textMuted)),
                 ),
                 AppFormField(
                   label: 'Pharmacy Name',
@@ -1347,7 +1347,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                   padding: const EdgeInsets.only(top: 4, bottom: 4),
                   child: Text(
                     'This number becomes the store admin login. They can add counter staff after signing in.',
-                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                    style: AppTextStyles.label(context.colors.textMuted),
                   ),
                 ),
                 AppFormField(
@@ -1365,10 +1365,10 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.errorSurface,
+                      color: context.colors.errorSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
+                    child: Text(_formError!, style: AppTextStyles.bodyText(context.colors.danger)),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -1376,10 +1376,10 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.successSurface,
+                      color: context.colors.successSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(_formSuccess!, style: AppTextStyles.bodyText(SevaCareColors.mintForeground)),
+                    child: Text(_formSuccess!, style: AppTextStyles.bodyText(context.colors.mintForeground)),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -1402,9 +1402,9 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Error loading pharmacies', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                Text('Error loading pharmacies', style: AppTextStyles.cardTitle(context.colors.danger)),
                 const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                Text(_error!, style: AppTextStyles.bodyText(context.colors.textMuted)),
                 const SizedBox(height: 12),
                 PrimaryButton(label: 'Retry', onPressed: _loadTenants),
               ],
@@ -1414,7 +1414,7 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
           AppCard(
             child: Text(
               'No pharmacies yet. Add your first medical store above.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           )
         else
@@ -1443,18 +1443,18 @@ class _PharmacyTabState extends ConsumerState<_PharmacyTab> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.surfaceMuted,
+                      color: context.colors.surfaceMuted,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SevaCareColors.border, width: 1),
+                      border: Border.all(color: context.colors.border, width: 1),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.expand_more, size: 16, color: SevaCareColors.textMuted),
+                        Icon(Icons.expand_more, size: 16, color: context.colors.textMuted),
                         const SizedBox(width: 6),
                         Text(
                           'Load More (${pharmacies.length - _visibleCount} remaining)',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                          style: AppTextStyles.label(context.colors.textMuted),
                         ),
                       ],
                     ),
@@ -1513,7 +1513,7 @@ class _PharmacyCard extends StatelessWidget {
                     children: [
                       Text(
                         tenant.hospitalName,
-                        style: AppTextStyles.cardTitle(SevaCareColors.text),
+                        style: AppTextStyles.cardTitle(context.colors.text),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (tenant.city.isNotEmpty)
@@ -1521,7 +1521,7 @@ class _PharmacyCard extends StatelessWidget {
                           '${tenant.city}${tenant.pinCode.isNotEmpty ? ' · ${tenant.pinCode}' : ''}',
                           style: AppTextStyles.label(accent),
                         ),
-                      Text(tenant.tenantPublicId, style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      Text(tenant.tenantPublicId, style: AppTextStyles.label(context.colors.textMuted)),
                     ],
                   ),
                 ),
@@ -1530,7 +1530,7 @@ class _PharmacyCard extends StatelessWidget {
                 Icon(
                   isExpanded ? Icons.expand_less : Icons.expand_more,
                   size: 18,
-                  color: SevaCareColors.textMuted,
+                  color: context.colors.textMuted,
                 ),
               ],
             ),
@@ -1542,16 +1542,16 @@ class _PharmacyCard extends StatelessWidget {
                 children: [
                   IconBtn(
                     icon: Icons.delete_outline,
-                    iconColor: SevaCareColors.danger,
-                    bgColor: SevaCareColors.errorSurface,
+                    iconColor: context.colors.danger,
+                    bgColor: context.colors.errorSurface,
                     tooltip: 'Delete pharmacy',
                     onPressed: onDelete,
                   ),
                   const SizedBox(width: 8),
                   IconBtn(
                     icon: isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                    iconColor: isActive ? SevaCareColors.peachForeground : SevaCareColors.mintForeground,
-                    bgColor: isActive ? SevaCareColors.peachSoft : SevaCareColors.mintSoft,
+                    iconColor: isActive ? context.colors.peachForeground : context.colors.mintForeground,
+                    bgColor: isActive ? context.colors.peachSoft : context.colors.mintSoft,
                     tooltip: isActive ? 'Deactivate' : 'Activate',
                     onPressed: onToggleStatus,
                   ),
@@ -1708,7 +1708,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -1722,7 +1722,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Deactivate failed: $e'), backgroundColor: SevaCareColors.danger),
+          SnackBar(content: Text('Deactivate failed: $e'), backgroundColor: context.colors.danger),
         );
       }
     }
@@ -1745,11 +1745,11 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Platform Admin Users', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              Text('Platform Admin Users', style: AppTextStyles.sectionTitle(context.colors.text)),
               const SizedBox(height: 4),
               Text(
                 'Manage platform-level administrator accounts.',
-                style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                style: AppTextStyles.bodyText(context.colors.textMuted),
               ),
               const SizedBox(height: 12),
               Row(
@@ -1779,7 +1779,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New Platform Admin', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                Text('New Platform Admin', style: AppTextStyles.sectionTitle(context.colors.text)),
                 const SizedBox(height: 12),
                 AppFormField(
                   label: 'Full Name',
@@ -1804,10 +1804,10 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.errorSurface,
+                      color: context.colors.errorSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(_formError!, style: AppTextStyles.bodyText(SevaCareColors.danger)),
+                    child: Text(_formError!, style: AppTextStyles.bodyText(context.colors.danger)),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -1815,12 +1815,12 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: SevaCareColors.successSurface,
+                      color: context.colors.successSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       _formSuccess!,
-                      style: AppTextStyles.bodyText(SevaCareColors.mintForeground),
+                      style: AppTextStyles.bodyText(context.colors.mintForeground),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1845,9 +1845,9 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Error loading admins', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+                Text('Error loading admins', style: AppTextStyles.cardTitle(context.colors.danger)),
                 const SizedBox(height: 8),
-                Text(_error!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                Text(_error!, style: AppTextStyles.bodyText(context.colors.textMuted)),
                 const SizedBox(height: 12),
                 PrimaryButton(label: 'Retry', onPressed: _loadAdmins),
               ],
@@ -1857,7 +1857,7 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
           AppCard(
             child: Text(
               'No platform admins found.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
           )
         else
@@ -1883,16 +1883,16 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                               children: [
                                 Text(
                                   admin.fullName,
-                                  style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                  style: AppTextStyles.cardTitle(context.colors.text),
                                 ),
                                 Text(
                                   admin.mobileNumber,
-                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                  style: AppTextStyles.bodyText(context.colors.textMuted),
                                 ),
                                 if (admin.email != null && admin.email!.isNotEmpty)
                                   Text(
                                     admin.email!,
-                                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                    style: AppTextStyles.bodyText(context.colors.textMuted),
                                   ),
                               ],
                             ),
@@ -1905,8 +1905,8 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                         children: [
                           IconBtn(
                             icon: Icons.delete_outline,
-                            iconColor: SevaCareColors.danger,
-                            bgColor: SevaCareColors.errorSurface,
+                            iconColor: context.colors.danger,
+                            bgColor: context.colors.errorSurface,
                             tooltip: 'Delete admin',
                             onPressed: () => _deleteAdmin(admin.platformAdminPublicId, admin.fullName),
                           ),
@@ -1914,8 +1914,8 @@ class _PlatformAdminsTabState extends ConsumerState<_PlatformAdminsTab> {
                           if (admin.active)
                             IconBtn(
                               icon: Icons.pause_circle_outline,
-                              iconColor: SevaCareColors.peachForeground,
-                              bgColor: SevaCareColors.peachSoft,
+                              iconColor: context.colors.peachForeground,
+                              bgColor: context.colors.peachSoft,
                               tooltip: 'Deactivate',
                               onPressed: () => _deactivateAdmin(admin.platformAdminPublicId),
                             ),
@@ -1964,7 +1964,7 @@ class _QrDialogContentState extends State<_QrDialogContent> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SevaCareColors.border, width: 1),
+        border: Border.all(color: context.colors.border, width: 1),
       ),
       child: _ready
           ? RepaintBoundary(
@@ -1992,15 +1992,15 @@ class _ModuleChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: SevaCareColors.primary.withValues(alpha: 0.10),
+        color: context.colors.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: SevaCareColors.primary),
+          Icon(icon, size: 12, color: context.colors.primary),
           const SizedBox(width: 4),
-          Text(label, style: AppTextStyles.label(SevaCareColors.primary)),
+          Text(label, style: AppTextStyles.label(context.colors.primary)),
         ],
       ),
     );
@@ -2048,9 +2048,9 @@ class _ModuleStatCard extends StatelessWidget {
                 child: Icon(icon, size: 18, color: accent),
               ),
               const Spacer(),
-              Text('$total', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: SevaCareColors.textMuted)),
+              Text('$total', style: AppTextStyles.body(size: 13, weight: FontWeight.w600, color: context.colors.textMuted)),
               const SizedBox(width: 2),
-              Text('total', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text('total', style: AppTextStyles.label(context.colors.textMuted)),
             ],
           ),
           const SizedBox(height: 12),
@@ -2062,12 +2062,12 @@ class _ModuleStatCard extends StatelessWidget {
               const SizedBox(width: 4),
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
-                child: Text('active', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                child: Text('active', style: AppTextStyles.label(context.colors.textMuted)),
               ),
             ],
           ),
           const SizedBox(height: 2),
-          Text(label, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          Text(label, style: AppTextStyles.cardTitle(context.colors.text)),
         ],
       ),
     );
@@ -2092,9 +2092,9 @@ class _TermsConsentCheckbox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: SevaCareColors.primarySoft,
+        color: context.colors.primarySoft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+        border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2107,11 +2107,11 @@ class _TermsConsentCheckbox extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             title: Text(
               'Customer has read and accepted SevaCare\'s Terms of Service',
-              style: AppTextStyles.bodyText(SevaCareColors.text),
+              style: AppTextStyles.bodyText(context.colors.text),
             ),
             subtitle: Text(
               'Untick only if they have not — their admin will then be asked in the app.',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
           ),
           Padding(

@@ -34,12 +34,12 @@ class AppNavRail extends ConsumerWidget {
       margin: const EdgeInsets.fromLTRB(0, 8, 16, 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
-        color: SevaCareColors.glassSurface,
+        color: context.colors.glassSurface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.glassBorder, width: 1.5),
+        border: Border.all(color: context.colors.glassBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: SevaCareColors.shadowColor.withValues(alpha: 0.10),
+            color: context.colors.shadowColor.withValues(alpha: 0.10),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -72,7 +72,7 @@ class AppNavRail extends ConsumerWidget {
                       style: AppTextStyles.body(
                         size: 12,
                         weight: FontWeight.w700,
-                        color: SevaCareColors.textMuted,
+                        color: context.colors.textMuted,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -116,8 +116,8 @@ class _RailItem extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         decoration: BoxDecoration(
           gradient: isActive
-              ? const LinearGradient(
-                  colors: SevaCareColors.buttonGradient,
+              ? LinearGradient(
+                  colors: context.colors.buttonGradient,
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 )
@@ -126,7 +126,7 @@ class _RailItem extends ConsumerWidget {
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: SevaCareColors.primary.withValues(alpha: 0.30),
+                    color: context.colors.primary.withValues(alpha: 0.30),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -139,8 +139,8 @@ class _RailItem extends ConsumerWidget {
               item.icon,
               size: 20,
               color: isActive
-                  ? SevaCareColors.textOnPrimary
-                  : SevaCareColors.textMuted,
+                  ? context.colors.textOnPrimary
+                  : context.colors.textMuted,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -150,8 +150,8 @@ class _RailItem extends ConsumerWidget {
                   size: 13,
                   weight: FontWeight.w600,
                   color: isActive
-                      ? SevaCareColors.textOnPrimary
-                      : SevaCareColors.textMuted,
+                      ? context.colors.textOnPrimary
+                      : context.colors.textMuted,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

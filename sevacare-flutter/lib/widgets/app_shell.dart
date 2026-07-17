@@ -290,15 +290,15 @@ class _ChatFab extends StatelessWidget {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: SevaCareColors.heroGradient,
+              gradient: LinearGradient(
+                colors: context.colors.heroGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: SevaCareColors.primary.withValues(alpha: 0.4),
+                  color: context.colors.primary.withValues(alpha: 0.4),
                   blurRadius: 14,
                   offset: const Offset(0, 4),
                 ),
@@ -392,17 +392,17 @@ class _TopBar extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF1E293B).withValues(alpha: 0.95)
-            : SevaCareColors.glassSurface,
+            : context.colors.glassSurface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
           color: Theme.of(context).brightness == Brightness.dark
               ? const Color(0xFF334155)
-              : SevaCareColors.glassBorder,
+              : context.colors.glassBorder,
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: SevaCareColors.shadowColor.withValues(alpha: 0.06),
+            color: context.colors.shadowColor.withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 2),
           ),
@@ -430,18 +430,18 @@ class _TopBar extends ConsumerWidget {
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: SevaCareColors.surfaceMuted,
+                        color: context.colors.surfaceMuted,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: SevaCareColors.border,
+                          color: context.colors.border,
                           width: 1,
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Icon(
                           Icons.arrow_back_ios_new_rounded,
                           size: 13,
-                          color: SevaCareColors.text,
+                          color: context.colors.text,
                         ),
                       ),
                     ),
@@ -455,15 +455,15 @@ class _TopBar extends ConsumerWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: SevaCareColors.buttonGradient,
+              gradient: LinearGradient(
+                colors: context.colors.buttonGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: SevaCareColors.primary.withValues(alpha: 0.35),
+                  color: context.colors.primary.withValues(alpha: 0.35),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -475,7 +475,7 @@ class _TopBar extends ConsumerWidget {
                 style: AppTextStyles.display(
                   size: 16,
                   weight: FontWeight.w800,
-                  color: SevaCareColors.textOnPrimary,
+                  color: context.colors.textOnPrimary,
                 ),
               ),
             ),
@@ -489,7 +489,7 @@ class _TopBar extends ConsumerWidget {
                 weight: FontWeight.w600,
                 color: Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
-                    : SevaCareColors.text,
+                    : context.colors.text,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -512,18 +512,18 @@ class _TopBar extends ConsumerWidget {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: SevaCareColors.surfaceMuted,
+                        color: context.colors.surfaceMuted,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: SevaCareColors.border,
+                          color: context.colors.border,
                           width: 1,
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Icon(
                           Icons.search_rounded,
                           size: 14,
-                          color: SevaCareColors.textMuted,
+                          color: context.colors.textMuted,
                         ),
                       ),
                     ),
@@ -559,18 +559,18 @@ class _TopBar extends ConsumerWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: SevaCareColors.surfaceMuted,
+                      color: context.colors.surfaceMuted,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: SevaCareColors.border,
+                        color: context.colors.border,
                         width: 1,
                       ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.help_outline_rounded,
                         size: 14,
-                        color: SevaCareColors.textMuted,
+                        color: context.colors.textMuted,
                       ),
                     ),
                   ),
@@ -649,13 +649,13 @@ class _NotificationBellState extends ConsumerState<_NotificationBell>
             height: 28,
             decoration: BoxDecoration(
               color: _unreadCount > 0
-                  ? SevaCareColors.primary.withValues(alpha: 0.10)
-                  : SevaCareColors.surfaceMuted,
+                  ? context.colors.primary.withValues(alpha: 0.10)
+                  : context.colors.surfaceMuted,
               shape: BoxShape.circle,
               border: Border.all(
                 color: _unreadCount > 0
-                    ? SevaCareColors.primary.withValues(alpha: 0.35)
-                    : SevaCareColors.border,
+                    ? context.colors.primary.withValues(alpha: 0.35)
+                    : context.colors.border,
                 width: 1,
               ),
             ),
@@ -666,8 +666,8 @@ class _NotificationBellState extends ConsumerState<_NotificationBell>
                     : Icons.notifications_outlined,
                 size: 14,
                 color: _unreadCount > 0
-                    ? SevaCareColors.primary
-                    : SevaCareColors.textMuted,
+                    ? context.colors.primary
+                    : context.colors.textMuted,
               ),
             ),
           ),
@@ -678,7 +678,7 @@ class _NotificationBellState extends ConsumerState<_NotificationBell>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.danger,
+                  color: context.colors.danger,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),

@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import '../core/theme/app_colors.dart';
+
+/// Shimmer base/highlight derived from the active theme, so skeletons look
+/// right in both light and dark. Highlight is a touch lighter than base.
+({Color base, Color highlight}) _shimmerColors(BuildContext context) {
+  final c = context.colors;
+  if (c.isDark) {
+    return (base: c.surfaceMuted, highlight: c.border);
+  }
+  return (base: c.surfaceMuted, highlight: c.surface);
+}
 
 /// Shimmer placeholder that matches a card layout.
 class ShimmerCard extends StatelessWidget {
@@ -9,30 +20,29 @@ class ShimmerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = isDark ? const Color(0xFF2D3748) : const Color(0xFFE2E8F0);
-    final highlight = isDark ? const Color(0xFF4A5568) : const Color(0xFFF7FAFC);
+    final c = context.colors;
+    final s = _shimmerColors(context);
 
     return Shimmer.fromColors(
-      baseColor: base,
-      highlightColor: highlight,
+      baseColor: s.base,
+      highlightColor: s.highlight,
       child: Container(
         height: height,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Container(height: 14, width: double.infinity, decoration: _pill()),
+            Container(height: 14, width: double.infinity, decoration: _pill(c.surface)),
             for (int i = 0; i < lines - 1; i++)
               Container(
                 height: 10,
                 width: i.isEven ? double.infinity : 180,
-                decoration: _pill(),
+                decoration: _pill(c.surface),
               ),
           ],
         ),
@@ -40,8 +50,8 @@ class ShimmerCard extends StatelessWidget {
     );
   }
 
-  BoxDecoration _pill() => BoxDecoration(
-        color: Colors.white,
+  BoxDecoration _pill(Color color) => BoxDecoration(
+        color: color,
         borderRadius: BorderRadius.circular(6),
       );
 }
@@ -71,27 +81,26 @@ class ShimmerMetricRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = isDark ? const Color(0xFF2D3748) : const Color(0xFFE2E8F0);
-    final highlight = isDark ? const Color(0xFF4A5568) : const Color(0xFFF7FAFC);
+    final c = context.colors;
+    final s = _shimmerColors(context);
 
     return Shimmer.fromColors(
-      baseColor: base,
-      highlightColor: highlight,
+      baseColor: s.base,
+      highlightColor: s.highlight,
       child: Row(
         children: [
-          Expanded(child: _tile()),
+          Expanded(child: _tile(c.surface)),
           const SizedBox(width: 10),
-          Expanded(child: _tile()),
+          Expanded(child: _tile(c.surface)),
         ],
       ),
     );
   }
 
-  Widget _tile() => Container(
+  Widget _tile(Color color) => Container(
         height: 76,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: color,
           borderRadius: BorderRadius.circular(16),
         ),
       );

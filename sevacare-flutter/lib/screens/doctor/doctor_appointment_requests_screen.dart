@@ -80,7 +80,7 @@ class _DoctorAppointmentRequestsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Appointment confirmed for ${req.patientName}.'),
-          backgroundColor: SevaCareColors.mint,
+          backgroundColor: context.colors.mint,
         ));
         await _load();
       }
@@ -88,7 +88,7 @@ class _DoctorAppointmentRequestsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(extractErrorMessage(e, fallback: 'Failed to confirm request.')),
-          backgroundColor: SevaCareColors.danger,
+          backgroundColor: context.colors.danger,
         ));
       }
     }
@@ -120,10 +120,7 @@ class _DoctorAppointmentRequestsScreenState
             ),
             const SizedBox(height: 16),
             if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const ShimmerList(count: 3, cardHeight: 96)
             else if (_error != null)
               _ErrorBox(message: _error!, onRetry: _load)
             else if (requests.isEmpty)
@@ -152,7 +149,7 @@ class _RequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = request.isPending;
-    final statusColor = pending ? const Color(0xFFD97706) : SevaCareColors.mint;
+    final statusColor = pending ? const Color(0xFFD97706) : context.colors.mint;
 
     return AppCard(
       child: Column(
@@ -165,10 +162,10 @@ class _RequestCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.primarySoft,
+                  color: context.colors.primarySoft,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.person_outline, size: 22, color: SevaCareColors.primary),
+                child: Icon(Icons.person_outline, size: 22, color: context.colors.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -179,7 +176,7 @@ class _RequestCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(request.patientName.isNotEmpty ? request.patientName : 'Patient',
-                              style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                              style: AppTextStyles.cardTitle(context.colors.text)),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -196,7 +193,7 @@ class _RequestCard extends StatelessWidget {
                     Text(
                       '${request.specialty.isNotEmpty ? '${request.specialty} · ' : ''}'
                       '${request.patientAge > 0 ? 'Age ${request.patientAge}' : 'Age not provided'}',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -207,9 +204,9 @@ class _RequestCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(children: [
-              const Icon(Icons.phone_outlined, size: 15, color: SevaCareColors.textMuted),
+              Icon(Icons.phone_outlined, size: 15, color: context.colors.textMuted),
               const SizedBox(width: 8),
-              MaskedText(request.patientMobile, style: AppTextStyles.bodyText(SevaCareColors.text)),
+              MaskedText(request.patientMobile, style: AppTextStyles.bodyText(context.colors.text)),
             ]),
           ),
           if (request.preferredDate.isNotEmpty)
@@ -245,9 +242,9 @@ class _InfoLine extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: SevaCareColors.textMuted),
+          Icon(icon, size: 15, color: context.colors.textMuted),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: AppTextStyles.bodyText(SevaCareColors.text))),
+          Expanded(child: Text(text, style: AppTextStyles.bodyText(context.colors.text))),
         ],
       ),
     );
@@ -358,7 +355,7 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Confirm ${widget.request.patientName}', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+      title: Text('Confirm ${widget.request.patientName}', style: AppTextStyles.sectionTitle(context.colors.text)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -366,10 +363,10 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
           children: [
             Text(
               'Book this appointment for ${widget.request.preferredDate}. The patient will be contacted on ${widget.request.patientMobile}.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             const SizedBox(height: 16),
-            Text('Booking Type', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            Text('Booking Type', style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 6),
             SegmentedControl<String>(
               items: const [
@@ -384,7 +381,7 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
             ),
             const SizedBox(height: 14),
             if (_bookingType == 'TOKEN') ...[
-              Text('Session', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text('Session', style: AppTextStyles.label(context.colors.textMuted)),
               const SizedBox(height: 6),
               SegmentedControl<String>(
                 items: const [
@@ -404,10 +401,10 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
                     : _tokenPreviewNumber != null
                         ? 'Next token: #$_tokenPreviewNumber'
                         : '',
-                style: AppTextStyles.label(SevaCareColors.primary),
+                style: AppTextStyles.label(context.colors.primary),
               ),
             ] else ...[
-              Text('Time', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              Text('Time', style: AppTextStyles.label(context.colors.textMuted)),
               const SizedBox(height: 6),
               OutlinedButton.icon(
                 onPressed: _pickTime,
@@ -424,7 +421,7 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
             ),
             if (_err != null) ...[
               const SizedBox(height: 8),
-              Text(_err!, style: AppTextStyles.label(SevaCareColors.danger)),
+              Text(_err!, style: AppTextStyles.label(context.colors.danger)),
             ],
           ],
         ),
@@ -432,7 +429,7 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+          child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
         ),
         ElevatedButton(
           onPressed: _submit,
@@ -454,13 +451,13 @@ class _EmptyBox extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          Icon(Icons.qr_code_scanner_outlined, size: 48, color: SevaCareColors.textMuted.withValues(alpha: 0.5)),
+          Icon(Icons.qr_code_scanner_outlined, size: 48, color: context.colors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
-          Text('No booking requests yet', style: AppTextStyles.sectionTitle(SevaCareColors.textMuted)),
+          Text('No booking requests yet', style: AppTextStyles.sectionTitle(context.colors.textMuted)),
           const SizedBox(height: 6),
           Text(
             'When a patient books via your hospital QR code or the chatbot, their request appears here with its auto-assigned token.',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -481,9 +478,9 @@ class _ErrorBox extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 12),
-          const Icon(Icons.error_outline, size: 32, color: SevaCareColors.danger),
+          Icon(Icons.error_outline, size: 32, color: context.colors.danger),
           const SizedBox(height: 12),
-          Text(message, style: AppTextStyles.bodyText(SevaCareColors.textMuted), textAlign: TextAlign.center),
+          Text(message, style: AppTextStyles.bodyText(context.colors.textMuted), textAlign: TextAlign.center),
           const SizedBox(height: 12),
           PrimaryButton(label: 'Retry', icon: Icons.refresh, onPressed: onRetry),
           const SizedBox(height: 8),

@@ -49,7 +49,7 @@ class _MaskedTextState extends State<MaskedText> {
           child: Icon(
             _revealed ? Icons.visibility_off_outlined : Icons.visibility_outlined,
             size: 14,
-            color: SevaCareColors.textMuted,
+            color: context.colors.textMuted,
           ),
         ),
       ),

@@ -13,10 +13,10 @@ class PageHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppTextStyles.pageTitle(SevaCareColors.text)),
+        Text(title, style: AppTextStyles.pageTitle(context.colors.text)),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           const SizedBox(height: 4),
-          Text(subtitle!, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+          Text(subtitle!, style: AppTextStyles.bodyText(context.colors.textMuted)),
         ],
         const SizedBox(height: 4),
       ],

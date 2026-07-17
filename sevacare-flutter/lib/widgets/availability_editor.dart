@@ -290,7 +290,7 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
           child: Text(
             'Tip: to change your hours for a single day, add a schedule with the '
             'same from & to date — it overrides your regular schedule that day.',
-            style: AppTextStyles.label(SevaCareColors.textMuted),
+            style: AppTextStyles.label(context.colors.textMuted),
           ),
         ),
       ],
@@ -302,9 +302,9 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: SevaCareColors.surfaceMuted,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,23 +317,23 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                     ? Icons.event_repeat_rounded
                     : (s.isSingleDay ? Icons.today_rounded : Icons.date_range_rounded),
                 size: 16,
-                color: SevaCareColors.primary,
+                color: context.colors.primary,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   _scheduleTitle(s),
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.label(SevaCareColors.text).copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.label(context.colors.text).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               if (_schedules.length > 1)
                 InkWell(
                   onTap: () => _removeSchedule(index),
                   borderRadius: BorderRadius.circular(999),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(Icons.delete_outline_rounded, size: 18, color: SevaCareColors.textMuted),
+                    child: Icon(Icons.delete_outline_rounded, size: 18, color: context.colors.textMuted),
                   ),
                 ),
             ],
@@ -349,9 +349,9 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                   onTap: () => _pickDate(s, isFrom: true),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.arrow_forward, size: 14, color: SevaCareColors.textMuted),
+                child: Icon(Icons.arrow_forward, size: 14, color: context.colors.textMuted),
               ),
               Expanded(
                 child: _PickTile(
@@ -374,7 +374,7 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Text('Remove end date (keep ongoing)',
-                      style: AppTextStyles.label(SevaCareColors.primary)),
+                      style: AppTextStyles.label(context.colors.primary)),
                 ),
               ),
             ),
@@ -384,7 +384,7 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text('Include:', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                Text('Include:', style: AppTextStyles.label(context.colors.textMuted)),
                 const SizedBox(width: 8),
                 _WeekendChip(
                   label: 'Saturdays',
@@ -421,7 +421,7 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                       Icon(
                         w.start.hour < 12 ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
                         size: 14,
-                        color: SevaCareColors.primary,
+                        color: context.colors.primary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -431,9 +431,9 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                           onTap: () => _pickTime(w, isStart: true),
                         ),
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(Icons.arrow_forward, size: 12, color: SevaCareColors.textMuted),
+                        child: Icon(Icons.arrow_forward, size: 12, color: context.colors.textMuted),
                       ),
                       Expanded(
                         child: _PickTile(
@@ -449,9 +449,9 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                             _notify();
                           },
                           borderRadius: BorderRadius.circular(999),
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close_rounded, size: 16, color: SevaCareColors.textMuted),
+                            child: Icon(Icons.close_rounded, size: 16, color: context.colors.textMuted),
                           ),
                         ),
                     ],
@@ -459,7 +459,7 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
                   if (tooShort)
                     Padding(
                       padding: const EdgeInsets.only(top: 4, left: 20),
-                      child: Text('Must be at least 2 hours', style: AppTextStyles.label(SevaCareColors.danger)),
+                      child: Text('Must be at least 2 hours', style: AppTextStyles.label(context.colors.danger)),
                     ),
                 ],
               ),
@@ -476,9 +476,9 @@ class _AvailabilityEditorState extends State<AvailabilityEditor> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.add_rounded, size: 16, color: SevaCareColors.primary),
+                  Icon(Icons.add_rounded, size: 16, color: context.colors.primary),
                   const SizedBox(width: 4),
-                  Text('Add time window', style: AppTextStyles.label(SevaCareColors.primary)),
+                  Text('Add time window', style: AppTextStyles.label(context.colors.primary)),
                 ],
               ),
             ),
@@ -499,14 +499,14 @@ class _WeekendChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilterChip(
       label: Text(label,
-          style: AppTextStyles.label(selected ? SevaCareColors.primary : SevaCareColors.textMuted)),
+          style: AppTextStyles.label(selected ? context.colors.primary : context.colors.textMuted)),
       selected: selected,
       onSelected: onChanged,
-      selectedColor: SevaCareColors.primarySoft,
-      backgroundColor: SevaCareColors.surface,
-      checkmarkColor: SevaCareColors.primary,
+      selectedColor: context.colors.primarySoft,
+      backgroundColor: context.colors.surface,
+      checkmarkColor: context.colors.primary,
       side: BorderSide(
-          color: selected ? SevaCareColors.primary.withValues(alpha: 0.35) : SevaCareColors.border),
+          color: selected ? context.colors.primary.withValues(alpha: 0.35) : context.colors.border),
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
@@ -526,21 +526,21 @@ class _PickTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: SevaCareColors.border),
+          border: Border.all(color: context.colors.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: SevaCareColors.textMuted),
+            Icon(icon, size: 13, color: context.colors.textMuted),
             const SizedBox(width: 5),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.label(SevaCareColors.text),
+                style: AppTextStyles.label(context.colors.text),
               ),
             ),
           ],

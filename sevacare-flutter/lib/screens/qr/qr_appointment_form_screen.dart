@@ -177,14 +177,17 @@ class _QrAppointmentFormScreenState
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: SevaCareColors.background,
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: context.colors.background,
+        body: const Padding(
+          padding: EdgeInsets.all(16),
+          child: ShimmerList(count: 4, cardHeight: 80),
+        ),
       );
     }
 
     if (_loadError != null) {
       return Scaffold(
-        backgroundColor: SevaCareColors.background,
+        backgroundColor: context.colors.background,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -210,23 +213,23 @@ class _QrAppointmentFormScreenState
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.qr_code_2,
                               size: 64,
-                              color: SevaCareColors.textMuted,
+                              color: context.colors.textMuted,
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'Invalid QR Code',
                               style: AppTextStyles.sectionTitle(
-                                SevaCareColors.text,
+                                context.colors.text,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'This QR code link is invalid or has expired. Please scan a fresh QR code from the hospital.',
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted,
+                                context.colors.textMuted,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -245,7 +248,7 @@ class _QrAppointmentFormScreenState
 
     if (_submitted) {
       return Scaffold(
-        backgroundColor: SevaCareColors.background,
+        backgroundColor: context.colors.background,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -274,28 +277,28 @@ class _QrAppointmentFormScreenState
                             Container(
                               width: 80,
                               height: 80,
-                              decoration: const BoxDecoration(
-                                color: SevaCareColors.mintSoft,
+                              decoration: BoxDecoration(
+                                color: context.colors.mintSoft,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.check_circle_outline,
                                 size: 48,
-                                color: SevaCareColors.mint,
+                                color: context.colors.mint,
                               ),
                             ),
                             const SizedBox(height: 20),
                             Text(
                               'Request Submitted!',
                               style: AppTextStyles.sectionTitle(
-                                SevaCareColors.text,
+                                context.colors.text,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Your appointment request has been submitted to $_tenantName. They will confirm your slot shortly.',
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted,
+                                context.colors.textMuted,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -307,13 +310,13 @@ class _QrAppointmentFormScreenState
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: SevaCareColors.surfaceMuted,
+                                  color: context.colors.surfaceMuted,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   'Request ID: $_requestPublicId',
                                   style: AppTextStyles.label(
-                                    SevaCareColors.textMuted,
+                                    context.colors.textMuted,
                                   ),
                                 ),
                               ),
@@ -341,7 +344,7 @@ class _QrAppointmentFormScreenState
         : _doctors.where((d) => d['specialty'] == _selectedSpecialty).toList();
 
     return Scaffold(
-      backgroundColor: SevaCareColors.background,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -375,8 +378,8 @@ class _QrAppointmentFormScreenState
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: SevaCareColors.buttonGradient,
+                          gradient: LinearGradient(
+                            colors: context.colors.buttonGradient,
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -398,14 +401,14 @@ class _QrAppointmentFormScreenState
                             Text(
                               _tenantName ?? 'Hospital',
                               style: AppTextStyles.sectionTitle(
-                                SevaCareColors.text,
+                                context.colors.text,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               'Book an Appointment',
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.textMuted,
+                                context.colors.textMuted,
                               ),
                             ),
                           ],
@@ -424,7 +427,7 @@ class _QrAppointmentFormScreenState
                         Text(
                           'Patient Details',
                           style: AppTextStyles.sectionTitle(
-                            SevaCareColors.text,
+                            context.colors.text,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -469,7 +472,7 @@ class _QrAppointmentFormScreenState
                         Text(
                           'Select Doctor',
                           style: AppTextStyles.sectionTitle(
-                            SevaCareColors.text,
+                            context.colors.text,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -499,7 +502,7 @@ class _QrAppointmentFormScreenState
                           Text(
                             'No doctors available.',
                             style: AppTextStyles.bodyText(
-                              SevaCareColors.textMuted,
+                              context.colors.textMuted,
                             ),
                           )
                         else
@@ -520,13 +523,13 @@ class _QrAppointmentFormScreenState
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? SevaCareColors.primarySoft
-                                        : SevaCareColors.surfaceMuted,
+                                        ? context.colors.primarySoft
+                                        : context.colors.surfaceMuted,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
-                                          ? SevaCareColors.primary
-                                          : SevaCareColors.border,
+                                          ? context.colors.primary
+                                          : context.colors.border,
                                       width: isSelected ? 2 : 1,
                                     ),
                                   ),
@@ -537,8 +540,8 @@ class _QrAppointmentFormScreenState
                                         height: 36,
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? SevaCareColors.primary
-                                              : SevaCareColors.surface,
+                                              ? context.colors.primary
+                                              : context.colors.surface,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Center(
@@ -551,7 +554,7 @@ class _QrAppointmentFormScreenState
                                               weight: FontWeight.w700,
                                               color: isSelected
                                                   ? Colors.white
-                                                  : SevaCareColors.primary,
+                                                  : context.colors.primary,
                                             ),
                                           ),
                                         ),
@@ -566,23 +569,23 @@ class _QrAppointmentFormScreenState
                                               'Dr. $name',
                                               style: AppTextStyles.cardTitle(
                                                 isSelected
-                                                    ? SevaCareColors.primary
-                                                    : SevaCareColors.text,
+                                                    ? context.colors.primary
+                                                    : context.colors.text,
                                               ),
                                             ),
                                             Text(
                                               spec,
                                               style: AppTextStyles.label(
-                                                SevaCareColors.textMuted,
+                                                context.colors.textMuted,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       if (isSelected)
-                                        const Icon(
+                                        Icon(
                                           Icons.check_circle,
-                                          color: SevaCareColors.primary,
+                                          color: context.colors.primary,
                                           size: 20,
                                         ),
                                     ],
@@ -605,7 +608,7 @@ class _QrAppointmentFormScreenState
                         Text(
                           'Preferred Date',
                           style: AppTextStyles.sectionTitle(
-                            SevaCareColors.text,
+                            context.colors.text,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -617,14 +620,14 @@ class _QrAppointmentFormScreenState
                               vertical: 14,
                             ),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.surface,
+                              color: context.colors.surface,
                               borderRadius: BorderRadius.circular(
                                 AppTheme.radius,
                               ),
                               border: Border.all(
                                 color: _preferredDate != null
-                                    ? SevaCareColors.primary
-                                    : SevaCareColors.border,
+                                    ? context.colors.primary
+                                    : context.colors.border,
                                 width: _preferredDate != null ? 2 : 1.5,
                               ),
                             ),
@@ -634,8 +637,8 @@ class _QrAppointmentFormScreenState
                                   Icons.calendar_today_outlined,
                                   size: 18,
                                   color: _preferredDate != null
-                                      ? SevaCareColors.primary
-                                      : SevaCareColors.textMuted,
+                                      ? context.colors.primary
+                                      : context.colors.textMuted,
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
@@ -646,8 +649,8 @@ class _QrAppointmentFormScreenState
                                       : 'Tap to select a date',
                                   style: AppTextStyles.bodyText(
                                     _preferredDate != null
-                                        ? SevaCareColors.text
-                                        : SevaCareColors.textMuted,
+                                        ? context.colors.text
+                                        : context.colors.textMuted,
                                   ),
                                 ),
                               ],
@@ -664,14 +667,14 @@ class _QrAppointmentFormScreenState
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: SevaCareColors.errorSurface,
+                        color: context.colors.errorSurface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.error_outline,
-                            color: SevaCareColors.danger,
+                            color: context.colors.danger,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -679,7 +682,7 @@ class _QrAppointmentFormScreenState
                             child: Text(
                               _submitError!,
                               style: AppTextStyles.bodyText(
-                                SevaCareColors.danger,
+                                context.colors.danger,
                               ),
                             ),
                           ),
@@ -699,7 +702,7 @@ class _QrAppointmentFormScreenState
                   const SizedBox(height: 8),
                   Text(
                     'Your request will be reviewed by the hospital. They will confirm the appointment slot.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                    style: AppTextStyles.bodyText(context.colors.textMuted),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),

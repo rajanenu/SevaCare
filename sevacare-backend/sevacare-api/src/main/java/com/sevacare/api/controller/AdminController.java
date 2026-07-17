@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.admin.service.AdminDomainService;
 import com.sevacare.api.service.AccountMobileResolver;
+import com.sevacare.api.service.MediaService;
 import com.sevacare.api.service.PasscodeService;
 import com.sevacare.shared.dto.AdminDtos;
 import com.sevacare.shared.dto.AuthDtos;
@@ -36,13 +37,15 @@ public class AdminController {
     private final TenantRegistryService tenantRegistryService;
     private final AccountMobileResolver accountMobileResolver;
     private final PasscodeService passcodeService;
+    private final MediaService mediaService;
 
     public AdminController(AdminDomainService adminDomainService, TenantRegistryService tenantRegistryService,
-            AccountMobileResolver accountMobileResolver, PasscodeService passcodeService) {
+            AccountMobileResolver accountMobileResolver, PasscodeService passcodeService, MediaService mediaService) {
         this.adminDomainService = adminDomainService;
         this.tenantRegistryService = tenantRegistryService;
         this.accountMobileResolver = accountMobileResolver;
         this.passcodeService = passcodeService;
+        this.mediaService = mediaService;
     }
 
     /**
@@ -214,7 +217,8 @@ public class AdminController {
         if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
             throw new IllegalArgumentException("Tenant mismatch");
         }
-        adminDomainService.updateAdminPhoto(tenantPublicId, adminPublicId, request.photoBase64());
+        String mediaSha = mediaService.putBase64(request.photoBase64());
+        adminDomainService.updateAdminPhoto(tenantPublicId, adminPublicId, mediaSha);
         return ContractResponse.of("saved");
     }
 

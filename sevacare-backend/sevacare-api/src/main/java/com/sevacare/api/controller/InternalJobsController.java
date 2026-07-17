@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sevacare.api.security.RefreshTokenService;
 import com.sevacare.api.service.IdempotencyService;
+import com.sevacare.api.service.MediaBackfillService;
 import com.sevacare.api.service.ScheduledTasksService;
 import com.sevacare.patient.service.WhatsAppService;
 import com.sevacare.pharmacy.refill.service.RefillReminderService;
@@ -52,6 +53,7 @@ public class InternalJobsController {
     private final RefreshTokenService refreshTokenService;
     private final IdempotencyService idempotencyService;
     private final RefillReminderService refillReminderService;
+    private final MediaBackfillService mediaBackfillService;
     private final String jobsToken;
 
     public InternalJobsController(
@@ -61,6 +63,7 @@ public class InternalJobsController {
             RefreshTokenService refreshTokenService,
             IdempotencyService idempotencyService,
             RefillReminderService refillReminderService,
+            MediaBackfillService mediaBackfillService,
             @Value("${sevacare.jobs.token:}") String jobsToken
     ) {
         this.outboxEventDispatcher = outboxEventDispatcher;
@@ -69,6 +72,7 @@ public class InternalJobsController {
         this.refreshTokenService = refreshTokenService;
         this.idempotencyService = idempotencyService;
         this.refillReminderService = refillReminderService;
+        this.mediaBackfillService = mediaBackfillService;
         this.jobsToken = jobsToken == null ? "" : jobsToken.trim();
     }
 
@@ -89,6 +93,9 @@ public class InternalJobsController {
         run(outcomes, "leave_auto_approve", scheduledTasksService::autoApproveLeaveRequests);
         run(outcomes, "appointment_reminders", scheduledTasksService::sendAppointmentReminders);
         run(outcomes, "prescription_notifications", scheduledTasksService::sendPrescriptionNotifications);
+        // One-time migration of legacy base64 images into the media store; a no-op
+        // DELETE-equivalent once every row carries a media reference.
+        run(outcomes, "media_backfill", mediaBackfillService::backfillAll);
 
         // Refill nudges are a morning ritual, not a firehose: run from 8am IST on
         // (the service's own per-tenant day guard makes repeat ticks no-ops, and

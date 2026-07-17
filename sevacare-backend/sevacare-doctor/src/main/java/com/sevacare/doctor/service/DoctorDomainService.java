@@ -350,14 +350,17 @@ public class DoctorDomainService {
         public PatientDtos.PhotoView getDoctorPhoto(String tenantPublicId, String doctorPublicId) {
             Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
                     .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));
-            return new PatientDtos.PhotoView(doctor.getPhotoBase64());
+            String sha = doctor.getPhotoMediaSha();
+            return new PatientDtos.PhotoView(sha != null ? null : doctor.getPhotoBase64(), sha);
         }
 
+        // Store the media reference (bytes already in public.media); null clears it.
         @Transactional
-        public void updateDoctorPhoto(String tenantPublicId, String doctorPublicId, String photoBase64) {
+        public void updateDoctorPhoto(String tenantPublicId, String doctorPublicId, String mediaSha) {
             Doctor doctor = doctorRepository.findByDoctorPublicIdAndTenantPublicId(doctorPublicId, tenantPublicId)
                     .orElseThrow(() -> new IllegalArgumentException("Doctor not found for tenant"));
-            doctor.setPhotoBase64(photoBase64);
+            doctor.setPhotoMediaSha(mediaSha);
+            doctor.setPhotoBase64(null);
             doctorRepository.save(doctor);
         }
 

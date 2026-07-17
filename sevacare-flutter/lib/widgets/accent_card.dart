@@ -15,11 +15,11 @@ class AccentCard extends StatelessWidget {
     this.onTap,
   });
 
-  List<Color> get _gradient => switch (variant) {
-    MetricVariant.primary => SevaCareColors.buttonGradient,
-    MetricVariant.mint => SevaCareColors.mintGradient,
-    MetricVariant.peach => SevaCareColors.peachGradient,
-    MetricVariant.danger => SevaCareColors.dangerGradient,
+  List<Color> _gradient(BuildContext context) => switch (variant) {
+    MetricVariant.primary => context.colors.buttonGradient,
+    MetricVariant.mint => context.colors.mintGradient,
+    MetricVariant.peach => context.colors.peachGradient,
+    MetricVariant.danger => context.colors.dangerGradient,
   };
 
   @override
@@ -35,7 +35,7 @@ class AccentCard extends StatelessWidget {
               width: 4,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: _gradient,
+                  colors: _gradient(context),
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -45,11 +45,11 @@ class AccentCard extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surface,
+                  color: context.colors.surface,
                   border: Border(
-                    top: BorderSide(color: SevaCareColors.border),
-                    right: BorderSide(color: SevaCareColors.border),
-                    bottom: BorderSide(color: SevaCareColors.border),
+                    top: BorderSide(color: context.colors.border),
+                    right: BorderSide(color: context.colors.border),
+                    bottom: BorderSide(color: context.colors.border),
                   ),
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(AppTheme.radius),

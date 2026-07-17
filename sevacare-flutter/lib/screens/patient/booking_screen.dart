@@ -462,11 +462,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline,
-                            color: SevaCareColors.danger, size: 40),
+                        Icon(Icons.error_outline,
+                            color: context.colors.danger, size: 40),
                         const SizedBox(height: 12),
                         Text(_setupError!,
-                            style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                            style: AppTextStyles.bodyText(context.colors.textMuted)),
                         const SizedBox(height: 16),
                         PrimaryButton(label: tr(ref, 'Retry'), onPressed: _loadSetup),
                       ],
@@ -490,21 +490,21 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: SevaCareColors.errorSurface,
+                            color: context.colors.errorSurface,
                             borderRadius: BorderRadius.circular(AppTheme.radius),
                             border: Border.all(
-                                color: SevaCareColors.danger.withValues(alpha: 0.4),
+                                color: context.colors.danger.withValues(alpha: 0.4),
                                 width: 1),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline,
-                                  color: SevaCareColors.danger, size: 18),
+                              Icon(Icons.error_outline,
+                                  color: context.colors.danger, size: 18),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _bookingError!,
-                                  style: AppTextStyles.label(SevaCareColors.danger),
+                                  style: AppTextStyles.label(context.colors.danger),
                                 ),
                               ),
                             ],
@@ -520,7 +520,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(tr(ref, 'Patient Details'),
-                                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                                style: AppTextStyles.sectionTitle(context.colors.text)),
                             const SizedBox(height: 16),
 
                             // Specialty dropdown — always visible at top
@@ -609,10 +609,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: SevaCareColors.primarySoft,
+                                  color: context.colors.primarySoft,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: SevaCareColors.primary
+                                    color: context.colors.primary
                                         .withValues(alpha: 0.25),
                                   ),
                                 ),
@@ -621,14 +621,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        const Icon(Icons.auto_awesome,
+                                        Icon(Icons.auto_awesome,
                                             size: 14,
-                                            color: SevaCareColors.primary),
+                                            color: context.colors.primary),
                                         const SizedBox(width: 6),
                                         Text(
                                           tr(ref, 'Suggested specialty'),
                                           style: AppTextStyles.label(
-                                              SevaCareColors.primary),
+                                              context.colors.primary),
                                         ),
                                       ],
                                     ),
@@ -664,14 +664,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                                 horizontal: 12, vertical: 6),
                                             decoration: BoxDecoration(
                                               color: applied
-                                                  ? SevaCareColors.primary
-                                                  : SevaCareColors.surface,
+                                                  ? context.colors.primary
+                                                  : context.colors.surface,
                                               borderRadius:
                                                   BorderRadius.circular(
                                                       AppTheme.radiusPill),
                                               border: Border.all(
                                                 color:
-                                                    SevaCareColors.primary,
+                                                    context.colors.primary,
                                               ),
                                             ),
                                             child: Row(
@@ -709,7 +709,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                     Text(
                                       'Based on "${_suggestions.first.matchedSymptom}". You can still choose any specialty.',
                                       style: AppTextStyles.label(
-                                          SevaCareColors.textMuted),
+                                          context.colors.textMuted),
                                     ),
                                   ],
                                 ),
@@ -730,12 +730,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                     Icon(
                                       _showAdvancedDetails ? Icons.expand_less : Icons.expand_more,
                                       size: 18,
-                                      color: SevaCareColors.textMuted,
+                                      color: context.colors.textMuted,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       tr(ref, 'Optional Contact Info'),
-                                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                                      style: AppTextStyles.label(context.colors.textMuted),
                                     ),
                                   ],
                                 ),
@@ -762,7 +762,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
                       // ── Doctor selection
                       Text(tr(ref, 'Select Doctor'),
-                          style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                          style: AppTextStyles.sectionTitle(context.colors.text)),
                       const SizedBox(height: 12),
                       if (filteredDoctors.isEmpty)
                         Container(
@@ -772,7 +772,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             _doctors.isEmpty
                                 ? tr(ref, 'No doctors available')
                                 : tr(ref, 'No doctors available for the selected specialty'),
-                            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                            style: AppTextStyles.bodyText(context.colors.textMuted),
                           ),
                         )
                       else
@@ -800,19 +800,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               },
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: SevaCareColors.surface,
+                                  color: context.colors.surface,
                                   borderRadius:
                                       BorderRadius.circular(AppTheme.radius),
                                   border: Border.all(
                                     color: isSelected
-                                        ? SevaCareColors.primary
-                                        : SevaCareColors.border,
+                                        ? context.colors.primary
+                                        : context.colors.border,
                                     width: isSelected ? 2 : 1,
                                   ),
                                   boxShadow: isSelected
                                       ? [
                                           BoxShadow(
-                                            color: SevaCareColors.primary
+                                            color: context.colors.primary
                                                 .withValues(alpha: 0.15),
                                             blurRadius: 12,
                                             offset: const Offset(0, 2),
@@ -843,13 +843,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                           Text(
                                             'Dr. ${stripDoctorPrefix(doc.name)}',
                                             style: AppTextStyles.cardTitle(
-                                                SevaCareColors.text),
+                                                context.colors.text),
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
                                             doc.specialty,
                                             style: AppTextStyles.label(
-                                                SevaCareColors.textMuted),
+                                                context.colors.textMuted),
                                           ),
                                           if (doc.qualification != null &&
                                               doc.qualification!.isNotEmpty) ...[
@@ -857,7 +857,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                             Text(
                                               doc.qualification!,
                                               style: AppTextStyles.label(
-                                                  SevaCareColors.textMuted),
+                                                  context.colors.textMuted),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -900,7 +900,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                                         horizontal: 8,
                                                         vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: SevaCareColors.mintSoft,
+                                                  color: context.colors.mintSoft,
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           AppTheme.radiusPill),
@@ -945,8 +945,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                       ),
                                     ),
                                     if (isSelected)
-                                      const Icon(Icons.check_circle,
-                                          color: SevaCareColors.primary,
+                                      Icon(Icons.check_circle,
+                                          color: context.colors.primary,
                                           size: 22),
                                   ],
                                 ),
@@ -982,7 +982,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                           const SizedBox(height: 16),
                         ],
                         Text(tr(ref, 'Select Date'),
-                            style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                            style: AppTextStyles.sectionTitle(context.colors.text)),
                         const SizedBox(height: 12),
                         if ((_setup?.availableDates ?? []).isNotEmpty)
                           SizedBox(
@@ -1021,9 +1021,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                         vertical: isDoctorOff ? 5 : 12),
                                     decoration: BoxDecoration(
                                       gradient: isSelected
-                                          ? const LinearGradient(
+                                          ? LinearGradient(
                                               colors:
-                                                  SevaCareColors.buttonGradient,
+                                                  context.colors.buttonGradient,
                                               begin: Alignment.centerLeft,
                                               end: Alignment.centerRight,
                                             )
@@ -1031,14 +1031,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                       color: isSelected
                                           ? null
                                           : isDoctorOff
-                                              ? SevaCareColors.surfaceMuted
-                                              : SevaCareColors.surface,
+                                              ? context.colors.surfaceMuted
+                                              : context.colors.surface,
                                       borderRadius: BorderRadius.circular(
                                           AppTheme.radiusPill),
                                       border: Border.all(
                                         color: isSelected
-                                            ? SevaCareColors.primary
-                                            : SevaCareColors.border,
+                                            ? context.colors.primary
+                                            : context.colors.border,
                                         width: isSelected ? 2 : 1,
                                       ),
                                     ),
@@ -1050,10 +1050,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                           displayDate,
                                           style: AppTextStyles.chipLabel(
                                             isSelected
-                                                ? SevaCareColors.textOnPrimary
+                                                ? context.colors.textOnPrimary
                                                 : isDoctorOff
-                                                    ? SevaCareColors.textMuted
-                                                    : SevaCareColors.text,
+                                                    ? context.colors.textMuted
+                                                    : context.colors.text,
                                           ).copyWith(
                                             decoration: isDoctorOff && !isSelected
                                                 ? TextDecoration.lineThrough
@@ -1065,8 +1065,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                             tr(ref, 'Off'),
                                             style: AppTextStyles.label(
                                               isSelected
-                                                  ? SevaCareColors.textOnPrimary
-                                                  : SevaCareColors.textMuted,
+                                                  ? context.colors.textOnPrimary
+                                                  : context.colors.textMuted,
                                             ).copyWith(fontSize: 10, height: 1.1),
                                           ),
                                       ],
@@ -1084,20 +1084,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.errorSurface,
+                              color: context.colors.errorSurface,
                               borderRadius:
                                   BorderRadius.circular(AppTheme.radius),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.event_busy,
-                                    size: 16, color: SevaCareColors.danger),
+                                Icon(Icons.event_busy,
+                                    size: 16, color: context.colors.danger),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     tr(ref, 'Doctor is on leave on this date. Please pick another date or doctor.'),
                                     style: AppTextStyles.label(
-                                        SevaCareColors.danger),
+                                        context.colors.danger),
                                   ),
                                 ),
                               ],
@@ -1117,20 +1117,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: SevaCareColors.warningSurface,
+                              color: context.colors.warningSurface,
                               borderRadius:
                                   BorderRadius.circular(AppTheme.radius),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.event_busy,
-                                    size: 16, color: SevaCareColors.warning),
+                                Icon(Icons.event_busy,
+                                    size: 16, color: context.colors.warning),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     tr(ref, 'Doctor is not available on this date. Please pick another date or doctor.'),
                                     style: AppTextStyles.label(
-                                        SevaCareColors.warning),
+                                        context.colors.warning),
                                   ),
                                 ),
                               ],
@@ -1140,7 +1140,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         ] else if (!_doctorOnLeave && form.selectedDoctorId.isNotEmpty && form.selectedDate.isNotEmpty) ...[
                           if (form.bookingType == 'TOKEN') ...[
                             Text(tr(ref, 'Token Booking'),
-                                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                                style: AppTextStyles.sectionTitle(context.colors.text)),
                             const SizedBox(height: 10),
                             TokenSessionPicker(
                               selectedSession: form.tokenSession,
@@ -1234,9 +1234,9 @@ class _SlotAccordionSection extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1250,14 +1250,14 @@ class _SlotAccordionSection extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(title,
-                        style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                        style: AppTextStyles.sectionTitle(context.colors.text)),
                   ),
                   Text('${slots.length}',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                   const SizedBox(width: 6),
                   Icon(
                     expanded ? Icons.expand_less : Icons.expand_more,
-                    color: SevaCareColors.textMuted,
+                    color: context.colors.textMuted,
                   ),
                 ],
               ),
@@ -1337,25 +1337,25 @@ class _SlotGrid extends StatelessWidget {
         Color textColor;
 
         if (isBlocked) {
-          bgColor = SevaCareColors.warningSurface;
-          borderColor = SevaCareColors.warning;
-          textColor = SevaCareColors.warning;
+          bgColor = context.colors.warningSurface;
+          borderColor = context.colors.warning;
+          textColor = context.colors.warning;
         } else if (isBooked) {
           bgColor = const Color(0xFFFFEDED);
-          borderColor = SevaCareColors.danger;
-          textColor = SevaCareColors.danger;
+          borderColor = context.colors.danger;
+          textColor = context.colors.danger;
         } else if (isPast) {
-          bgColor = SevaCareColors.border;
-          borderColor = SevaCareColors.border;
-          textColor = SevaCareColors.textMuted;
+          bgColor = context.colors.border;
+          borderColor = context.colors.border;
+          textColor = context.colors.textMuted;
         } else if (isSelected) {
-          bgColor = SevaCareColors.primary;
-          borderColor = SevaCareColors.primary;
-          textColor = SevaCareColors.textOnPrimary;
+          bgColor = context.colors.primary;
+          borderColor = context.colors.primary;
+          textColor = context.colors.textOnPrimary;
         } else {
-          bgColor = SevaCareColors.surface;
-          borderColor = SevaCareColors.border;
-          textColor = SevaCareColors.text;
+          bgColor = context.colors.surface;
+          borderColor = context.colors.border;
+          textColor = context.colors.text;
         }
 
         return GestureDetector(
@@ -1365,8 +1365,8 @@ class _SlotGrid extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
               gradient: isSelected
-                  ? const LinearGradient(
-                      colors: SevaCareColors.buttonGradient,
+                  ? LinearGradient(
+                      colors: context.colors.buttonGradient,
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     )
@@ -1377,7 +1377,7 @@ class _SlotGrid extends StatelessWidget {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: SevaCareColors.primary.withValues(alpha: 0.20),
+                        color: context.colors.primary.withValues(alpha: 0.20),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

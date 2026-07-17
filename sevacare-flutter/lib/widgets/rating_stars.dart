@@ -29,12 +29,12 @@ class RatingStars extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           averageRating!.toStringAsFixed(1),
-          style: AppTextStyles.label(SevaCareColors.text).copyWith(fontWeight: FontWeight.w600),
+          style: AppTextStyles.label(context.colors.text).copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(width: 3),
         Text(
           '($reviewCount)',
-          style: AppTextStyles.label(SevaCareColors.textMuted),
+          style: AppTextStyles.label(context.colors.textMuted),
         ),
       ],
     );

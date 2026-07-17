@@ -20,9 +20,9 @@ class SegmentedControl<T> extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: SevaCareColors.surfaceMuted,
+        color: context.colors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: SevaCareColors.border, width: 1),
+        border: Border.all(color: context.colors.border, width: 1),
       ),
       child: Row(
         children: items.map((item) {
@@ -35,8 +35,8 @@ class SegmentedControl<T> extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   gradient: isActive
-                      ? const LinearGradient(
-                          colors: SevaCareColors.buttonGradient,
+                      ? LinearGradient(
+                          colors: context.colors.buttonGradient,
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         )
@@ -45,7 +45,7 @@ class SegmentedControl<T> extends StatelessWidget {
                   boxShadow: isActive
                       ? [
                           BoxShadow(
-                            color: SevaCareColors.primary.withValues(
+                            color: context.colors.primary.withValues(
                               alpha: 0.25,
                             ),
                             blurRadius: 8,
@@ -62,8 +62,8 @@ class SegmentedControl<T> extends StatelessWidget {
                         item.icon,
                         size: 13,
                         color: isActive
-                            ? SevaCareColors.textOnPrimary
-                            : SevaCareColors.textMuted,
+                            ? context.colors.textOnPrimary
+                            : context.colors.textMuted,
                       ),
                       const SizedBox(width: 4),
                     ],
@@ -74,8 +74,8 @@ class SegmentedControl<T> extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.chipLabel(
                           isActive
-                              ? SevaCareColors.textOnPrimary
-                              : SevaCareColors.textMuted,
+                              ? context.colors.textOnPrimary
+                              : context.colors.textMuted,
                         ),
                       ),
                     ),

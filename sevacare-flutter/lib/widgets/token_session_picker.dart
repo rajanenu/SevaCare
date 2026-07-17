@@ -28,9 +28,9 @@ class TokenSessionPicker extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: _sessionPill('MORNING', 'Morning Token', Icons.wb_sunny_outlined)),
+            Expanded(child: _sessionPill(context, 'MORNING', 'Morning Token', Icons.wb_sunny_outlined)),
             const SizedBox(width: 10),
-            Expanded(child: _sessionPill('EVENING', 'Evening Token', Icons.nightlight_outlined)),
+            Expanded(child: _sessionPill(context, 'EVENING', 'Evening Token', Icons.nightlight_outlined)),
           ],
         ),
         if (selectedSession != null) ...[
@@ -39,22 +39,22 @@ class TokenSessionPicker extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: SevaCareColors.primarySoft,
+              color: context.colors.primarySoft,
               borderRadius: BorderRadius.circular(AppTheme.radius),
-              border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+              border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.confirmation_number_outlined, size: 18, color: SevaCareColors.primary),
+                Icon(Icons.confirmation_number_outlined, size: 18, color: context.colors.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: loadingPreview
-                      ? Text('Checking next token…', style: AppTextStyles.label(SevaCareColors.primary))
+                      ? Text('Checking next token…', style: AppTextStyles.label(context.colors.primary))
                       : Text(
                           nextTokenNumber != null
                               ? 'Your token number will be #$nextTokenNumber'
                               : 'Token number will be assigned on booking',
-                          style: AppTextStyles.label(SevaCareColors.primary)
+                          style: AppTextStyles.label(context.colors.primary)
                               .copyWith(fontWeight: FontWeight.w700),
                         ),
                 ),
@@ -66,7 +66,7 @@ class TokenSessionPicker extends StatelessWidget {
     );
   }
 
-  Widget _sessionPill(String value, String label, IconData icon) {
+  Widget _sessionPill(BuildContext context, String value, String label, IconData icon) {
     final isSelected = selectedSession == value;
     return GestureDetector(
       onTap: () => onSelect(value),
@@ -75,27 +75,27 @@ class TokenSessionPicker extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? const LinearGradient(
-                  colors: SevaCareColors.buttonGradient,
+              ? LinearGradient(
+                  colors: context.colors.buttonGradient,
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 )
               : null,
-          color: isSelected ? null : SevaCareColors.surface,
+          color: isSelected ? null : context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radius),
           border: Border.all(
-            color: isSelected ? SevaCareColors.primary : SevaCareColors.border,
+            color: isSelected ? context.colors.primary : context.colors.border,
             width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: isSelected ? SevaCareColors.textOnPrimary : SevaCareColors.textMuted),
+            Icon(icon, size: 20, color: isSelected ? context.colors.textOnPrimary : context.colors.textMuted),
             const SizedBox(height: 6),
             Text(
               label,
-              style: AppTextStyles.chipLabel(isSelected ? SevaCareColors.textOnPrimary : SevaCareColors.text),
+              style: AppTextStyles.chipLabel(isSelected ? context.colors.textOnPrimary : context.colors.text),
             ),
           ],
         ),

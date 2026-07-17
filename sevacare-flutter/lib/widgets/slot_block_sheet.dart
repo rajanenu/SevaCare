@@ -15,7 +15,7 @@ Future<void> showSlotBlockSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: SevaCareColors.surface,
+    backgroundColor: context.colors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -199,7 +199,7 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.border,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
@@ -207,16 +207,16 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(Icons.event_busy_rounded, size: 20, color: SevaCareColors.primary),
+                Icon(Icons.event_busy_rounded, size: 20, color: context.colors.primary),
                 const SizedBox(width: 8),
                 Text('Block Appointment Slots',
-                    style: AppTextStyles.cardTitle(SevaCareColors.text)),
+                    style: AppTextStyles.cardTitle(context.colors.text)),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Blocked times instantly show as unavailable to patients and IP-Staff.',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
             ),
             const SizedBox(height: 14),
 
@@ -250,7 +250,7 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
             const SizedBox(height: 16),
 
             // ── Custom window ───────────────────────────────────────────────
-            Text('Custom window', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Custom window', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -284,14 +284,14 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
               controller: _reasonCtrl,
               decoration: InputDecoration(
                 hintText: 'Reason (optional)',
-                hintStyle: AppTextStyles.label(SevaCareColors.textMuted),
+                hintStyle: AppTextStyles.label(context.colors.textMuted),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: SevaCareColors.border),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
               ),
-              style: AppTextStyles.bodyText(SevaCareColors.text),
+              style: AppTextStyles.bodyText(context.colors.text),
             ),
             const SizedBox(height: 10),
             PrimaryButton(
@@ -314,17 +314,17 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.errorSurface,
+                  color: context.colors.errorSurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(_error!, style: AppTextStyles.label(SevaCareColors.danger)),
+                child: Text(_error!, style: AppTextStyles.label(context.colors.danger)),
               ),
             ],
 
             const SizedBox(height: 18),
 
             // ── Existing blocks ─────────────────────────────────────────────
-            Text('Upcoming blocks', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Upcoming blocks', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 8),
             if (_loading)
               const Center(
@@ -335,21 +335,21 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
               )
             else if (_blocks.isEmpty)
               Text('No blocked windows.',
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted))
+                  style: AppTextStyles.bodyText(context.colors.textMuted))
             else
               ..._blocks.map(
                 (b) => Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: SevaCareColors.surfaceMuted,
+                    color: context.colors.surfaceMuted,
                     borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: SevaCareColors.border),
+                    border: Border.all(color: context.colors.border),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.event_busy_outlined,
-                          size: 16, color: SevaCareColors.warning),
+                      Icon(Icons.event_busy_outlined,
+                          size: 16, color: context.colors.warning),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -359,17 +359,17 @@ class _SlotBlockSheetState extends ConsumerState<_SlotBlockSheet> {
                                 style: AppTextStyles.body(
                                   size: 13,
                                   weight: FontWeight.w600,
-                                  color: SevaCareColors.text,
+                                  color: context.colors.text,
                                 )),
                             if (b.reason.isNotEmpty)
                               Text(b.reason,
-                                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+                                  style: AppTextStyles.label(context.colors.textMuted)),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline,
-                            size: 18, color: SevaCareColors.danger),
+                        icon: Icon(Icons.delete_outline,
+                            size: 18, color: context.colors.danger),
                         tooltip: 'Remove block',
                         onPressed: () => _deleteBlock(b),
                       ),
@@ -396,16 +396,16 @@ class _PresetChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: SevaCareColors.primarySoft,
+            color: context.colors.primarySoft,
             borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-            border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.25)),
+            border: Border.all(color: context.colors.primary.withValues(alpha: 0.25)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: SevaCareColors.primary),
+              Icon(icon, size: 14, color: context.colors.primary),
               const SizedBox(width: 6),
-              Text(label, style: AppTextStyles.label(SevaCareColors.primary)),
+              Text(label, style: AppTextStyles.label(context.colors.primary)),
             ],
           ),
         ),
@@ -424,21 +424,21 @@ class _PickerTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            color: SevaCareColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: SevaCareColors.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 14, color: SevaCareColors.textMuted),
+              Icon(icon, size: 14, color: context.colors.textMuted),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.label(SevaCareColors.text),
+                  style: AppTextStyles.label(context.colors.text),
                 ),
               ),
             ],

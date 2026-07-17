@@ -144,8 +144,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           UserRole.admin || UserRole.staff => await repo.getAdminOrStaffPhoto(tenantId, userId, token),
           UserRole.platformAdmin => const PhotoView(),
         };
-        if (remotePhoto.photoBase64 != null && remotePhoto.photoBase64!.isNotEmpty) {
-          await ProfileStorage.savePhoto(userId, remotePhoto.photoBase64!);
+        final remoteBytes = await repo.resolvePhotoBytes(remotePhoto);
+        if (remoteBytes != null && remoteBytes.isNotEmpty) {
+          await ProfileStorage.savePhoto(userId, base64Encode(remoteBytes));
           local = await ProfileStorage.load(userId);
         }
       } catch (_) {
@@ -569,26 +570,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: SevaCareColors.surface,
-          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          backgroundColor: context.colors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(context.colors.text)),
           content: Text(
             'Your biometric unlock is active. How would you like to sign out?',
-            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+            style: AppTextStyles.bodyText(context.colors.textMuted),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'cancel'),
-              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
             ),
             // Soft sign-out: credentials stay → biometric can re-unlock without OTP
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'soft'),
-              child: Text('Sign Out', style: AppTextStyles.label(SevaCareColors.primary)),
+              child: Text('Sign Out', style: AppTextStyles.label(context.colors.primary)),
             ),
             // Hard sign-out: wipes everything, disables biometric
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'hard'),
-              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              style: TextButton.styleFrom(foregroundColor: context.colors.danger),
               child: const Text('Sign Out & Disable Biometric'),
             ),
           ],
@@ -611,18 +612,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: SevaCareColors.surface,
-          title: Text('Sign Out', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          backgroundColor: context.colors.surface,
+          title: Text('Sign Out', style: AppTextStyles.cardTitle(context.colors.text)),
           content: Text('Are you sure you want to sign out?',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+              style: AppTextStyles.bodyText(context.colors.textMuted)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+              child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+              style: TextButton.styleFrom(foregroundColor: context.colors.danger),
               child: const Text('Sign Out'),
             ),
           ],
@@ -640,23 +641,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
-        title: Text('Delete Account', style: AppTextStyles.cardTitle(SevaCareColors.danger)),
+        backgroundColor: context.colors.surface,
+        title: Text('Delete Account', style: AppTextStyles.cardTitle(context.colors.danger)),
         content: Text(
           'This permanently disables your account — you will not be able to log '
           'in again. This cannot be undone. Your existing appointments, '
           'prescriptions and records are not deleted, only your login access. '
           'Are you sure you want to continue?',
-          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          style: AppTextStyles.bodyText(context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: const Text('Delete My Account'),
           ),
         ],
@@ -770,7 +771,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               }
             },
       body: _loading
-          ? const SizedBox(height: 400, child: Center(child: CircularProgressIndicator()))
+          ? const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: ShimmerList(count: 5, cardHeight: 72),
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -834,7 +838,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         if (_hospitalEmailSaved) const _Banner(text: 'Saved!', isSuccess: true),
                         Text(
                           'Shown to platform support for this hospital. Separate from your own personal login email.',
-                          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                          style: AppTextStyles.bodyText(context.colors.textMuted),
                         ),
                         const SizedBox(height: 10),
                         AppFormField(
@@ -944,10 +948,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             children: [
                               Icon(
                                 _showOptionalFields ? Icons.expand_less : Icons.expand_more,
-                                size: 18, color: SevaCareColors.textMuted,
+                                size: 18, color: context.colors.textMuted,
                               ),
                               const SizedBox(width: 4),
-                              Text('More Info', style: AppTextStyles.label(SevaCareColors.textMuted)),
+                              Text('More Info', style: AppTextStyles.label(context.colors.textMuted)),
                             ],
                           ),
                         ),
@@ -1014,7 +1018,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Text(
                           'Set when you take consultations, and how patients can book (slot, token, or both).',
-                          style: AppTextStyles.label(SevaCareColors.textMuted),
+                          style: AppTextStyles.label(context.colors.textMuted),
                         ),
                         const SizedBox(height: 10),
                         AppDropdown<String>(
@@ -1110,8 +1114,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Center(
                   child: TextButton.icon(
                     onPressed: _deleteAccount,
-                    icon: const Icon(Icons.delete_forever_outlined, size: 18, color: SevaCareColors.danger),
-                    label: Text('Delete Account', style: AppTextStyles.label(SevaCareColors.danger)),
+                    icon: Icon(Icons.delete_forever_outlined, size: 18, color: context.colors.danger),
+                    label: Text('Delete Account', style: AppTextStyles.label(context.colors.danger)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1149,13 +1153,13 @@ class _AccordionCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(title,
-                      style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                      style: AppTextStyles.sectionTitle(context.colors.text)),
                 ),
                 AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: SevaCareColors.textMuted, size: 22),
+                  child: Icon(Icons.keyboard_arrow_down_rounded,
+                      color: context.colors.textMuted, size: 22),
                 ),
               ],
             ),
@@ -1212,7 +1216,7 @@ class _PhotoSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text('Profile Photo',
-                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                style: AppTextStyles.sectionTitle(context.colors.text)),
           ),
           const SizedBox(height: 12),
           _SheetTile(icon: Icons.camera_alt_outlined, label: 'Camera', onTap: onCamera),
@@ -1222,11 +1226,11 @@ class _PhotoSheet extends StatelessWidget {
               icon: Icons.delete_outline,
               label: 'Remove photo',
               onTap: onRemove!,
-              color: SevaCareColors.danger,
+              color: context.colors.danger,
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text('Cancel', style: AppTextStyles.label(context.colors.textMuted)),
           ),
           const SizedBox(height: 8),
         ],
@@ -1247,7 +1251,7 @@ class _SheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? SevaCareColors.text;
+    final c = color ?? context.colors.text;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -1273,8 +1277,8 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg   = isSuccess ? SevaCareColors.mintSoft    : SevaCareColors.errorSurface;
-    final fg   = isSuccess ? SevaCareColors.mintForeground : SevaCareColors.danger;
+    final bg   = isSuccess ? context.colors.mintSoft    : context.colors.errorSurface;
+    final fg   = isSuccess ? context.colors.mintForeground : context.colors.danger;
     final icon = isSuccess ? Icons.check_circle_outline : Icons.error_outline;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1308,10 +1312,10 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: SevaCareColors.primary),
+            Icon(icon, size: 20, color: context.colors.primary),
             const SizedBox(width: 12),
-            Expanded(child: Text(label, style: AppTextStyles.bodyText(SevaCareColors.text))),
-            Icon(Icons.chevron_right, size: 18, color: SevaCareColors.textMuted),
+            Expanded(child: Text(label, style: AppTextStyles.bodyText(context.colors.text))),
+            Icon(Icons.chevron_right, size: 18, color: context.colors.textMuted),
           ],
         ),
       ),

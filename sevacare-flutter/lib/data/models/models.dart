@@ -526,6 +526,8 @@ class DoctorQueueDayView {
   final int pendingNotes;
   final int avgConsultMinutes;
   final List<DoctorQueueFacetView> facets;
+  // Content version of the queue's state — the server ETag for cheap 304 polling.
+  final String version;
 
   const DoctorQueueDayView({
     required this.tenantPublicId,
@@ -535,6 +537,7 @@ class DoctorQueueDayView {
     required this.pendingNotes,
     required this.avgConsultMinutes,
     required this.facets,
+    this.version = '',
   });
 
   factory DoctorQueueDayView.fromJson(Map<String, dynamic> json) => DoctorQueueDayView(
@@ -544,6 +547,7 @@ class DoctorQueueDayView {
     totalAppointments: json['totalAppointments'] as int? ?? 0,
     pendingNotes: json['pendingNotes'] as int? ?? 0,
     avgConsultMinutes: json['avgConsultMinutes'] as int? ?? 0,
+    version: json['version'] as String? ?? '',
     facets: json['facets'] != null
         ? (json['facets'] as List).map((e) => DoctorQueueFacetView.fromJson(e as Map<String, dynamic>)).toList()
         : [],
@@ -1001,14 +1005,18 @@ class HospitalProfileView {
   );
 }
 
-/// Backend-synced profile photo (base64), shared shape for patient/doctor/admin.
+/// Backend-synced profile photo, shared shape for patient/doctor/admin. Once
+/// migrated, [mediaSha] points at the deduplicated media store (fetch bytes via
+/// `ApiClient.getBytes('/public/media/<sha>')`); legacy rows still carry base64.
 class PhotoView {
   final String? photoBase64;
+  final String? mediaSha;
 
-  const PhotoView({this.photoBase64});
+  const PhotoView({this.photoBase64, this.mediaSha});
 
   factory PhotoView.fromJson(Map<String, dynamic> json) => PhotoView(
     photoBase64: json['photoBase64'] as String?,
+    mediaSha: json['mediaSha'] as String?,
   );
 }
 

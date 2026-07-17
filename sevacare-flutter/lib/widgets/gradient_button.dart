@@ -36,21 +36,21 @@ class GradientButton extends StatelessWidget {
             height: compact ? 16 : 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(_foregroundColor()),
+              valueColor: AlwaysStoppedAnimation<Color>(_foregroundColor(context)),
             ),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: compact ? 14 : 18, color: _foregroundColor()),
+                Icon(icon, size: compact ? 14 : 18, color: _foregroundColor(context)),
                 const SizedBox(width: 8),
               ],
               Text(
                 label,
                 style: compact
-                    ? AppTextStyles.label(_foregroundColor())
-                    : AppTextStyles.buttonLabel(_foregroundColor()),
+                    ? AppTextStyles.label(_foregroundColor(context))
+                    : AppTextStyles.buttonLabel(_foregroundColor(context)),
               ),
             ],
           );
@@ -69,18 +69,18 @@ class GradientButton extends StatelessWidget {
           ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
           : const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
       decoration: BoxDecoration(
-        gradient: _gradientOrNull(isDisabled),
-        color: _gradientOrNull(isDisabled) == null ? _solidColor() : null,
+        gradient: _gradientOrNull(context, isDisabled),
+        color: _gradientOrNull(context, isDisabled) == null ? _solidColor(context) : null,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: variant == ButtonVariant.secondary
-            ? Border.all(color: SevaCareColors.primary, width: 1.5)
+            ? Border.all(color: context.colors.primary, width: 1.5)
             : variant == ButtonVariant.ghost
-                ? Border.all(color: SevaCareColors.border, width: 1.5)
+                ? Border.all(color: context.colors.border, width: 1.5)
                 : null,
         boxShadow: variant == ButtonVariant.primary && !isDisabled && !compact
             ? [
                 BoxShadow(
-                  color: SevaCareColors.primary.withValues(alpha: 0.30),
+                  color: context.colors.primary.withValues(alpha: 0.30),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -88,7 +88,7 @@ class GradientButton extends StatelessWidget {
             : variant == ButtonVariant.danger && !isDisabled && !compact
                 ? [
                     BoxShadow(
-                      color: SevaCareColors.danger.withValues(alpha: 0.25),
+                      color: context.colors.danger.withValues(alpha: 0.25),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -111,21 +111,21 @@ class GradientButton extends StatelessWidget {
     );
   }
 
-  LinearGradient? _gradientOrNull(bool disabled) {
+  LinearGradient? _gradientOrNull(BuildContext context, bool disabled) {
     if (disabled) return null;
     return switch (variant) {
-      ButtonVariant.primary => const LinearGradient(
-          colors: SevaCareColors.buttonGradient,
+      ButtonVariant.primary => LinearGradient(
+          colors: context.colors.buttonGradient,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-      ButtonVariant.danger => const LinearGradient(
-          colors: SevaCareColors.dangerGradient,
+      ButtonVariant.danger => LinearGradient(
+          colors: context.colors.dangerGradient,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-      ButtonVariant.mint => const LinearGradient(
-          colors: SevaCareColors.mintGradient,
+      ButtonVariant.mint => LinearGradient(
+          colors: context.colors.mintGradient,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -133,18 +133,18 @@ class GradientButton extends StatelessWidget {
     };
   }
 
-  Color _solidColor() => switch (variant) {
+  Color _solidColor(BuildContext context) => switch (variant) {
     ButtonVariant.secondary => Colors.transparent,
     ButtonVariant.ghost => Colors.transparent,
-    ButtonVariant.primary => SevaCareColors.primary,
-    ButtonVariant.danger => SevaCareColors.danger,
-    ButtonVariant.mint => SevaCareColors.mint,
+    ButtonVariant.primary => context.colors.primary,
+    ButtonVariant.danger => context.colors.danger,
+    ButtonVariant.mint => context.colors.mint,
   };
 
-  Color _foregroundColor() => switch (variant) {
-    ButtonVariant.secondary => SevaCareColors.primary,
-    ButtonVariant.ghost => SevaCareColors.textMuted,
-    _ => SevaCareColors.textOnPrimary,
+  Color _foregroundColor(BuildContext context) => switch (variant) {
+    ButtonVariant.secondary => context.colors.primary,
+    ButtonVariant.ghost => context.colors.textMuted,
+    _ => context.colors.textOnPrimary,
   };
 }
 
@@ -197,9 +197,9 @@ class BackBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-          border: Border.all(color: SevaCareColors.border, width: 1),
+          border: Border.all(color: context.colors.border, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -211,8 +211,8 @@ class BackBtn extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.chevron_left, size: 18, color: SevaCareColors.text),
-            Text('Back', style: AppTextStyles.label(SevaCareColors.text)),
+            Icon(Icons.chevron_left, size: 18, color: context.colors.text),
+            Text('Back', style: AppTextStyles.label(context.colors.text)),
           ],
         ),
       ),
@@ -250,11 +250,11 @@ class IconBtn extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: bgColor ?? SevaCareColors.surfaceMuted,
+              color: bgColor ?? context.colors.surfaceMuted,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: SevaCareColors.border, width: 1),
+              border: Border.all(color: context.colors.border, width: 1),
             ),
-            child: Icon(icon, size: 16, color: iconColor ?? SevaCareColors.textMuted),
+            child: Icon(icon, size: 16, color: iconColor ?? context.colors.textMuted),
           ),
         ),
       ),

@@ -16,12 +16,12 @@ class InfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: AppTextStyles.label(SevaCareColors.textMuted)),
+            child: Text(label, style: AppTextStyles.label(context.colors.textMuted)),
           ),
           Expanded(
             child: Text(
               value,
-              style: AppTextStyles.body(size: 13, weight: FontWeight.w500, color: SevaCareColors.text),
+              style: AppTextStyles.body(size: 13, weight: FontWeight.w500, color: context.colors.text),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -38,7 +38,7 @@ class SectionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 1,
-      color: SevaCareColors.border,
+      color: context.colors.border,
       margin: const EdgeInsets.symmetric(vertical: 4),
     );
   }

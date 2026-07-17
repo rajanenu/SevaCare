@@ -49,6 +49,10 @@ public class AdminUser {
     @Column(name = "photo_base64", columnDefinition = "TEXT")
     private String photoBase64;
 
+    // Content-addressed reference into public.media; supersedes photo_base64.
+    @Column(name = "photo_media_sha", length = 64)
+    private String photoMediaSha;
+
     public LocalDateTime getDeletionRequestedAt() {
         return deletionRequestedAt;
     }
@@ -63,6 +67,14 @@ public class AdminUser {
 
     public void setPhotoBase64(String photoBase64) {
         this.photoBase64 = photoBase64;
+    }
+
+    public String getPhotoMediaSha() {
+        return photoMediaSha;
+    }
+
+    public void setPhotoMediaSha(String photoMediaSha) {
+        this.photoMediaSha = photoMediaSha;
     }
 
     public String getUserType() {

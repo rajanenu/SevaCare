@@ -82,7 +82,7 @@ class _HealthCardWidgetState extends State<HealthCardWidget>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: SevaCareColors.primaryStrong.withValues(alpha: 0.30),
+                color: context.colors.primaryStrong.withValues(alpha: 0.30),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -190,7 +190,7 @@ class _HealthCardWidgetState extends State<HealthCardWidget>
                                   _InfoChip(
                                     icon: Icons.bloodtype_outlined,
                                     value: widget.bloodGroup,
-                                    iconColor: SevaCareColors.error,
+                                    iconColor: context.colors.error,
                                   )
                                 else
                                   _InfoChip(icon: Icons.bloodtype_outlined, value: 'Add BG', muted: true),
@@ -638,7 +638,7 @@ class _StaffCardWidgetState extends State<StaffCardWidget>
                                   _InfoChip(
                                     icon: Icons.bloodtype_outlined,
                                     value: widget.bloodGroup,
-                                    iconColor: SevaCareColors.error,
+                                    iconColor: context.colors.error,
                                   ),
                                 if (widget.mobile.isNotEmpty)
                                   _InfoChip(icon: Icons.phone_outlined, value: widget.mobile),
@@ -800,12 +800,12 @@ class _CardMedia extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: SevaCareColors.primary,
+                      color: context.colors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: SevaCareColors.primary.withValues(alpha: 0.5),
+                          color: context.colors.primary.withValues(alpha: 0.5),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),

@@ -73,32 +73,23 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
           const SizedBox(height: 8),
 
           if (_loading)
-            const SizedBox(
-              height: 400,
-              child: Center(child: CircularProgressIndicator()),
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: ShimmerList(count: 4, cardHeight: 96),
             )
           else if (_error != null)
             SizedBox(
               height: 400,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: SevaCareColors.danger, size: 40),
-                    const SizedBox(height: 12),
-                    Text(_error!,
-                        style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
-                    const SizedBox(height: 16),
-                    PrimaryButton(label: 'Retry', onPressed: _load),
-                  ],
-                ),
-              ),
+              child: AppErrorState(message: _error!, onRetry: _load),
             )
           else if (history == null)
             const SizedBox(
               height: 400,
-              child: Center(child: Text('No medical history found.')),
+              child: AppEmptyState(
+                icon: Icons.folder_open_rounded,
+                title: 'No medical history yet',
+                message: 'Your visit records and prescriptions will appear here.',
+              ),
             )
           else ...[
             // ── Follow-up banner
@@ -107,8 +98,8 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                 variant: MetricVariant.peach,
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded,
-                        color: SevaCareColors.peachForeground, size: 22),
+                    Icon(Icons.warning_amber_rounded,
+                        color: context.colors.peachForeground, size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -116,12 +107,12 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                         children: [
                           Text(
                             'Follow-up Required',
-                            style: AppTextStyles.cardTitle(SevaCareColors.peachForeground),
+                            style: AppTextStyles.cardTitle(context.colors.peachForeground),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Your doctor has recommended a follow-up visit.',
-                            style: AppTextStyles.bodyText(SevaCareColors.peachForeground),
+                            style: AppTextStyles.bodyText(context.colors.peachForeground),
                           ),
                         ],
                       ),
@@ -142,22 +133,22 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: SevaCareColors.mintSoft,
+                        color: context.colors.mintSoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.event_available_outlined,
-                          color: SevaCareColors.mintForeground, size: 22),
+                      child: Icon(Icons.event_available_outlined,
+                          color: context.colors.mintForeground, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Last Checkup',
-                            style: AppTextStyles.label(SevaCareColors.textMuted)),
+                            style: AppTextStyles.label(context.colors.textMuted)),
                         const SizedBox(height: 2),
                         Text(
                           AppDateUtils.formatDisplay(history.lastCheckup),
-                          style: AppTextStyles.cardTitle(SevaCareColors.text),
+                          style: AppTextStyles.cardTitle(context.colors.text),
                         ),
                       ],
                     ),
@@ -169,25 +160,25 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
 
             // ── Past Appointments
             Text('Past Appointments',
-                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 12),
             if (history.appointments.isEmpty)
               Container(
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
+                  color: context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  border: Border.all(color: SevaCareColors.border),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        color: SevaCareColors.textMuted, size: 32),
+                    Icon(Icons.calendar_today_outlined,
+                        color: context.colors.textMuted, size: 32),
                     const SizedBox(height: 10),
                     Text(
                       'No past appointments',
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                      style: AppTextStyles.bodyText(context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -209,11 +200,11 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: SevaCareColors.primarySoft,
+                            color: context.colors.primarySoft,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.person_outline,
-                              color: SevaCareColors.primary, size: 22),
+                          child: Icon(Icons.person_outline,
+                              color: context.colors.primary, size: 22),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -224,18 +215,18 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                                 appt.doctorName.isNotEmpty
                                     ? 'Dr. ${appt.doctorName}'
                                     : 'Doctor',
-                                style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                style: AppTextStyles.cardTitle(context.colors.text),
                               ),
                               const SizedBox(height: 3),
                               Text(
                                 AppDateUtils.formatSlot(appt.slot),
-                                style: AppTextStyles.label(SevaCareColors.textMuted),
+                                style: AppTextStyles.label(context.colors.textMuted),
                               ),
                               if (appt.note != null && appt.note!.isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   appt.note!,
-                                  style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                                  style: AppTextStyles.bodyText(context.colors.textMuted),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -253,25 +244,25 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
             const SizedBox(height: 24),
 
             // ── Prescriptions
-            Text('Prescriptions', style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            Text('Prescriptions', style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 12),
             if (history.prescriptions.isEmpty)
               Container(
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
+                  color: context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  border: Border.all(color: SevaCareColors.border),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.medication_outlined,
-                        color: SevaCareColors.textMuted, size: 32),
+                    Icon(Icons.medication_outlined,
+                        color: context.colors.textMuted, size: 32),
                     const SizedBox(height: 10),
                     Text(
                       'No prescriptions found',
-                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                      style: AppTextStyles.bodyText(context.colors.textMuted),
                     ),
                   ],
                 ),
@@ -300,12 +291,12 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                                 children: [
                                   Text(
                                     _rxLabel(rx.prescriptionPublicId),
-                                    style: AppTextStyles.cardTitle(SevaCareColors.text),
+                                    style: AppTextStyles.cardTitle(context.colors.text),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     'Dr. ${rx.doctorName}',
-                                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                                    style: AppTextStyles.label(context.colors.textMuted),
                                   ),
                                 ],
                               ),
@@ -320,15 +311,15 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                               label:
                                   '${rx.medicines.length} medicine${rx.medicines.length == 1 ? '' : 's'}',
                               icon: Icons.medication_outlined,
-                              bgColor: SevaCareColors.primarySoft,
-                              fgColor: SevaCareColors.primary,
+                              bgColor: context.colors.primarySoft,
+                              fgColor: context.colors.primary,
                             ),
                             const SizedBox(width: 8),
                             _HistoryChip(
                               label: AppDateUtils.formatDisplay(rx.issuedOn),
                               icon: Icons.calendar_today_outlined,
-                              bgColor: SevaCareColors.surfaceMuted,
-                              fgColor: SevaCareColors.textMuted,
+                              bgColor: context.colors.surfaceMuted,
+                              fgColor: context.colors.textMuted,
                             ),
                           ],
                         ),

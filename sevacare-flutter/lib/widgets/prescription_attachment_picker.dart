@@ -37,7 +37,7 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('You can attach up to $_maxFiles prescription photos.'),
-          backgroundColor: SevaCareColors.warning,
+          backgroundColor: context.colors.warning,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -80,13 +80,13 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: SevaCareColors.primary.withValues(alpha: 0.08),
+                color: context.colors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: SevaCareColors.primary, size: 24),
+              child: Icon(icon, color: context.colors.primary, size: 24),
             ),
             const SizedBox(height: 8),
-            Text(label, style: AppTextStyles.label(SevaCareColors.text)),
+            Text(label, style: AppTextStyles.label(context.colors.text)),
           ],
         ),
       ),
@@ -117,7 +117,7 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Could not attach photo. Please try again.'),
-            backgroundColor: SevaCareColors.danger,
+            backgroundColor: context.colors.danger,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -138,10 +138,10 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
       children: [
         Row(
           children: [
-            const Icon(Icons.description_outlined, size: 16, color: SevaCareColors.primary),
+            Icon(Icons.description_outlined, size: 16, color: context.colors.primary),
             const SizedBox(width: 6),
             Text('Have old prescriptions? Add them',
-                style: AppTextStyles.label(SevaCareColors.text).copyWith(fontWeight: FontWeight.w600)),
+                style: AppTextStyles.label(context.colors.text).copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 10),
@@ -152,7 +152,7 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
               child: _files.isEmpty
                   ? Text(
                       'No prescriptions attached yet',
-                      style: AppTextStyles.label(SevaCareColors.textMuted),
+                      style: AppTextStyles.label(context.colors.textMuted),
                     )
                   : SizedBox(
                       height: 70,
@@ -180,8 +180,8 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
                                 child: Container(
                                   width: 20,
                                   height: 20,
-                                  decoration: const BoxDecoration(
-                                    color: SevaCareColors.danger,
+                                  decoration: BoxDecoration(
+                                    color: context.colors.danger,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.close, size: 13, color: Colors.white),
@@ -201,11 +201,11 @@ class _PrescriptionAttachmentPickerState extends State<PrescriptionAttachmentPic
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: SevaCareColors.primary.withValues(alpha: 0.08),
+                  color: context.colors.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
-                  border: Border.all(color: SevaCareColors.primary),
+                  border: Border.all(color: context.colors.primary),
                 ),
-                child: const Icon(Icons.add_a_photo_outlined, color: SevaCareColors.primary, size: 20),
+                child: Icon(Icons.add_a_photo_outlined, color: context.colors.primary, size: 20),
               ),
             ),
           ],

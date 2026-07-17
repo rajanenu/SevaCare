@@ -201,7 +201,7 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
                     label: Text(widget.store == null
                         ? 'Back to SevaCare'
                         : 'Choose another pharmacy'),
-                    style: TextButton.styleFrom(foregroundColor: SevaCareColors.textMuted),
+                    style: TextButton.styleFrom(foregroundColor: context.colors.textMuted),
                   ),
                 ],
               ),
@@ -228,14 +228,14 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
         const SizedBox(height: 16),
         Text(widget.store?.hospitalName ?? 'Your Medical Store',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: SevaCareColors.text)),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: context.colors.text)),
         const SizedBox(height: 4),
         Text(
             widget.store == null
                 ? 'Sign in to run your counter — sell, stock and day-close.'
                 : '${widget.store!.city} · Sign in to run your counter.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: SevaCareColors.textMuted, fontSize: 14)),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 14)),
       ],
     );
   }
@@ -244,9 +244,9 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: SevaCareColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: SevaCareColors.border),
+        border: Border.all(color: context.colors.border),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 6))],
       ),
       child: Column(
@@ -263,13 +263,13 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: SevaCareColors.error.withValues(alpha: 0.08),
+                color: context.colors.error.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(children: [
-                const Icon(Icons.error_outline, size: 18, color: SevaCareColors.error),
+                Icon(Icons.error_outline, size: 18, color: context.colors.error),
                 const SizedBox(width: 8),
-                Expanded(child: Text(_error!, style: const TextStyle(color: SevaCareColors.error, fontSize: 13))),
+                Expanded(child: Text(_error!, style: TextStyle(color: context.colors.error, fontSize: 13))),
               ]),
             ),
           ],
@@ -295,7 +295,7 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
         ),
         const SizedBox(height: 6),
         Text('Use the number your store was registered with.',
-            style: TextStyle(color: SevaCareColors.textMuted, fontSize: 12)),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
         const SizedBox(height: 16),
         _brandButton('Continue', Icons.arrow_forward, _loading ? null : _continue),
       ],
@@ -321,9 +321,9 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
-                  color: SevaCareColors.surfaceMuted,
+                  color: context.colors.surfaceMuted,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: SevaCareColors.border),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Row(children: [
                   const Icon(Icons.storefront_outlined, color: _accent),
@@ -332,10 +332,10 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(s.shopName, style: const TextStyle(fontWeight: FontWeight.w700)),
                       Text(s.userType == 'STAFF' ? 'Counter staff' : 'Owner',
-                          style: TextStyle(color: SevaCareColors.textMuted, fontSize: 12)),
+                          style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                     ]),
                   ),
-                  const Icon(Icons.chevron_right, color: SevaCareColors.textMuted),
+                  Icon(Icons.chevron_right, color: context.colors.textMuted),
                 ]),
               ),
             ),
@@ -354,7 +354,7 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: SevaCareColors.success.withValues(alpha: 0.08),
+              color: context.colors.success.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(children: [
@@ -392,13 +392,13 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
 
   InputDecoration _fieldDecoration(String hint, IconData icon, {bool counter = false}) => InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: SevaCareColors.textMuted),
+        prefixIcon: Icon(icon, size: 20, color: context.colors.textMuted),
         counterText: counter ? '' : null,
         filled: true,
-        fillColor: SevaCareColors.surfaceMuted,
+        fillColor: context.colors.surfaceMuted,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: SevaCareColors.border)),
+            borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.colors.border)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _accent, width: 1.5)),
       );

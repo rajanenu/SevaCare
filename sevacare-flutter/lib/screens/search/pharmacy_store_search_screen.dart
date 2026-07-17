@@ -233,8 +233,8 @@ class _PharmacyStoreSearchScreenState
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()),
+                  padding: EdgeInsets.only(top: 8),
+                  child: ShimmerList(count: 4, cardHeight: 84),
                 );
               }
               if (snapshot.hasError) {
@@ -257,7 +257,7 @@ class _PharmacyStoreSearchScreenState
                         ? 'Recently Used'
                         : '${filtered.length} pharmac${filtered.length == 1 ? 'y' : 'ies'} found',
                     style: AppTextStyles.label(
-                        hasRecent ? _accent : SevaCareColors.textMuted),
+                        hasRecent ? _accent : context.colors.textMuted),
                   ),
                   const SizedBox(height: 6),
                   ...filtered.indexed.map(((int, TenantSummary) entry) {
@@ -274,7 +274,7 @@ class _PharmacyStoreSearchScreenState
                           const SizedBox(height: 6),
                           Text('All Pharmacies',
                               style:
-                                  AppTextStyles.label(SevaCareColors.textMuted)),
+                                  AppTextStyles.label(context.colors.textMuted)),
                           const SizedBox(height: 6),
                         ],
                         Padding(
@@ -320,9 +320,9 @@ class _StoreCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: SevaCareColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: SevaCareColors.border, width: 1),
+          border: Border.all(color: context.colors.border, width: 1),
         ),
         child: Row(
           children: [
@@ -351,7 +351,7 @@ class _StoreCard extends StatelessWidget {
                     children: [
                       Text(
                         store.hospitalName,
-                        style: AppTextStyles.cardTitle(SevaCareColors.text),
+                        style: AppTextStyles.cardTitle(context.colors.text),
                       ),
                       if (isRecent)
                         Container(
@@ -371,13 +371,13 @@ class _StoreCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: SevaCareColors.primarySoft,
+                            color: context.colors.primarySoft,
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusPill),
                           ),
                           child: Text('In-hospital',
                               style:
-                                  AppTextStyles.label(SevaCareColors.primary)),
+                                  AppTextStyles.label(context.colors.primary)),
                         ),
                     ],
                   ),
@@ -387,13 +387,13 @@ class _StoreCard extends StatelessWidget {
                         ? store.city
                         : '${store.city} · ${store.pinCode}',
                     style: AppTextStyles.body(
-                        size: 12, color: SevaCareColors.textMuted),
+                        size: 12, color: context.colors.textMuted),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right,
-                color: SevaCareColors.textMuted, size: 20),
+            Icon(Icons.chevron_right,
+                color: context.colors.textMuted, size: 20),
           ],
         ),
       ),
@@ -413,14 +413,14 @@ class _StoreEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 36),
       child: Column(
         children: [
-          const Icon(Icons.local_pharmacy_outlined,
-              size: 44, color: SevaCareColors.textMuted),
+          Icon(Icons.local_pharmacy_outlined,
+              size: 44, color: context.colors.textMuted),
           const SizedBox(height: 10),
           Text(
             query.isEmpty
                 ? 'No pharmacies registered yet'
                 : 'No pharmacy matches "$query"',
-            style: AppTextStyles.cardTitle(SevaCareColors.text),
+            style: AppTextStyles.cardTitle(context.colors.text),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
@@ -429,7 +429,7 @@ class _StoreEmptyState extends StatelessWidget {
                 ? 'Register your store from "Onboard Hospital / Pharmacy" on the home screen.'
                 : 'Check the spelling, or search by city or PIN code.',
             style:
-                AppTextStyles.body(size: 12, color: SevaCareColors.textMuted),
+                AppTextStyles.body(size: 12, color: context.colors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],
@@ -448,11 +448,11 @@ class _StoreErrorState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 36),
       child: Column(
         children: [
-          const Icon(Icons.wifi_off_rounded,
-              size: 44, color: SevaCareColors.textMuted),
+          Icon(Icons.wifi_off_rounded,
+              size: 44, color: context.colors.textMuted),
           const SizedBox(height: 10),
           Text("Couldn't load pharmacies",
-              style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              style: AppTextStyles.cardTitle(context.colors.text)),
           const SizedBox(height: 10),
           OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
         ],

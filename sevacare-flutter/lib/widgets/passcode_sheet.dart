@@ -24,7 +24,7 @@ Future<bool> showSetPasscodeSheet(
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: SevaCareColors.surface,
+    backgroundColor: context.colors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -47,7 +47,7 @@ Future<void> showPasscodeNudgeSheet(
 }) async {
   final setNow = await showModalBottomSheet<bool>(
     context: context,
-    backgroundColor: SevaCareColors.surface,
+    backgroundColor: context.colors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -64,16 +64,16 @@ Future<void> showPasscodeNudgeSheet(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: SevaCareColors.primary.withValues(alpha: 0.10),
+                    color: context.colors.primary.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.lock_outline,
-                      color: SevaCareColors.primary, size: 22),
+                  child: Icon(Icons.lock_outline,
+                      color: context.colors.primary, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text('Secure your account',
-                      style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                      style: AppTextStyles.sectionTitle(context.colors.text)),
                 ),
               ],
             ),
@@ -81,7 +81,7 @@ Future<void> showPasscodeNudgeSheet(
             Text(
               'Your login still uses the shared default OTP. Set your own '
               '4-digit passcode so only you can sign in with your number.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             const SizedBox(height: 16),
             PrimaryButton(
@@ -94,7 +94,7 @@ Future<void> showPasscodeNudgeSheet(
               child: TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
                 child: Text('Later',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
               ),
             ),
           ],
@@ -128,10 +128,10 @@ Future<void> showResetPasscodeDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setState) => AlertDialog(
-        backgroundColor: SevaCareColors.surface,
+        backgroundColor: context.colors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text("Reset a user's passcode",
-            style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+            style: AppTextStyles.sectionTitle(context.colors.text)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +142,7 @@ Future<void> showResetPasscodeDialog(
                       'The default OTP works again until they set a new code.'
                   : 'Clears the passcode for a user of this hospital or store. '
                       'The default OTP works again until they set a new code.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             const SizedBox(height: 14),
             AppFormField(
@@ -158,7 +158,7 @@ Future<void> showResetPasscodeDialog(
             ),
             if (error != null) ...[
               const SizedBox(height: 8),
-              Text(error!, style: AppTextStyles.label(SevaCareColors.danger)),
+              Text(error!, style: AppTextStyles.label(context.colors.danger)),
             ],
           ],
         ),
@@ -295,13 +295,13 @@ class _SetPasscodeFormState extends State<_SetPasscodeForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Login Passcode',
-                style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                style: AppTextStyles.sectionTitle(context.colors.text)),
             const SizedBox(height: 6),
             Text(
               'A 4-digit code only you know. After you set it, the default '
               'OTP stops working for your number and you sign in with this '
               'code instead.',
-              style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+              style: AppTextStyles.bodyText(context.colors.textMuted),
             ),
             const SizedBox(height: 16),
             if (_askCurrent) ...[
@@ -338,7 +338,7 @@ class _SetPasscodeFormState extends State<_SetPasscodeForm> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: AppTextStyles.label(SevaCareColors.danger)),
+              Text(_error!, style: AppTextStyles.label(context.colors.danger)),
             ],
             const SizedBox(height: 14),
             PrimaryButton(
@@ -352,7 +352,7 @@ class _SetPasscodeFormState extends State<_SetPasscodeForm> {
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text('Cancel',
-                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                    style: AppTextStyles.label(context.colors.textMuted)),
               ),
             ),
           ],

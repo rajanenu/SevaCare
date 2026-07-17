@@ -99,14 +99,14 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const Padding(
-              padding: EdgeInsets.all(48),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.only(top: 8),
+              child: ShimmerList(count: 4, cardHeight: 72),
             )
           else if (_error != null || doc == null)
             AppCard(
               child: Column(children: [
                 Text(_error ?? 'Terms unavailable.',
-                    style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                    style: AppTextStyles.bodyText(context.colors.textMuted)),
                 const SizedBox(height: 12),
                 PrimaryButton(label: 'Retry', onPressed: _load),
               ]),
@@ -115,14 +115,14 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
             AppCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  const Icon(Icons.verified_user_outlined,
-                      size: 18, color: SevaCareColors.primary),
+                  Icon(Icons.verified_user_outlined,
+                      size: 18, color: context.colors.primary),
                   const SizedBox(width: 8),
                   Text('Version ${doc.version} · in force from ${doc.effectiveDate}',
-                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                      style: AppTextStyles.label(context.colors.textMuted)),
                 ]),
                 const SizedBox(height: 10),
-                Text(doc.summary, style: AppTextStyles.bodyText(SevaCareColors.text)),
+                Text(doc.summary, style: AppTextStyles.bodyText(context.colors.text)),
               ]),
             ),
             if (_acceptance != null) ...[
@@ -134,10 +134,10 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
               AppCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(section.heading,
-                      style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                      style: AppTextStyles.sectionTitle(context.colors.text)),
                   const SizedBox(height: 8),
                   for (final p in section.paragraphs) ...[
-                    Text(p, style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                    Text(p, style: AppTextStyles.bodyText(context.colors.textMuted)),
                     if (p != section.paragraphs.last) const SizedBox(height: 8),
                   ],
                 ]),
@@ -147,7 +147,7 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
             const SizedBox(height: 8),
             Text(
               'Questions about these terms? Write to support@sevacare.in.',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
+              style: AppTextStyles.label(context.colors.textMuted),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -159,7 +159,7 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
 
   Widget _acceptanceCard(TermsAcceptance a) {
     final accepted = a.upToDate;
-    final color = accepted ? SevaCareColors.mint : SevaCareColors.warning;
+    final color = accepted ? context.colors.mint : context.colors.warning;
     final when = a.acceptedAt;
     return Container(
       padding: const EdgeInsets.all(14),
@@ -179,7 +179,7 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
                     '${when != null ? ' on ${when.day.toString().padLeft(2, '0')}/${when.month.toString().padLeft(2, '0')}/${when.year}' : ''}'
                     ' · version ${a.acceptedVersion}'
                 : 'Not yet accepted for this account. You will be asked to accept when you next open your dashboard.',
-            style: AppTextStyles.bodyText(SevaCareColors.text),
+            style: AppTextStyles.bodyText(context.colors.text),
           ),
         ),
       ]),
@@ -273,11 +273,11 @@ class _TermsGateDialogState extends ConsumerState<_TermsGateDialog> {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radius)),
       title: Row(children: [
-        const Icon(Icons.verified_user_outlined, color: SevaCareColors.primary, size: 24),
+        Icon(Icons.verified_user_outlined, color: context.colors.primary, size: 24),
         const SizedBox(width: 10),
         Expanded(
           child: Text('SevaCare Terms of Service',
-              style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+              style: AppTextStyles.sectionTitle(context.colors.text)),
         ),
       ]),
       content: SizedBox(
@@ -285,16 +285,16 @@ class _TermsGateDialogState extends ConsumerState<_TermsGateDialog> {
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Version ${doc.version} · ${doc.effectiveDate}',
-                style: AppTextStyles.label(SevaCareColors.textMuted)),
+                style: AppTextStyles.label(context.colors.textMuted)),
             const SizedBox(height: 10),
-            Text(doc.summary, style: AppTextStyles.bodyText(SevaCareColors.text)),
+            Text(doc.summary, style: AppTextStyles.bodyText(context.colors.text)),
             const SizedBox(height: 12),
             // The three points that matter most, in the customer's own interest.
             for (final section in doc.sections.take(3)) ...[
-              Text(section.heading, style: AppTextStyles.cardTitle(SevaCareColors.text)),
+              Text(section.heading, style: AppTextStyles.cardTitle(context.colors.text)),
               const SizedBox(height: 4),
               Text(section.paragraphs.first,
-                  style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+                  style: AppTextStyles.bodyText(context.colors.textMuted)),
               const SizedBox(height: 10),
             ],
             TextButton.icon(
@@ -314,12 +314,12 @@ class _TermsGateDialogState extends ConsumerState<_TermsGateDialog> {
               dense: true,
               title: Text(
                 'I have read and accept these terms on behalf of my business.',
-                style: AppTextStyles.bodyText(SevaCareColors.text),
+                style: AppTextStyles.bodyText(context.colors.text),
               ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 6),
-              Text(_error!, style: AppTextStyles.label(SevaCareColors.danger)),
+              Text(_error!, style: AppTextStyles.label(context.colors.danger)),
             ],
           ]),
         ),

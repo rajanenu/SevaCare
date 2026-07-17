@@ -294,17 +294,20 @@ public class AdminDomainService {
         if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
             throw new IllegalArgumentException("Admin does not belong to tenant");
         }
-        return new PatientDtos.PhotoView(adminUser.getPhotoBase64());
+        String sha = adminUser.getPhotoMediaSha();
+        return new PatientDtos.PhotoView(sha != null ? null : adminUser.getPhotoBase64(), sha);
     }
 
+    // Store the media reference (bytes already in public.media); null clears it.
     @Transactional
-    public void updateAdminPhoto(String tenantPublicId, String adminPublicId, String photoBase64) {
+    public void updateAdminPhoto(String tenantPublicId, String adminPublicId, String mediaSha) {
         AdminUser adminUser = adminUserRepository.findById(adminPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + adminPublicId));
         if (!tenantPublicId.equals(adminUser.getTenantPublicId())) {
             throw new IllegalArgumentException("Admin does not belong to tenant");
         }
-        adminUser.setPhotoBase64(photoBase64);
+        adminUser.setPhotoMediaSha(mediaSha);
+        adminUser.setPhotoBase64(null);
         adminUserRepository.save(adminUser);
     }
 
