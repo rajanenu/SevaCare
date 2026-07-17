@@ -6,7 +6,7 @@ import '../core/theme/app_theme.dart';
 
 enum ButtonVariant { primary, secondary, danger, mint, ghost }
 
-class GradientButton extends StatelessWidget {
+class GradientButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final ButtonVariant variant;
@@ -25,6 +25,23 @@ class GradientButton extends StatelessWidget {
     this.fullWidth = false,
     this.compact = false,
   });
+
+  @override
+  State<GradientButton> createState() => _GradientButtonState();
+}
+
+class _GradientButtonState extends State<GradientButton> {
+  bool _pressed = false;
+
+  // Read-through accessors so the build body below reads like the original
+  // StatelessWidget (widget.label → label, etc.).
+  String get label => widget.label;
+  VoidCallback? get onPressed => widget.onPressed;
+  ButtonVariant get variant => widget.variant;
+  bool get isLoading => widget.isLoading;
+  IconData? get icon => widget.icon;
+  bool get fullWidth => widget.fullWidth;
+  bool get compact => widget.compact;
 
   @override
   Widget build(BuildContext context) {
@@ -103,11 +120,19 @@ class GradientButton extends StatelessWidget {
     }
 
     return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
       onTap: () {
         HapticFeedback.lightImpact();
         onPressed!();
       },
-      child: button,
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: button,
+      ),
     );
   }
 

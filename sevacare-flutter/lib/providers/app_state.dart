@@ -523,9 +523,52 @@ final loginFormProvider = StateNotifierProvider.autoDispose<LoginFormNotifier, L
 // Active role selection on login screen (before auth)
 final activeRoleProvider = StateProvider<UserRole>((ref) => UserRole.patient);
 
-// ── Dark Mode ─────────────────────────────────────────────────────────────────
+// ── Theme mode ────────────────────────────────────────────────────────────────
 
-final darkModeProvider = StateProvider<bool>((ref) => false);
+/// The user's persisted theme choice. Defaults to [AppThemeChoice.light] so an
+/// existing install looks exactly as it did before this setting existed — the
+/// System and Dark options are strictly opt-in, chosen from Settings.
+enum AppThemeChoice { system, light, dark }
+
+class ThemeModeNotifier extends StateNotifier<AppThemeChoice> {
+  ThemeModeNotifier() : super(AppThemeChoice.light) {
+    _load();
+  }
+
+  static const _prefsKey = 'seva_theme_mode';
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_prefsKey);
+      state = switch (stored) {
+        'system' => AppThemeChoice.system,
+        'dark' => AppThemeChoice.dark,
+        'light' => AppThemeChoice.light,
+        _ => AppThemeChoice.light,
+      };
+    } catch (_) {
+      // Prefs unreadable → keep the light default; the app still themes fine.
+    }
+  }
+
+  Future<void> setChoice(AppThemeChoice choice) async {
+    state = choice;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKey, choice.name);
+    } catch (_) {
+      // A failed persist only means the choice won't survive a restart.
+    }
+  }
+}
+
+/// The persisted System/Light/Dark choice. [app.dart] maps it to a Flutter
+/// [ThemeMode]; Settings drives it.
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, AppThemeChoice>(
+  (ref) => ThemeModeNotifier(),
+);
 
 /// Stores the mobile number the user logged in with, for profile pre-fill.
 final loginMobileProvider = StateProvider<String>((ref) => '');

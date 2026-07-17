@@ -83,8 +83,8 @@ class MetricTile extends StatelessWidget {
                       style: AppTextStyles.metricLabel(context.colors.textMuted),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      value,
+                    _AnimatedMetricValue(
+                      value: value,
                       style: AppTextStyles.metricValue(variant.valueColor(context)),
                     ),
                     if (trend != null && trend!.isNotEmpty) ...[
@@ -110,6 +110,62 @@ class MetricTile extends StatelessWidget {
       return GestureDetector(onTap: onTap, child: tile);
     }
     return tile;
+  }
+}
+
+/// Renders a metric value with a brief count-up when the number changes.
+///
+/// It only animates the integer portion of a "mostly numeric" value (an
+/// optional prefix like ₹, digits with optional thousands commas, an optional
+/// non-decimal suffix like %). Once the animation settles it renders the
+/// *exact* original [value] string, so a resting tile is pixel-identical to
+/// the plain Text it replaced — anything it can't parse falls straight through
+/// to plain Text. No functional behaviour changes; this is purely cosmetic.
+class _AnimatedMetricValue extends StatelessWidget {
+  final String value;
+  final TextStyle style;
+
+  const _AnimatedMetricValue({required this.value, required this.style});
+
+  static final _numeric = RegExp(r'^(\D*?)([\d,]+)(\D*)$');
+
+  @override
+  Widget build(BuildContext context) {
+    final match = _numeric.firstMatch(value);
+    if (match == null) {
+      return Text(value, style: style);
+    }
+    final prefix = match.group(1) ?? '';
+    final suffix = match.group(3) ?? '';
+    final target = int.tryParse(match.group(2)!.replaceAll(',', ''));
+    // Skip the animation for zero (nothing to count) or absurdly large values.
+    if (target == null || target <= 0 || target > 100000000) {
+      return Text(value, style: style);
+    }
+    final hadCommas = match.group(2)!.contains(',');
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: target.toDouble()),
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) {
+        final current = v.round();
+        // At rest, show the caller's exact string (Indian grouping, etc.).
+        if (current >= target) return Text(value, style: style);
+        final body = hadCommas ? _group(current) : '$current';
+        return Text('$prefix$body$suffix', style: style);
+      },
+    );
+  }
+
+  static String _group(int n) {
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 }
 

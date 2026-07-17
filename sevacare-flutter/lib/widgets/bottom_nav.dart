@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/i18n/i18n.dart';
 import '../core/theme/app_colors.dart';
@@ -54,8 +55,15 @@ class AppBottomNav extends ConsumerWidget {
 
           return Expanded(
             child: GestureDetector(
-              onTap: () => onTap(index),
-              child: AnimatedContainer(
+              onTap: () {
+                if (!isActive) HapticFeedback.selectionClick();
+                onTap(index);
+              },
+              child: AnimatedScale(
+                scale: isActive ? 1.0 : 0.94,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                 decoration: BoxDecoration(
@@ -97,6 +105,7 @@ class AppBottomNav extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
               ),
             ),
           );

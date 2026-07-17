@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -153,7 +154,7 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp>
   @override
   Widget build(BuildContext context) {
     final hospitalState = ref.watch(hospitalProvider);
-    final isDark = ref.watch(darkModeProvider);
+    final themeChoice = ref.watch(themeModeProvider);
     final theme = AppTheme.buildTheme(hospitalState.theme);
     final darkTheme = AppTheme.buildDarkTheme();
 
@@ -161,18 +162,38 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp>
       title: 'SevaCare',
       theme: theme,
       darkTheme: darkTheme,
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: switch (themeChoice) {
+        AppThemeChoice.system => ThemeMode.system,
+        AppThemeChoice.light => ThemeMode.light,
+        AppThemeChoice.dark => ThemeMode.dark,
+      },
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
-      builder: (context, child) => Stack(
-        children: [
-          ?child,
-          if (_showIntro)
-            CinematicIntro(
-              onFinished: () => setState(() => _showIntro = false),
-            ),
-        ],
-      ),
+      builder: (context, child) {
+        // Keep the OS status/navigation bar icons legible against whichever
+        // theme actually resolved (System mode picks light or dark from the
+        // device): dark surfaces get light icons and vice-versa.
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final overlay = (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Theme.of(context).scaffoldBackgroundColor,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+        );
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlay,
+          child: Stack(
+            children: [
+              ?child,
+              if (_showIntro)
+                CinematicIntro(
+                  onFinished: () => setState(() => _showIntro = false),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -431,7 +452,9 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp>
         ),
         GoRoute(
           path: '/global-search',
-          pageBuilder: (ctx, state) => _slidePage(ctx, state, const GlobalSearchScreen()),
+          pageBuilder: (ctx, state) => _slidePage(ctx, state, GlobalSearchScreen(
+            initialQuery: state.extra as String?,
+          )),
         ),
         // Readable by anyone, signed in or not — a hospital deciding whether to join,
         // and a store checking a year later what it agreed to.

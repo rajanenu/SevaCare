@@ -24,7 +24,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final hospitalName = ref.watch(hospitalProvider).hospitalName;
     final auth = ref.watch(authProvider);
-    final isDark = ref.watch(darkModeProvider);
+    final themeChoice = ref.watch(themeModeProvider);
 
     return AppShell(
       hospitalName: hospitalName,
@@ -67,15 +67,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Appearance', style: AppTextStyles.sectionTitle(context.colors.text)),
-                const SizedBox(height: 8),
-                SwitchListTile.adaptive(
-                  title: Text('Dark Mode', style: AppTextStyles.bodyText(context.colors.text)),
-                  subtitle: Text('Toggle dark/light theme', style: AppTextStyles.bodyText(context.colors.textMuted)),
-                  value: isDark,
-                  activeThumbColor: context.colors.primary,
-                  activeTrackColor: context.colors.primarySoft,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (v) => ref.read(darkModeProvider.notifier).state = v,
+                const SizedBox(height: 2),
+                Text('Choose how SevaCare looks',
+                    style: AppTextStyles.bodyText(context.colors.textMuted)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    for (final choice in AppThemeChoice.values)
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                              left: choice == AppThemeChoice.values.first ? 0 : 8),
+                          child: _ThemeChoiceChip(
+                            choice: choice,
+                            selected: themeChoice == choice,
+                            onTap: () => ref
+                                .read(themeModeProvider.notifier)
+                                .setChoice(choice),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -250,5 +262,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     if (context.mounted) context.go('/');
+  }
+}
+
+/// A single System/Light/Dark option in the Appearance selector.
+class _ThemeChoiceChip extends StatelessWidget {
+  final AppThemeChoice choice;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ThemeChoiceChip({
+    required this.choice,
+    required this.selected,
+    required this.onTap,
+  });
+
+  (IconData, String) get _config => switch (choice) {
+        AppThemeChoice.system => (Icons.brightness_auto_rounded, 'System'),
+        AppThemeChoice.light => (Icons.light_mode_rounded, 'Light'),
+        AppThemeChoice.dark => (Icons.dark_mode_rounded, 'Dark'),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label) = _config;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? context.colors.primarySoft : context.colors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? context.colors.primary : context.colors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 20,
+                color: selected ? context.colors.primary : context.colors.textMuted),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: AppTextStyles.body(
+                size: 12,
+                weight: FontWeight.w600,
+                color: selected ? context.colors.primary : context.colors.text,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

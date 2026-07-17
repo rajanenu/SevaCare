@@ -16,6 +16,7 @@ import 'bottom_nav.dart';
 import 'connectivity_banner.dart';
 import 'faq_bot_sheet.dart';
 import 'orb_background.dart';
+import 'voice_command_sheet.dart';
 
 class AppShell extends StatelessWidget {
   final Widget body;
@@ -495,6 +496,11 @@ class _TopBar extends ConsumerWidget {
             ),
           ),
           if (actions != null && actions!.isNotEmpty) ...actions!,
+          // Voice — speak to book / search / navigate. Same audience as search.
+          if (role != null && role != UserRole.platformAdmin) ...[
+            const SizedBox(width: 2),
+            _VoiceButton(role: role, searchRoute: searchRoute),
+          ],
           // Search — available for all authenticated roles
           if (role != null && role != UserRole.platformAdmin) ...[
             const SizedBox(width: 2),
@@ -579,6 +585,65 @@ class _TopBar extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Voice command button ──────────────────────────────────────────────────────
+// Opens the "speak to SevaCare" sheet; on-device speech is turned into an
+// in-app navigation (book / search / open a screen). Shown for every signed-in
+// role except platform admin.
+class _VoiceButton extends StatelessWidget {
+  final UserRole? role;
+  final String searchRoute;
+  const _VoiceButton({required this.role, required this.searchRoute});
+
+  Future<void> _open(BuildContext context) async {
+    final action = await VoiceCommandSheet.open(
+      context,
+      role: role,
+      searchRoute: searchRoute,
+    );
+    if (action == null || !context.mounted) return;
+    if (action.isSearch) {
+      context.push(action.route, extra: action.query);
+    } else {
+      context.push(action.route);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Speak to SevaCare',
+      button: true,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: GestureDetector(
+          onTap: () => _open(context),
+          behavior: HitTestBehavior.opaque,
+          child: Center(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: context.colors.primarySoft,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: context.colors.primary.withValues(alpha: 0.30),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.mic_none_rounded,
+                size: 15,
+                color: context.colors.primary,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -32,7 +32,11 @@ final _doctorListProvider =
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class GlobalSearchScreen extends ConsumerStatefulWidget {
-  const GlobalSearchScreen({super.key});
+  /// A query to pre-fill and run on open — used by the voice command sheet so
+  /// a spoken "find a cardiologist" lands here with results already filtered.
+  final String? initialQuery;
+
+  const GlobalSearchScreen({super.key, this.initialQuery});
 
   @override
   ConsumerState<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
@@ -42,6 +46,16 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String _filterSpecialty = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.initialQuery?.trim() ?? '';
+    if (q.isNotEmpty) {
+      _searchCtrl.text = q;
+      _query = q.toLowerCase();
+    }
+  }
 
   @override
   void dispose() {

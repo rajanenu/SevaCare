@@ -59,5 +59,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Lets speech_to_text discover the on-device recognizer on Android 11+
+             (API 30) so the app-wide voice command mic reports as available. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
     </queries>
 </manifest>
