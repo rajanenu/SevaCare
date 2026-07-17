@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 // The spreadsheet package ships its own Border/BorderStyle for cell styling;
@@ -480,6 +481,23 @@ class _SellTabState extends ConsumerState<_SellTab> {
   // Khata: dues shown the moment a known credit customer's mobile is typed.
   CreditOutstanding? _customerDues;
 
+  // Purchase history: the customer's earlier invoices at this counter, looked
+  // up by mobile (preferred) or name, paginated 5 at a time and collapsed
+  // behind an accordion until the pharmacist wants to see them.
+  CustomerHistoryPage? _history;
+  final List<SaleSummary> _historyItems = [];
+  bool _historyLoading = false;
+  bool _historyExpanded = false;
+  String _historyCheckedFor = '';
+  Timer? _historyDebounce;
+
+  /// Set while the customer bottom sheet is open. The dues/last-purchase/history
+  /// lookups land ~half a second after the mobile is typed, on the parent's
+  /// setState — which does not rebuild a modal route. This lets those results
+  /// paint into the open sheet the moment they arrive, instead of the sheet
+  /// showing a stale "New customer".
+  VoidCallback? _onCustomerDataChanged;
+
   // Held (parked) sales — pre-payment, so purely client-side.
   final List<_HeldSale> _held = [];
 
@@ -491,6 +509,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
 
   @override
   void dispose() {
+    _historyDebounce?.cancel();
     _searchCtrl.dispose();
     _prescriberCtrl.dispose();
     _customerNameCtrl.dispose();
@@ -696,6 +715,10 @@ class _SellTabState extends ConsumerState<_SellTab> {
         _lastPurchase = null;
         _customerDues = null;
         _lastPurchaseCheckedFor = '';
+        _history = null;
+        _historyItems.clear();
+        _historyExpanded = false;
+        _historyCheckedFor = '';
       });
       await _showReceipt(receipt);
     } catch (e) {
@@ -713,6 +736,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
 
   Future<void> _onCustomerMobileChanged(String value) async {
     setState(() {});
+    _scheduleHistoryLookup();
     final mobile = value.trim();
     if (mobile.length != 10) {
       if (_lastPurchase != null || _customerDues != null) {
@@ -731,7 +755,209 @@ class _SellTabState extends ConsumerState<_SellTab> {
         _lastPurchase = receipt;
         _customerDues = (dues != null && dues.outstandingPaise > 0) ? dues : null;
       });
+      _onCustomerDataChanged?.call();
     }
+  }
+
+  // ── Purchase history (paginated, collapsed behind an accordion) ─────────
+
+  /// Keyed on mobile alone — a name is too easily shared or mistyped to match
+  /// reliably, and mobile is already the identifier the khata and rebill chip
+  /// use. Debounced so every keystroke doesn't fire a request.
+  void _scheduleHistoryLookup() {
+    _historyDebounce?.cancel();
+    _historyDebounce = Timer(const Duration(milliseconds: 450), _lookupHistory);
+  }
+
+  Future<void> _lookupHistory() async {
+    final mobile = _customerMobileCtrl.text.trim();
+    if (mobile.length != 10) {
+      if (_history != null || _historyCheckedFor.isNotEmpty) {
+        setState(() {
+          _history = null;
+          _historyItems.clear();
+          _historyExpanded = false;
+          _historyCheckedFor = '';
+        });
+        _onCustomerDataChanged?.call();
+      }
+      return;
+    }
+    if (mobile == _historyCheckedFor) return;
+    _historyCheckedFor = mobile;
+    setState(() => _historyLoading = true);
+    _onCustomerDataChanged?.call();
+    final auth = ref.read(authProvider);
+    final repo = ref.read(repositoryProvider);
+    try {
+      final result = await repo.customerPurchaseHistory(
+        auth.tenantPublicId!, auth.token!, mobile, page: 0, size: 5,
+      );
+      if (!mounted || _customerMobileCtrl.text.trim() != mobile) return;
+      setState(() {
+        _history = result;
+        _historyItems
+          ..clear()
+          ..addAll(result.sales);
+        _historyExpanded = false;
+        _historyLoading = false;
+      });
+      _onCustomerDataChanged?.call();
+    } catch (_) {
+      if (mounted) setState(() => _historyLoading = false);
+      _onCustomerDataChanged?.call();
+    }
+  }
+
+  Future<void> _loadMoreHistory() async {
+    final h = _history;
+    final mobile = _customerMobileCtrl.text.trim();
+    if (h == null || !h.hasMore || _historyLoading || mobile.length != 10) return;
+    setState(() => _historyLoading = true);
+    final auth = ref.read(authProvider);
+    final repo = ref.read(repositoryProvider);
+    try {
+      final next = await repo.customerPurchaseHistory(
+        auth.tenantPublicId!, auth.token!, mobile, page: h.page + 1, size: h.size,
+      );
+      if (!mounted) return;
+      setState(() {
+        _historyItems.addAll(next.sales);
+        _history = next;
+        _historyLoading = false;
+      });
+      _onCustomerDataChanged?.call();
+    } catch (_) {
+      if (mounted) setState(() => _historyLoading = false);
+      _onCustomerDataChanged?.call();
+    }
+  }
+
+  Future<void> _viewHistoryReceipt(SaleSummary s) async {
+    final auth = ref.read(authProvider);
+    try {
+      final receipt = await ref.read(repositoryProvider)
+          .getReceipt(auth.tenantPublicId!, auth.token!, s.salePublicId);
+      if (!mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: SevaCareColors.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => _InvoiceDetailSheet(sale: s, receipt: receipt, onChanged: () {}),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_friendly(e)), backgroundColor: SevaCareColors.error));
+      }
+    }
+  }
+
+  /// Collapsed by default: "New customer" when there is nothing on file, an
+  /// accordion carrying the invoice count when there is — so a busy counter
+  /// sees at a glance whether this is a regular, without the list itself
+  /// taking up room until someone taps to look.
+  Widget _purchaseHistorySection() {
+    final h = _history;
+    if (h == null) {
+      return _historyLoading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2)))
+          : const SizedBox.shrink();
+    }
+    if (h.isNewCustomer) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: SevaCareColors.textMuted.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.person_add_alt_1_outlined, size: 14, color: SevaCareColors.textMuted),
+          const SizedBox(width: 6),
+          const Text('New customer — no earlier purchases here',
+              style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+        ]),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: SevaCareColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        InkWell(
+          onTap: () {
+            setState(() => _historyExpanded = !_historyExpanded);
+            _onCustomerDataChanged?.call();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(children: [
+              const Icon(Icons.history, size: 16, color: SevaCareColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Purchase history · ${h.totalCount} invoice${h.totalCount == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+              Icon(_historyExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: SevaCareColors.textMuted),
+            ]),
+          ),
+        ),
+        if (_historyExpanded) ...[
+          const Divider(height: 1),
+          for (final s in _historyItems) _historyRow(s),
+          if (h.hasMore)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: _historyLoading
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : TextButton(onPressed: _loadMoreHistory, child: const Text('Load more')),
+            ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _historyRow(SaleSummary s) {
+    return InkWell(
+      onTap: () => _viewHistoryReceipt(s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(
+                  child: Text(s.invoiceNo,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                ),
+                if (s.isVoid) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: SevaCareColors.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(5)),
+                    child: const Text('VOID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: SevaCareColors.error)),
+                  ),
+                ],
+              ]),
+              const SizedBox(height: 2),
+              Text('${(s.soldAt ?? '').split('T').first} · ${s.itemCount} item${s.itemCount == 1 ? '' : 's'} · ${s.paymentMode}',
+                  style: const TextStyle(fontSize: 11, color: SevaCareColors.textMuted)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Text(_rupees(s.totalPaise), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(width: 2),
+          const Icon(Icons.chevron_right, size: 16, color: SevaCareColors.textMuted),
+        ]),
+      ),
+    );
   }
 
   Widget _rebillChip() {
@@ -967,7 +1193,7 @@ class _SellTabState extends ConsumerState<_SellTab> {
           ),
           Container(width: 1, color: SevaCareColors.border),
           SizedBox(
-            width: 380,
+            width: 420,
             child: SingleChildScrollView(child: _checkoutPanel()),
           ),
         ]);
@@ -1074,8 +1300,14 @@ class _SellTabState extends ConsumerState<_SellTab> {
   }
 
   /// Who is buying — kept out of the bill's way on a phone, but one tap from
-  /// it, because the mobile number is what surfaces the khata balance and the
-  /// "same as last time" repeat.
+  /// it, because the mobile number is what surfaces the khata balance, the
+  /// "same as last time" repeat, and the customer's whole purchase history.
+  ///
+  /// A draggable, tall sheet rather than a cramped one: the earlier version was
+  /// a min-height card that stopped at the Done button, so the history and the
+  /// dues never had room to show — the pharmacist couldn't see what they'd come
+  /// to look at. This opens at 72% of the screen, snaps there, and drags to
+  /// full — and repaints live as the debounced lookups land.
   void _openCustomerSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -1083,81 +1315,126 @@ class _SellTabState extends ConsumerState<_SellTab> {
       backgroundColor: SevaCareColors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
-        final bottom = MediaQuery.of(ctx).viewInsets.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 12),
-              const Text('Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              const Text('Optional — but a mobile number is what puts this bill on their khata '
-                  'and lets you repeat their last purchase.',
-                  style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
-              const SizedBox(height: 14),
-              AppFormField(
-                label: 'Name',
-                controller: _customerNameCtrl,
-                autofocus: true,
-                placeholder: 'Customer name',
-                onChanged: (_) { setState(() {}); setSheet(() {}); },
-              ),
+        // While the sheet is open, the debounced dues/last-purchase/history
+        // lookups paint straight into it — otherwise their results land on the
+        // parent's setState, which never rebuilds this modal route.
+        _onCustomerDataChanged = () { if (ctx.mounted) setSheet(() {}); };
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.45,
+          maxChildSize: 0.95,
+          snap: true,
+          snapSizes: const [0.72],
+          builder: (ctx, scrollController) {
+            final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+            return Column(children: [
               const SizedBox(height: 10),
-              AppFormField(
-                label: 'Mobile',
-                controller: _customerMobileCtrl,
-                keyboardType: TextInputType.phone,
-                placeholder: '10-digit mobile',
-                inputFormatters: [MobileInputFormatter()],
-                onChanged: (v) async {
-                  await _onCustomerMobileChanged(v);
-                  if (ctx.mounted) setSheet(() {});
-                },
-              ),
-              if (_customerDues != null) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: SevaCareColors.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.menu_book_outlined, size: 15, color: SevaCareColors.warning),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text('Already owes ${_rupees(_customerDues!.outstandingPaise)} on khata',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SevaCareColors.warning)),
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: SevaCareColors.border, borderRadius: BorderRadius.circular(2)))),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.person_outline, size: 20, color: SevaCareColors.primary),
+                      const SizedBox(width: 8),
+                      const Text('Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    ]),
+                    const SizedBox(height: 4),
+                    const Text('Optional — but a mobile number puts this bill on their khata '
+                        'and lets you repeat or look up their past purchases.',
+                        style: TextStyle(fontSize: 12, color: SevaCareColors.textMuted)),
+                    const SizedBox(height: 14),
+                    AppFormField(
+                      label: 'Name',
+                      controller: _customerNameCtrl,
+                      placeholder: 'Customer name',
+                      onChanged: (_) { setState(() {}); setSheet(() {}); },
                     ),
-                  ]),
+                    const SizedBox(height: 10),
+                    AppFormField(
+                      label: 'Mobile',
+                      controller: _customerMobileCtrl,
+                      keyboardType: TextInputType.phone,
+                      placeholder: '10-digit mobile',
+                      inputFormatters: [MobileInputFormatter()],
+                      onChanged: (v) async {
+                        await _onCustomerMobileChanged(v);
+                        if (ctx.mounted) setSheet(() {});
+                      },
+                    ),
+                    if (_customerDues != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: SevaCareColors.warning.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.menu_book_outlined, size: 15, color: SevaCareColors.warning),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text('Already owes ${_rupees(_customerDues!.outstandingPaise)} on khata',
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SevaCareColors.warning)),
+                          ),
+                        ]),
+                      ),
+                    ],
+                    if (_lastPurchase != null) ...[
+                      const SizedBox(height: 12),
+                      _rebillCard(onTap: () { Navigator.pop(ctx); _rebillLast(); }),
+                    ],
+                    const SizedBox(height: 12),
+                    _purchaseHistorySection(),
+                    const SizedBox(height: 20),
+                    GradientButton(
+                      label: 'Done',
+                      icon: Icons.check,
+                      fullWidth: true,
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
                 ),
-              ],
-              if (_lastPurchase != null) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ActionChip(
-                    avatar: const Icon(Icons.replay, size: 16, color: SevaCareColors.primary),
-                    label: Text('Same as last time · ${_rupees(_lastPurchase!.totalPaise)}'),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _rebillLast();
-                    },
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              GradientButton(
-                label: 'Done',
-                icon: Icons.check,
-                fullWidth: true,
-                onPressed: () => Navigator.pop(ctx),
               ),
-            ]),
-          ),
+            ]);
+          },
         );
       }),
+    ).whenComplete(() => _onCustomerDataChanged = null);
+  }
+
+  /// The "repeat their last bill" action, as a full-width card rather than a
+  /// thumbnail chip — it is the single most-used shortcut at a repeat-heavy
+  /// counter, and it was getting lost at the squeezed sheet's edge.
+  Widget _rebillCard({required VoidCallback onTap}) {
+    final r = _lastPurchase!;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: SevaCareColors.primarySoft,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SevaCareColors.primary.withValues(alpha: 0.35)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.replay, size: 20, color: SevaCareColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Repeat last purchase',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: SevaCareColors.primary)),
+              const SizedBox(height: 2),
+              Text('${r.lines.length} item${r.lines.length == 1 ? '' : 's'} · ${_rupees(r.totalPaise)} — adds them back to the cart',
+                  style: const TextStyle(fontSize: 11.5, color: SevaCareColors.textMuted)),
+            ]),
+          ),
+          const Icon(Icons.chevron_right, size: 18, color: SevaCareColors.primary),
+        ]),
+      ),
     );
   }
 
@@ -1525,6 +1802,8 @@ class _SellTabState extends ConsumerState<_SellTab> {
             const SizedBox(height: 6),
             _rebillChip(),
           ],
+          const SizedBox(height: 6),
+          _purchaseHistorySection(),
           const SizedBox(height: 8),
         ],
         if (_cart.any((c) => c.sku?.isPrescriptionOnly ?? false))

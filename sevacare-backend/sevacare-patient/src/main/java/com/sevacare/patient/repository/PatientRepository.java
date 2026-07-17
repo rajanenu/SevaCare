@@ -24,4 +24,28 @@ public interface PatientRepository extends JpaRepository<Patient, String> {
     java.util.List<Patient> findTop2000ByTenantPublicIdOrderByPatientPublicIdAsc(String tenantPublicId);
 
     long countByTenantPublicId(String tenantPublicId);
+
+    /**
+     * Everything a list/queue view needs about a patient — and pointedly NOT the
+     * {@code photo_base64} TEXT column. Loading full {@code Patient} entities for
+     * these views dragged every patient's base64 photo out of the database too,
+     * which the doctor's day queue then did every 20 seconds. A closed interface
+     * projection makes Spring Data select only these columns.
+     */
+    interface PatientCard {
+        String getPatientPublicId();
+        String getTenantPublicId();
+        String getFullName();
+        String getMobileNumber();
+        String getStatus();
+        String getEmail();
+        String getGender();
+        Integer getAge();
+        String getAddress();
+        String getBloodGroup();
+    }
+
+    List<PatientCard> findCardsByPatientPublicIdInAndTenantPublicId(List<String> patientPublicIds, String tenantPublicId);
+
+    List<PatientCard> findTop2000CardsByTenantPublicIdOrderByPatientPublicIdAsc(String tenantPublicId);
 }

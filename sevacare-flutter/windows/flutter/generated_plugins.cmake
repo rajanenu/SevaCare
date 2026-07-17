@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   geolocator_windows
   local_auth_windows
   printing
+  sentry_flutter
   url_launcher_windows
 )
 

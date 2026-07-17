@@ -141,6 +141,10 @@ class _PharmacyLoginScreenState extends ConsumerState<PharmacyLoginScreen> {
       final repo = ref.read(repositoryProvider);
       final session = await repo.pharmacyVerify(_mobileCtrl.text.trim(), otp, shop.tenantPublicId);
       await ref.read(authProvider.notifier).setSession(session);
+      // Signed in at the pharmacy door — persist it so a cold restart (which drops
+      // capabilities) restores the counter, not the hospital dashboard, even for an
+      // owner whose tenant also has a clinical side.
+      await ref.read(authProvider.notifier).setHomePreference(true);
       // Load capabilities so the counter names the shop and the shell knows it's
       // pharmacy-only; a failure here is non-fatal — the counter still opens.
       try {

@@ -144,12 +144,52 @@ class ApiClient {
     return null;
   }
 
+  /// A GET is idempotent, so a *transient* failure — a dropped connection or
+  /// timeout on a spotty mobile network, or a 502/503/504 from a Cloud Run
+  /// instance that is cold-starting or being relocated — is worth a couple of
+  /// automatic retries with a short backoff before it ever reaches the caller.
+  /// Writes (POST/PUT/PATCH/DELETE) are deliberately NOT retried here: their
+  /// safety comes from the server-side Idempotency-Key, not blind resend.
+  ///
+  /// By the time an error surfaces it has passed through the interceptor above,
+  /// which reduces every failure to an [ApiException] — statusCode 0 means the
+  /// request never got an HTTP answer (network/timeout). A real 4xx (400/401/
+  /// 403/404/409) is an answer, not a blip, and is surfaced immediately.
+  static const int _getMaxAttempts = 3;
+
+  bool _isTransient(Object error) {
+    if (error is DioException && error.error is ApiException) {
+      final code = (error.error as ApiException).statusCode;
+      return code == 0 || code == 502 || code == 503 || code == 504;
+    }
+    return false;
+  }
+
+  Future<Response<dynamic>> _getWithRetry(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    for (var attempt = 1;; attempt++) {
+      try {
+        return await _dio.get(path, queryParameters: queryParameters, options: options);
+      } on DioException catch (e) {
+        // A malformed local path ("//") is a caller bug, not a blip — never retry it.
+        final malformed = !path.startsWith('http') && path.contains('//');
+        if (attempt >= _getMaxAttempts || malformed || !_isTransient(e)) {
+          rethrow;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 300 * attempt));
+      }
+    }
+  }
+
   Future<T> get<T>(String path, {
     T Function(dynamic)? fromJson,
     Map<String, dynamic>? queryParams,
     Map<String, String>? extraHeaders,
   }) async {
-    final response = await _dio.get(
+    final response = await _getWithRetry(
       path,
       queryParameters: queryParams,
       options: Options(headers: extraHeaders),
@@ -172,7 +212,7 @@ class ApiClient {
     final headers = <String, String>{...?extraHeaders};
     if (etag != null) headers['If-None-Match'] = etag;
 
-    final response = await _dio.get(
+    final response = await _getWithRetry(
       path,
       options: Options(
         headers: headers,

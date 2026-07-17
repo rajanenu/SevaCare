@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sevacare.pharmacy.billing.spi.CustomerHistoryPage;
 import com.sevacare.pharmacy.billing.spi.DailyTotal;
 import com.sevacare.pharmacy.billing.spi.DaySummary;
 import com.sevacare.pharmacy.billing.spi.GstSlabTotal;
@@ -158,6 +159,45 @@ public class SaleQueryService {
                 "WHERE customer_mobile = ? AND status = 'COMPLETED' ORDER BY sold_at DESC LIMIT 1",
                 String.class, customerMobile);
         return ids.isEmpty() ? Optional.empty() : findReceipt(ids.get(0));
+    }
+
+    private static final int HISTORY_PAGE_SIZE = 5;
+    private static final int MAX_HISTORY_PAGE_SIZE = 50;
+
+    /**
+     * A customer's full billing history at this counter, paginated — keyed on
+     * mobile alone (the identifier the khata and rebill chip already use; a name
+     * is too easily shared or mistyped to match reliably). {@code totalCount} is
+     * 0 for a mobile never seen before — the counter's cue to show "New customer"
+     * rather than an empty accordion.
+     */
+    @Transactional(readOnly = true)
+    public CustomerHistoryPage customerHistory(String mobile, int page, int size) {
+        String schema = TenantSchemas.require(TenantContext.tenantSchema());
+        int p = Math.max(page, 0);
+        int capped = Math.min(Math.max(size <= 0 ? HISTORY_PAGE_SIZE : size, 1), MAX_HISTORY_PAGE_SIZE);
+        int offset = p * capped;
+
+        String mobileTrim = mobile == null ? "" : mobile.trim();
+        if (mobileTrim.isEmpty()) {
+            return new CustomerHistoryPage(0, p, capped, List.of());
+        }
+
+        int total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + ".sale s " +
+                "WHERE s.customer_mobile = ? AND s.status = 'COMPLETED'",
+                Integer.class, mobileTrim);
+
+        List<SaleSummary> sales = total == 0 ? List.of() : jdbcTemplate.query(
+                "SELECT s.sale_public_id, s.invoice_no, s.sold_at, s.customer_name, s.customer_mobile, " +
+                "       s.payment_mode, s.status, s.total_paise, " +
+                "       (SELECT COUNT(*) FROM " + schema + ".sale_line l " +
+                "                       WHERE l.sale_public_id = s.sale_public_id) AS items " +
+                "FROM " + schema + ".sale s WHERE s.customer_mobile = ? AND s.status = 'COMPLETED' " +
+                "ORDER BY s.sold_at DESC LIMIT ? OFFSET ?",
+                SALE_SUMMARY_MAPPER, mobileTrim, capped, offset);
+
+        return new CustomerHistoryPage(total, p, capped, sales);
     }
 
     /** One row per calendar day in the window — the shape of the business, not just today's number. */

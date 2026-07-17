@@ -4,6 +4,10 @@
 spring:
   application:
     name: sevacare-api
+  # Bound the graceful-shutdown wait so a wedged request cannot delay the SIGTERM
+  # → SIGKILL window forever; drains as soon as in-flight requests complete.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   threads:
     virtual:
       enabled: true
@@ -17,7 +21,15 @@ spring:
     hikari:
       # Keep DB-side now()/CURRENT_TIMESTAMP defaults in IST too, matching the
       # JVM default set in SevaCareApiApplication (Cloud SQL defaults to UTC).
-      connection-init-sql: SET TIME ZONE 'Asia/Kolkata'
+      # Also cap runaway work at the session level so one pathological query or a
+      # stuck lock cannot pin a pooled connection and starve every other request:
+      #   statement_timeout            — a query that overruns is cancelled, not left running
+      #   lock_timeout                 — wait at most this long for a row/table lock, then fail fast
+      #   idle_in_transaction_session_timeout — a transaction that stops making progress
+      #                                  (client hang mid-tx) releases its connection + locks
+      # Values are generous for OLTP and env-overridable, so a deliberately long
+      # migration/backfill can raise them for one deploy without a code change.
+      connection-init-sql: SET TIME ZONE 'Asia/Kolkata'; SET statement_timeout = '${SEVACARE_DB_STATEMENT_TIMEOUT:45s}'; SET lock_timeout = '${SEVACARE_DB_LOCK_TIMEOUT:15s}'; SET idle_in_transaction_session_timeout = '${SEVACARE_DB_IDLE_TX_TIMEOUT:30s}'
       # A borrowed connection that outlives a request is a leak, not a slow query.
       max-lifetime: 900000
       idle-timeout: 300000
@@ -47,8 +59,11 @@ spring:
 sevacare:
   auth:
     secret: ${SEVACARE_AUTH_SECRET:dev-sevacare-secret}
-  storage:
-    onboarding-dir: ${SEVACARE_ONBOARDING_STORAGE_DIR:${user.home}/sevacare-storage/onboarding}
+  jobs:
+    # Shared secret for POST /internal/jobs/run (Cloud Scheduler → background jobs
+    # with full CPU; see InternalJobsController). Empty = endpoint answers 404.
+    # Local dev needs none: the @Scheduled timers run normally off Cloud Run.
+    token: ${SEVACARE_JOBS_TOKEN:}
   cors:
     allowed-origins: ${SEVACARE_CORS_ORIGINS:http://localhost:8087,http://192.168.*.*:8087,http://10.*.*.*:8087}
   whatsapp:
@@ -64,6 +79,10 @@ sevacare:
 
 server:
   port: ${PORT:8080}
+  # On a Cloud Run scale-in or new-revision rollout the instance gets SIGTERM.
+  # Graceful shutdown lets in-flight requests (a booking, a sale) finish instead
+  # of being severed mid-transaction; new connections are refused immediately.
+  shutdown: graceful
   compression:
     enabled: true
     mime-types: application/json,text/plain

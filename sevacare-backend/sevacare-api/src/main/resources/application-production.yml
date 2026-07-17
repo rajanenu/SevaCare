@@ -21,8 +21,6 @@ spring:
 sevacare:
   auth:
     secret: ${SEVACARE_AUTH_SECRET}
-  storage:
-    onboarding-dir: ${SEVACARE_ONBOARDING_STORAGE_DIR:/tmp/sevacare-storage/onboarding}
   cors:
     # Required in production — comma-separated exact web origins (the frontend URL).
     allowed-origins: ${SEVACARE_CORS_ORIGINS}
@@ -38,6 +36,16 @@ logging:
   level:
     root: WARN
     com.sevacare: INFO
+  # One JSON object per line (Elastic Common Schema), so Cloud Logging parses it
+  # into jsonPayload — with a `message` field — instead of filing every line as an
+  # unranked text blob. This is what makes the log-based metrics/alerts (e.g. on
+  # cross_tenant_denied, filtered on jsonPayload.message) possible — the free-tier
+  # observability path, no Prometheus scraper to pay for. NOTE: `gcp` is NOT a valid
+  # Spring Boot format (only ecs/gelf/logstash are built in) — setting it crashes
+  # startup with "Unknown format 'gcp'". ecs is the portable, structured choice.
+  structured:
+    format:
+      console: ecs
 
 management:
   endpoints:

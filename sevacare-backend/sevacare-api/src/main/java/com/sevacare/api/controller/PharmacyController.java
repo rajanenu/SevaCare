@@ -25,6 +25,7 @@ import com.sevacare.pharmacy.billing.service.CreditService;
 import com.sevacare.pharmacy.billing.service.DayCloseService;
 import com.sevacare.pharmacy.billing.service.SaleQueryService;
 import com.sevacare.pharmacy.billing.spi.CreditOutstanding;
+import com.sevacare.pharmacy.billing.spi.CustomerHistoryPage;
 import com.sevacare.pharmacy.billing.spi.DailyTotal;
 import com.sevacare.pharmacy.billing.spi.DaySummary;
 import com.sevacare.pharmacy.billing.spi.GstSlabTotal;
@@ -461,6 +462,22 @@ public class PharmacyController {
         return saleQueryService.lastSaleForMobile(mobile)
                 .map(r -> ResponseEntity.ok(ContractResponse.of(r)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * The counter's "has this customer been here before?" lookup — keyed on mobile
+     * alone, the identifier the khata and rebill chip already use. {@code
+     * totalCount} of 0 is the client's cue to show "New customer" rather than an
+     * empty accordion.
+     */
+    @GetMapping("/{tenantPublicId}/sales/customer-history")
+    public ContractResponse<CustomerHistoryPage> customerHistory(
+            @PathVariable String tenantPublicId,
+            @RequestParam(value = "mobile", required = false) String mobile,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "5") int size) {
+        requireTenant(tenantPublicId);
+        return ContractResponse.of(saleQueryService.customerHistory(mobile, page, size));
     }
 
     /** Voids a completed sale — the invoice table's "delete", which reverses stock rather than erasing anything. */

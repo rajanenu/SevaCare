@@ -19,9 +19,12 @@ import com.sevacare.api.service.PasscodeService;
 import com.sevacare.shared.dto.AdminDtos;
 import com.sevacare.shared.dto.AuthDtos;
 import com.sevacare.shared.dto.ContractResponse;
+import com.sevacare.shared.dto.IpdDtos;
 import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.shared.tenant.TenantContext;
 import com.sevacare.tenant.service.TenantRegistryService;
+
+import java.security.Principal;
 
 import jakarta.validation.Valid;
 
@@ -346,5 +349,66 @@ public class AdminController {
             throw new IllegalArgumentException("Tenant mismatch");
         }
         return ContractResponse.of(adminDomainService.deletePatient(tenantPublicId, patientPublicId));
+    }
+
+    // ── IPD rooms ─────────────────────────────────────────────────────────────
+    // The front desk (admin, and IP-Staff whose token carries the ADMIN role)
+    // manages rooms and admits/discharges in-patients. One patient per room.
+
+    @GetMapping("/{tenantPublicId}/rooms")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<IpdDtos.RoomCollection> listRooms(@PathVariable String tenantPublicId) {
+        requireOwnTenant(tenantPublicId);
+        return ContractResponse.of(adminDomainService.listRooms(tenantPublicId));
+    }
+
+    @PostMapping("/{tenantPublicId}/rooms")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<IpdDtos.RoomView> createRoom(
+            @PathVariable String tenantPublicId, @Valid @RequestBody IpdDtos.CreateRoomRequest request) {
+        requireOwnTenant(tenantPublicId);
+        return ContractResponse.of(adminDomainService.createRoom(tenantPublicId, request));
+    }
+
+    @DeleteMapping("/{tenantPublicId}/rooms/{roomId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<String> deleteRoom(@PathVariable String tenantPublicId, @PathVariable long roomId) {
+        requireOwnTenant(tenantPublicId);
+        adminDomainService.deleteRoom(tenantPublicId, roomId);
+        return ContractResponse.of("deleted");
+    }
+
+    @GetMapping("/{tenantPublicId}/admissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<IpdDtos.AdmissionCollection> listAdmissions(
+            @PathVariable String tenantPublicId,
+            @RequestParam(required = false, defaultValue = "ADMITTED") String status) {
+        requireOwnTenant(tenantPublicId);
+        return ContractResponse.of(adminDomainService.listAdmissions(tenantPublicId, status));
+    }
+
+    @PostMapping("/{tenantPublicId}/admissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<IpdDtos.AdmissionView> admit(
+            @PathVariable String tenantPublicId, @Valid @RequestBody IpdDtos.AdmitRequest request,
+            Principal principal) {
+        requireOwnTenant(tenantPublicId);
+        String admittedBy = principal == null ? null : principal.getName();
+        return ContractResponse.of(adminDomainService.admit(tenantPublicId, request, admittedBy));
+    }
+
+    @PostMapping("/{tenantPublicId}/admissions/{admissionId}/discharge")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ContractResponse<String> discharge(@PathVariable String tenantPublicId, @PathVariable long admissionId) {
+        requireOwnTenant(tenantPublicId);
+        adminDomainService.discharge(tenantPublicId, admissionId);
+        return ContractResponse.of("discharged");
+    }
+
+    /** Second wall behind TenantAccessFilter: the path tenant must match the token's. */
+    private void requireOwnTenant(String tenantPublicId) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
     }
 }

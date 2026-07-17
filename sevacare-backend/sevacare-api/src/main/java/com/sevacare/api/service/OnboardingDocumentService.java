@@ -1,15 +1,12 @@
 package com.sevacare.api.service;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,24 +14,26 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.sevacare.shared.dto.DiscoveryDtos;
 
+/**
+ * Onboarding documents are stored in the database row itself, never on the local
+ * filesystem: Cloud Run's disk is per-instance and wiped on every restart, so a
+ * file written there is unreadable from the next instance and lost on deploy.
+ * They are small one-time uploads (licences, registration certificates), so bytea
+ * is the cheap, durable option — backed up with the DB, no object store to pay for.
+ * Legacy rows from older local-dev builds still carry a storage_path; reads fall
+ * back to it when the row has no bytes.
+ */
 @Service
 public class OnboardingDocumentService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final Path onboardingDirectory;
 
-    public OnboardingDocumentService(
-            JdbcTemplate jdbcTemplate,
-            @Value("${sevacare.storage.onboarding-dir:${user.home}/sevacare-storage/onboarding}") String onboardingDir
-    ) {
+    public OnboardingDocumentService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        this.onboardingDirectory = Path.of(onboardingDir).toAbsolutePath().normalize();
     }
 
     @Transactional
     public List<DiscoveryDtos.OnboardingDocumentView> storeDocuments(String requestPublicId, List<MultipartFile> files) {
-        ensureDirectoryExists();
-
         List<DiscoveryDtos.OnboardingDocumentView> created = new ArrayList<>();
         for (MultipartFile file : files) {
             if (file == null || file.isEmpty()) {
@@ -44,22 +43,18 @@ public class OnboardingDocumentService {
             String documentPublicId = nextDocumentPublicId();
             String originalName = sanitizeFileName(file.getOriginalFilename());
             String storedFileName = requestPublicId + "_" + UUID.randomUUID() + "_" + originalName;
-            Path destination = onboardingDirectory.resolve(storedFileName).normalize();
 
-            if (!destination.startsWith(onboardingDirectory)) {
-                throw new IllegalArgumentException("Invalid file path");
-            }
-
-            try (InputStream input = file.getInputStream()) {
-                Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+            byte[] bytes;
+            try {
+                bytes = file.getBytes();
             } catch (IOException exception) {
-                throw new IllegalStateException("Could not store uploaded document", exception);
+                throw new IllegalStateException("Could not read uploaded document", exception);
             }
 
             jdbcTemplate.update(
                     """
                     INSERT INTO public.tenant_onboarding_document
-                        (document_public_id, request_public_id, original_file_name, stored_file_name, content_type, file_size, storage_path)
+                        (document_public_id, request_public_id, original_file_name, stored_file_name, content_type, file_size, file_bytes)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     documentPublicId,
@@ -68,7 +63,7 @@ public class OnboardingDocumentService {
                     storedFileName,
                     normalizeContentType(file.getContentType()),
                     file.getSize(),
-                    destination.toString()
+                    bytes
             );
 
             created.add(new DiscoveryDtos.OnboardingDocumentView(
@@ -105,7 +100,7 @@ public class OnboardingDocumentService {
     public StoredDocument mustGetDocument(String requestPublicId, String documentPublicId) {
         List<StoredDocument> documents = jdbcTemplate.query(
                 """
-                SELECT document_public_id, request_public_id, original_file_name, COALESCE(content_type, 'application/octet-stream') AS content_type, file_size, storage_path
+                SELECT document_public_id, request_public_id, original_file_name, COALESCE(content_type, 'application/octet-stream') AS content_type, file_size, file_bytes, storage_path
                 FROM public.tenant_onboarding_document
                 WHERE request_public_id = ? AND document_public_id = ?
                 """,
@@ -115,16 +110,31 @@ public class OnboardingDocumentService {
                         rs.getString("original_file_name"),
                         rs.getString("content_type"),
                         rs.getLong("file_size"),
-                        Path.of(rs.getString("storage_path"))
+                        resolveContent(rs.getBytes("file_bytes"), rs.getString("storage_path"))
                 ),
                 requestPublicId,
                 documentPublicId
         );
 
-        if (documents.isEmpty()) {
+        if (documents.isEmpty() || documents.get(0).content() == null) {
             throw new IllegalArgumentException("Document not found: " + documentPublicId);
         }
         return documents.get(0);
+    }
+
+    private byte[] resolveContent(byte[] fileBytes, String legacyStoragePath) {
+        if (fileBytes != null && fileBytes.length > 0) {
+            return fileBytes;
+        }
+        if (legacyStoragePath == null || legacyStoragePath.isBlank()) {
+            return null;
+        }
+        try {
+            Path legacy = Path.of(legacyStoragePath);
+            return Files.isReadable(legacy) ? Files.readAllBytes(legacy) : null;
+        } catch (IOException exception) {
+            return null;
+        }
     }
 
     private String nextDocumentPublicId() {
@@ -133,14 +143,6 @@ public class OnboardingDocumentService {
             throw new IllegalStateException("Could not generate onboarding document id");
         }
         return "ONDOC-" + String.format("%04d", value);
-    }
-
-    private void ensureDirectoryExists() {
-        try {
-            Files.createDirectories(onboardingDirectory);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not initialize onboarding storage directory", exception);
-        }
     }
 
     private String sanitizeFileName(String fileName) {
@@ -162,7 +164,7 @@ public class OnboardingDocumentService {
             String originalFileName,
             String contentType,
             long fileSize,
-            Path storagePath
+            byte[] content
     ) {
     }
 }

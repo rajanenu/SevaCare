@@ -123,7 +123,8 @@ public final class PatientDtos {
                 String email,
                 String gender,
                 Integer age,
-                String address
+                String address,
+                String bloodGroup
             ) {
             }
 
@@ -136,7 +137,8 @@ public final class PatientDtos {
                 String email,
                 String gender,
                 Integer age,
-                String address
+                String address,
+                String bloodGroup
             ) {
             }
 

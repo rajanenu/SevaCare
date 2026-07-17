@@ -41,6 +41,9 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/api/v1/public/**", "/api/v1/auth/**").permitAll()
+                        // Guarded by its own shared-secret header (SEVACARE_JOBS_TOKEN),
+                        // checked in the controller in constant time; unset = 404.
+                        .requestMatchers("/internal/jobs/**").permitAll()
                         .anyRequest().authenticated())
                 // An unauthenticated caller must get 401, not Spring's default
                 // 403 — the app auto-logs-out on 401 only, so a token that no

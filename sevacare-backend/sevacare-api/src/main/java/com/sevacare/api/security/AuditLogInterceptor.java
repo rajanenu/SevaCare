@@ -43,6 +43,10 @@ public class AuditLogInterceptor implements HandlerInterceptor {
      * patient data, its path belongs in this table.
      */
     private static final List<Rule> RULES = List.of(
+            // A patient-uploaded attachment (prescription image) fetched by a doctor —
+            // more specific than the generic patient rule below, so it lands first and
+            // records the attachment id, not the literal segment "attachments".
+            new Rule(Pattern.compile("^/api/v1/patients/[^/]+/attachments/([^/]+)"), "ATTACHMENT", false),
             // Patient self-service: /patients/{tenant}/{patientId}/...
             new Rule(Pattern.compile("^/api/v1/patients/[^/]+/([^/]+)"), "PATIENT", false),
             // Patient registration (HospitalManagementController)
@@ -59,6 +63,8 @@ public class AuditLogInterceptor implements HandlerInterceptor {
             new Rule(Pattern.compile("^/api/v1/doctors/[^/]+/[^/]+/dashboard"), "QUEUE", false),
             // Prescription detail / PDF download
             new Rule(Pattern.compile("^/api/v1/prescriptions/[^/]+/([^/]+)"), "PRESCRIPTION", false),
+            // IPD: an admission names which patient is in which room — PHI
+            new Rule(Pattern.compile("^/api/v1/admin/[^/]+/admissions(?:/([^/]+))?"), "ADMISSION", false),
             // Pharmacy: sales, khata and returns carry customer names + mobiles
             new Rule(Pattern.compile("^/api/v1/pharmacy/[^/]+/(?:sales|credit|returns)(?:/([^/]+))?"), "SALE", false),
             // Anonymous QR booking WRITES patient data; the GET only serves the form

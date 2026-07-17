@@ -246,6 +246,24 @@ public class WhatsAppService {
         }
     }
 
+    /**
+     * Reclaim terminal outbox rows. These are courtesy messages, not records of
+     * truth — the appointment/prescription each mirrors lives in its own table —
+     * so once a row is delivered (SENT), permanently failed (FAILED), or parked
+     * for want of a provider (NO_PROVIDER), it need only survive long enough for
+     * delivery debugging. Without this the outbox grows forever. Kept 60 days;
+     * PENDING/SENDING rows (still in flight) are never touched.
+     */
+    public void pruneOld() {
+        int deleted = jdbc.update(
+                "DELETE FROM public.whatsapp_outbox " +
+                "WHERE status IN ('SENT', 'FAILED', 'NO_PROVIDER') " +
+                "AND created_at < CURRENT_TIMESTAMP - INTERVAL '60 days'");
+        if (deleted > 0) {
+            log.info("whatsapp_outbox_pruned count={}", deleted);
+        }
+    }
+
     private void send(String toMobile, String body) throws Exception {
         String payload = "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\","
                 + "\"to\":\"" + toMobile + "\",\"type\":\"text\","

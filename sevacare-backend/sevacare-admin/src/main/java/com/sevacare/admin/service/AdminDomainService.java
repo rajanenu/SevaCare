@@ -23,6 +23,7 @@ import com.sevacare.patient.repository.PatientRepository;
 import com.sevacare.patient.repository.PrescriptionRepository;
 import com.sevacare.patient.service.PatientDomainService;
 import com.sevacare.shared.dto.AdminDtos;
+import com.sevacare.shared.dto.IpdDtos;
 import com.sevacare.shared.dto.PatientDtos;
 import com.sevacare.tenant.service.TenantRegistryService;
 
@@ -104,9 +105,13 @@ public class AdminDomainService {
                 upcomingAppointments,
                 totalPrescriptions);
 
+        // These are all-time counters, and the labels now say so. The first one was
+        // called "Daily visits" while holding every patient ever registered, so the
+        // dashboard rendered a lifetime total under a "Today's Patients" LIVE badge
+        // and it never moved. Anything that needs a window of time asks report().
         return new AdminDtos.AdminOverview(tenantPublicId, List.of(
-                new AdminDtos.Metric("Daily visits", String.valueOf(totalPatients), "+0"),
-                new AdminDtos.Metric("Booked slots", String.valueOf(upcomingAppointments), "+0"),
+                new AdminDtos.Metric("Total patients", String.valueOf(totalPatients), "+0"),
+                new AdminDtos.Metric("Upcoming appointments", String.valueOf(upcomingAppointments), "+0"),
                 new AdminDtos.Metric("Prescriptions issued", String.valueOf(totalPrescriptions), "+0")
         ));
     }
@@ -775,7 +780,7 @@ public class AdminDomainService {
 
         // Paginated patients with last appointment slot via correlated sub-select
         String dataSql = """
-                SELECT p.patient_public_id, p.full_name, p.mobile_number, p.gender, p.age,
+                SELECT p.patient_public_id, p.full_name, p.mobile_number, p.gender, p.age, p.blood_group,
                        (SELECT a.appointment_slot FROM %s.appointment a
                         WHERE a.patient_public_id = p.patient_public_id
                           AND a.tenant_public_id  = p.tenant_public_id
@@ -799,6 +804,7 @@ public class AdminDomainService {
                         rs.getString("mobile_number"),
                         rs.getString("gender"),
                         rs.getObject("age", Integer.class),
+                        rs.getString("blood_group"),
                         rs.getString("last_appointment")
                 ));
 
@@ -865,5 +871,223 @@ public class AdminDomainService {
                         tableName,
                         columnName
                 )));
+    }
+
+    // ── IPD rooms ─────────────────────────────────────────────────────────────
+    // The whole feature is "which patient is in which room". A room is AVAILABLE
+    // or OCCUPIED; an admission ties a patient to a room until discharge. One
+    // patient per room, admit-now only — the DB's partial unique indexes, not
+    // application checks, are what make a double-booked room impossible.
+
+    private static final String ADMITTED = "ADMITTED";
+    private static final String DISCHARGED = "DISCHARGED";
+
+    @Transactional(readOnly = true)
+    public IpdDtos.RoomCollection listRooms(String tenantPublicId) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        String sql = """
+                SELECT r.room_id, r.label, r.room_type, r.status,
+                       a.admission_id,
+                       to_char(a.admitted_at, 'YYYY-MM-DD HH24:MI') AS admitted_at,
+                       a.patient_public_id,
+                       p.full_name AS patient_name
+                FROM %s.room r
+                LEFT JOIN %s.admission a
+                       ON a.room_id = r.room_id AND a.status = ?
+                LEFT JOIN %s.patient p
+                       ON p.patient_public_id = a.patient_public_id
+                      AND p.tenant_public_id  = r.tenant_public_id
+                WHERE r.tenant_public_id = ?
+                ORDER BY LOWER(r.label) ASC
+                """.formatted(schema, schema, schema);
+        List<IpdDtos.RoomView> rooms = jdbcTemplate.query(sql, (rs, i) ->
+                new IpdDtos.RoomView(
+                        rs.getLong("room_id"),
+                        rs.getString("label"),
+                        rs.getString("room_type"),
+                        rs.getString("status"),
+                        rs.getString("patient_public_id"),
+                        rs.getString("patient_name"),
+                        rs.getObject("admission_id", Long.class),
+                        rs.getString("admitted_at")
+                ), ADMITTED, tenantPublicId);
+        return new IpdDtos.RoomCollection(rooms);
+    }
+
+    @Transactional
+    public IpdDtos.RoomView createRoom(String tenantPublicId, IpdDtos.CreateRoomRequest request) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        String label = normalize(request.label());
+        if (label == null) {
+            throw new IllegalArgumentException("Room label is required");
+        }
+        String roomType = normalize(request.roomType());
+        Long existing = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + ".room WHERE tenant_public_id = ? AND LOWER(label) = LOWER(?)",
+                Long.class, tenantPublicId, label);
+        if (existing != null && existing > 0) {
+            throw new IllegalStateException("A room named \"" + label + "\" already exists");
+        }
+        Long roomId = jdbcTemplate.queryForObject(
+                "INSERT INTO " + schema + ".room (tenant_public_id, label, room_type, status) " +
+                        "VALUES (?, ?, ?, 'AVAILABLE') RETURNING room_id",
+                Long.class, tenantPublicId, label, roomType);
+        log.info("room_create tenantPublicId={} roomId={} label={}", tenantPublicId, roomId, label);
+        return new IpdDtos.RoomView(roomId == null ? 0L : roomId, label, roomType, "AVAILABLE",
+                null, null, null, null);
+    }
+
+    @Transactional
+    public void deleteRoom(String tenantPublicId, long roomId) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        Long active = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + ".admission WHERE room_id = ? AND status = ?",
+                Long.class, roomId, ADMITTED);
+        if (active != null && active > 0) {
+            throw new IllegalStateException("Discharge the patient before removing this room");
+        }
+        // A room that has ever held a patient is kept, so the record of who was
+        // where survives (and the admission FK stays intact). Only a never-used
+        // room — typically one added by mistake — can be removed.
+        Long history = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + ".admission WHERE room_id = ?",
+                Long.class, roomId);
+        if (history != null && history > 0) {
+            throw new IllegalStateException("This room has patient history, so it can't be removed");
+        }
+        int rows = jdbcTemplate.update(
+                "DELETE FROM " + schema + ".room WHERE room_id = ? AND tenant_public_id = ?",
+                roomId, tenantPublicId);
+        if (rows == 0) {
+            throw new IllegalArgumentException("Room not found for tenant");
+        }
+        log.info("room_delete tenantPublicId={} roomId={}", tenantPublicId, roomId);
+    }
+
+    @Transactional(readOnly = true)
+    public IpdDtos.AdmissionCollection listAdmissions(String tenantPublicId, String status) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        boolean onlyAdmitted = status == null || status.isBlank() || ADMITTED.equalsIgnoreCase(status);
+        StringBuilder sql = new StringBuilder("""
+                SELECT a.admission_id, a.patient_public_id, a.room_id, a.status,
+                       to_char(a.admitted_at, 'YYYY-MM-DD HH24:MI')   AS admitted_at,
+                       to_char(a.discharged_at, 'YYYY-MM-DD HH24:MI') AS discharged_at,
+                       a.notes, r.label AS room_label,
+                       p.full_name, p.mobile_number, p.blood_group
+                FROM %s.admission a
+                JOIN %s.room r ON r.room_id = a.room_id
+                LEFT JOIN %s.patient p
+                       ON p.patient_public_id = a.patient_public_id
+                      AND p.tenant_public_id  = a.tenant_public_id
+                WHERE a.tenant_public_id = ?
+                """.formatted(schema, schema, schema));
+        List<Object> args = new ArrayList<>();
+        args.add(tenantPublicId);
+        if (onlyAdmitted) {
+            sql.append("AND a.status = ? ");
+            args.add(ADMITTED);
+        }
+        sql.append("ORDER BY a.admitted_at DESC");
+        List<IpdDtos.AdmissionView> admissions = jdbcTemplate.query(sql.toString(), args.toArray(), (rs, i) ->
+                new IpdDtos.AdmissionView(
+                        rs.getLong("admission_id"),
+                        rs.getString("patient_public_id"),
+                        rs.getString("full_name"),
+                        rs.getString("mobile_number"),
+                        rs.getString("blood_group"),
+                        rs.getLong("room_id"),
+                        rs.getString("room_label"),
+                        rs.getString("status"),
+                        rs.getString("admitted_at"),
+                        rs.getString("discharged_at"),
+                        rs.getString("notes")
+                ));
+        return new IpdDtos.AdmissionCollection(admissions);
+    }
+
+    @Transactional
+    public IpdDtos.AdmissionView admit(String tenantPublicId, IpdDtos.AdmitRequest request, String admittedBy) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        String patientId = normalize(request.patientPublicId());
+        if (patientId == null || request.roomId() == null) {
+            throw new IllegalArgumentException("Patient and room are both required");
+        }
+        long roomId = request.roomId();
+
+        Map<String, Object> patient = firstRow(
+                "SELECT full_name, mobile_number, blood_group FROM " + schema + ".patient " +
+                        "WHERE patient_public_id = ? AND tenant_public_id = ?",
+                patientId, tenantPublicId);
+        if (patient == null) {
+            throw new IllegalArgumentException("Patient not found for tenant");
+        }
+
+        Map<String, Object> room = firstRow(
+                "SELECT label, status FROM " + schema + ".room WHERE room_id = ? AND tenant_public_id = ?",
+                roomId, tenantPublicId);
+        if (room == null) {
+            throw new IllegalArgumentException("Room not found for tenant");
+        }
+        if ("OCCUPIED".equalsIgnoreCase(String.valueOf(room.get("status")))) {
+            throw new IllegalStateException("That room is already occupied");
+        }
+
+        Long already = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + schema + ".admission WHERE patient_public_id = ? AND status = ?",
+                Long.class, patientId, ADMITTED);
+        if (already != null && already > 0) {
+            throw new IllegalStateException("This patient is already admitted");
+        }
+
+        Long admissionId = jdbcTemplate.queryForObject(
+                "INSERT INTO " + schema + ".admission " +
+                        "(tenant_public_id, patient_public_id, room_id, status, admitted_by, notes) " +
+                        "VALUES (?, ?, ?, 'ADMITTED', ?, ?) RETURNING admission_id",
+                Long.class, tenantPublicId, patientId, roomId, admittedBy, normalize(request.notes()));
+        jdbcTemplate.update(
+                "UPDATE " + schema + ".room SET status = 'OCCUPIED' WHERE room_id = ? AND tenant_public_id = ?",
+                roomId, tenantPublicId);
+        log.info("ipd_admit tenantPublicId={} admissionId={} patientPublicId={} roomId={}",
+                tenantPublicId, admissionId, patientId, roomId);
+
+        return listAdmissions(tenantPublicId, ADMITTED).admissions().stream()
+                .filter(a -> admissionId != null && a.admissionId() == admissionId)
+                .findFirst()
+                .orElseGet(() -> new IpdDtos.AdmissionView(
+                        admissionId == null ? 0L : admissionId, patientId,
+                        String.valueOf(patient.get("full_name")),
+                        String.valueOf(patient.get("mobile_number")),
+                        (String) patient.get("blood_group"),
+                        roomId, String.valueOf(room.get("label")),
+                        ADMITTED, null, null, normalize(request.notes())));
+    }
+
+    @Transactional
+    public void discharge(String tenantPublicId, long admissionId) {
+        String schema = tenantRegistryService.resolveTenantSchema(tenantPublicId);
+        Map<String, Object> admission = firstRow(
+                "SELECT room_id, status FROM " + schema + ".admission " +
+                        "WHERE admission_id = ? AND tenant_public_id = ?",
+                admissionId, tenantPublicId);
+        if (admission == null) {
+            throw new IllegalArgumentException("Admission not found for tenant");
+        }
+        if (!ADMITTED.equalsIgnoreCase(String.valueOf(admission.get("status")))) {
+            throw new IllegalStateException("This patient has already been discharged");
+        }
+        long roomId = ((Number) admission.get("room_id")).longValue();
+        jdbcTemplate.update(
+                "UPDATE " + schema + ".admission SET status = 'DISCHARGED', discharged_at = CURRENT_TIMESTAMP " +
+                        "WHERE admission_id = ? AND tenant_public_id = ?",
+                admissionId, tenantPublicId);
+        jdbcTemplate.update(
+                "UPDATE " + schema + ".room SET status = 'AVAILABLE' WHERE room_id = ? AND tenant_public_id = ?",
+                roomId, tenantPublicId);
+        log.info("ipd_discharge tenantPublicId={} admissionId={} roomId={}", tenantPublicId, admissionId, roomId);
+    }
+
+    private Map<String, Object> firstRow(String sql, Object... args) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, args);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 }

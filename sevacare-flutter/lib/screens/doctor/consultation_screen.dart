@@ -1157,7 +1157,11 @@ class _IntakeAssistCard extends StatelessWidget {
 
 // ── Patient-uploaded prescriptions card ──────────────────────────────────────
 
-class _UploadedPrescriptionsCard extends StatelessWidget {
+// Decoded attachment bytes, cached across rebuilds and full-screen opens so an
+// image the queue delivered as metadata-only is fetched from the server just once.
+final Map<String, Uint8List> _attachmentBytesCache = {};
+
+class _UploadedPrescriptionsCard extends ConsumerWidget {
   final List<AttachmentView> attachments;
   const _UploadedPrescriptionsCard({required this.attachments});
 
@@ -1169,7 +1173,7 @@ class _UploadedPrescriptionsCard extends StatelessWidget {
         child: Stack(
           children: [
             InteractiveViewer(
-              child: Image.memory(base64Decode(attachment.dataBase64)),
+              child: _AttachmentImage(attachment: attachment, fit: BoxFit.contain),
             ),
             Positioned(
               right: 8,
@@ -1193,7 +1197,7 @@ class _UploadedPrescriptionsCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1219,8 +1223,8 @@ class _UploadedPrescriptionsCard extends StatelessWidget {
                   onTap: () => _openFullScreen(context, a),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(
-                      base64Decode(a.dataBase64),
+                    child: _AttachmentImage(
+                      attachment: a,
                       width: 84,
                       height: 84,
                       fit: BoxFit.cover,
@@ -1233,6 +1237,95 @@ class _UploadedPrescriptionsCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// Renders one attachment, resolving its bytes lazily: the queue payload now
+// carries metadata only (dataBase64 empty), so the image is fetched on first
+// display via GET /patients/{t}/attachments/{id} and cached. A payload that
+// still embeds the bytes (fresh upload, older server) is decoded inline.
+class _AttachmentImage extends ConsumerStatefulWidget {
+  final AttachmentView attachment;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  const _AttachmentImage({
+    required this.attachment,
+    this.width,
+    this.height,
+    required this.fit,
+  });
+
+  @override
+  ConsumerState<_AttachmentImage> createState() => _AttachmentImageState();
+}
+
+class _AttachmentImageState extends ConsumerState<_AttachmentImage> {
+  Uint8List? _bytes;
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  Future<void> _resolve() async {
+    final a = widget.attachment;
+    if (a.dataBase64.isNotEmpty) {
+      try {
+        _bytes = base64Decode(a.dataBase64);
+      } catch (_) {
+        _error = true;
+      }
+      return;
+    }
+    final cached = _attachmentBytesCache[a.attachmentPublicId];
+    if (cached != null) {
+      _bytes = cached;
+      return;
+    }
+    try {
+      final auth = ref.read(authProvider);
+      final full = await ref.read(repositoryProvider).getAttachment(
+            auth.tenantPublicId ?? '',
+            a.attachmentPublicId,
+            auth.token ?? '',
+          );
+      final bytes = base64Decode(full.dataBase64);
+      _attachmentBytesCache[a.attachmentPublicId] = bytes;
+      if (mounted) setState(() => _bytes = bytes);
+    } catch (_) {
+      if (mounted) setState(() => _error = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget.width;
+    final h = widget.height;
+    if (_error) {
+      return SizedBox(
+        width: w,
+        height: h,
+        child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+      );
+    }
+    final bytes = _bytes;
+    if (bytes == null) {
+      return SizedBox(
+        width: w,
+        height: h,
+        child: const Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return Image.memory(bytes, width: w, height: h, fit: widget.fit);
   }
 }
 

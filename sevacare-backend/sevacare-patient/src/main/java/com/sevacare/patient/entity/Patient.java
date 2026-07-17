@@ -39,6 +39,9 @@ public class Patient {
     @Column(name = "address", length = 500)
     private String address;
 
+    @Column(name = "blood_group", length = 8)
+    private String bloodGroup;
+
     @Column(name = "deletion_requested_at")
     private LocalDateTime deletionRequestedAt;
 
@@ -131,5 +134,13 @@ public class Patient {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getBloodGroup() {
+        return bloodGroup;
+    }
+
+    public void setBloodGroup(String bloodGroup) {
+        this.bloodGroup = bloodGroup;
     }
 }

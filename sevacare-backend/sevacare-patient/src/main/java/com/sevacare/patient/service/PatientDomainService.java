@@ -11,12 +11,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -353,7 +355,21 @@ public class PatientDomainService {
                 }
                 appointment.setBookingSource(normalizeBookingSource(request.bookingSource()));
 
-                Appointment saved = appointmentRepository.save(appointment);
+                // saveAndFlush, not save: force the INSERT now so the partial unique
+                // index (tenant V13) — the real arbiter of slot uniqueness — fires
+                // here rather than at commit. The pre-check above is only the fast,
+                // friendly path; a concurrent SLOT booking that slipped between that
+                // read and this insert is refused by the DB and surfaces as the same
+                // message. TOKEN integrity errors (not slot collisions) propagate as-is.
+                Appointment saved;
+                try {
+                        saved = appointmentRepository.saveAndFlush(appointment);
+                } catch (DataIntegrityViolationException e) {
+                        if ("SLOT".equals(bookingType)) {
+                                throw new IllegalStateException("Selected slot is already booked");
+                        }
+                        throw e;
+                }
 
                 if (request.attachments() != null) {
                         for (PatientDtos.AttachmentUploadRequest attachmentRequest : request.attachments()) {
@@ -627,7 +643,9 @@ public class PatientDomainService {
 
     @Transactional(readOnly = true)
     public PatientDtos.PatientCollection listPatientRecords(String tenantPublicId) {
-        List<PatientDtos.PatientView> records = patientRepository.findTop2000ByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId)
+        // Projection, not the full entity: this list never shows photos, so it must
+        // not drag every patient's base64 photo out of the database to build it.
+        List<PatientDtos.PatientView> records = patientRepository.findTop2000CardsByTenantPublicIdOrderByPatientPublicIdAsc(tenantPublicId)
                 .stream()
                 .map(patient -> new PatientDtos.PatientView(
                         patient.getPatientPublicId(),
@@ -638,7 +656,8 @@ public class PatientDomainService {
                         patient.getEmail(),
                         patient.getGender(),
                         patient.getAge(),
-                        patient.getAddress()
+                        patient.getAddress(),
+                        patient.getBloodGroup()
                 ))
                 .toList();
         return new PatientDtos.PatientCollection(tenantPublicId, records);
@@ -657,7 +676,8 @@ public class PatientDomainService {
                 patient.getEmail(),
                 patient.getGender(),
                 patient.getAge(),
-                patient.getAddress()
+                patient.getAddress(),
+                patient.getBloodGroup()
         );
     }
 
@@ -678,6 +698,7 @@ public class PatientDomainService {
         patient.setGender(request.gender());
         patient.setAge(request.age());
         patient.setAddress(request.address());
+        patient.setBloodGroup(request.bloodGroup());
 
         Patient saved = patientRepository.save(patient);
         log.info("patient_upsert tenantPublicId={} patientPublicId={} status={}",
@@ -693,7 +714,8 @@ public class PatientDomainService {
                 saved.getEmail(),
                 saved.getGender(),
                 saved.getAge(),
-                saved.getAddress()
+                saved.getAddress(),
+                saved.getBloodGroup()
         );
     }
 
@@ -738,7 +760,9 @@ public class PatientDomainService {
 
     @Transactional(readOnly = true)
     public PatientDtos.AppointmentCollection listAppointmentRecords(String tenantPublicId) {
-        List<PatientDtos.AppointmentEntityView> records = appointmentRepository.findByTenantPublicIdOrderByAppointmentSlotDesc(tenantPublicId)
+        // Capped: the uncapped variant materialised every appointment the tenant
+        // ever took, and this grows without bound. 500 newest covers the screen.
+        List<PatientDtos.AppointmentEntityView> records = appointmentRepository.findTop500ByTenantPublicIdOrderByAppointmentSlotDesc(tenantPublicId)
                 .stream()
                 .map(appointment -> new PatientDtos.AppointmentEntityView(
                         appointment.getAppointmentPublicId(),
@@ -1241,25 +1265,29 @@ public class PatientDomainService {
     // Doctor-scoped patient list (derived from appointments)
     @Transactional(readOnly = true)
     public PatientDtos.DoctorPatientCollection getDoctorPatients(String tenantPublicId, String doctorPublicId) {
-        List<Appointment> appointments = appointmentRepository.findByTenantPublicIdAndDoctorPublicIdOrderByAppointmentSlotDesc(tenantPublicId, doctorPublicId);
+        // Aggregated in SQL: one GROUP BY for (patient, latest visit) and one
+        // batch patient fetch. The old shape loaded the doctor's whole appointment
+        // history and then queried each patient one by one — and its overwrite
+        // loop actually surfaced the patient's *oldest* visit as "last visit".
+        List<Object[]> latestByPatient = appointmentRepository.findDistinctPatientsWithLatestSlot(tenantPublicId, doctorPublicId);
 
-        // Build unique patient list with last appointment info
-        java.util.Map<String, Appointment> latestByPatient = new java.util.LinkedHashMap<>();
-        for (Appointment a : appointments) {
-            latestByPatient.put(a.getPatientPublicId(), a);
-        }
+        List<String> patientIds = latestByPatient.stream().map(row -> (String) row[0]).toList();
+        Map<String, PatientRepository.PatientCard> patientsById = patientIds.isEmpty() ? Map.of() : patientRepository
+                .findCardsByPatientPublicIdInAndTenantPublicId(patientIds, tenantPublicId)
+                .stream()
+                .collect(Collectors.toMap(PatientRepository.PatientCard::getPatientPublicId, p -> p, (a, b) -> a));
 
-        List<PatientDtos.DoctorPatientView> patients = latestByPatient.entrySet().stream()
-                .map(entry -> {
-                    String patientId = entry.getKey();
-                    Appointment lastAppt = entry.getValue();
-                    Patient patient = patientRepository.findByPatientPublicIdAndTenantPublicId(patientId, tenantPublicId).orElse(null);
+        List<PatientDtos.DoctorPatientView> patients = latestByPatient.stream()
+                .map(row -> {
+                    String patientId = (String) row[0];
+                    String lastSlot = (String) row[1];
+                    PatientRepository.PatientCard patient = patientsById.get(patientId);
                     return new PatientDtos.DoctorPatientView(
                             patientId,
                             patient != null ? patient.getFullName() : patientId,
                             patient != null ? patient.getMobileNumber() : "",
                             patient != null ? patient.getStatus() : "unknown",
-                            lastAppt.getAppointmentSlot()
+                            lastSlot
                     );
                 })
                 .toList();
@@ -1270,7 +1298,8 @@ public class PatientDomainService {
     // Doctor-scoped prescription list
     @Transactional(readOnly = true)
     public PatientDtos.DoctorPrescriptionCollection getDoctorPrescriptions(String tenantPublicId, String doctorPublicId) {
-        List<Prescription> prescriptionRows = prescriptionRepository.findByTenantPublicIdAndDoctorPublicId(tenantPublicId, doctorPublicId);
+        List<Prescription> prescriptionRows = prescriptionRepository
+                .findTop200ByTenantPublicIdAndDoctorPublicIdOrderByCreatedAtDesc(tenantPublicId, doctorPublicId);
         Map<String, List<PrescriptionMedicine>> medicinesByPrescription = medicinesGroupedByPrescriptionId(prescriptionRows);
 
         List<PatientDtos.PrescriptionDetailView> prescriptions = prescriptionRows
@@ -1346,7 +1375,16 @@ public class PatientDomainService {
 
         appointment.setAppointmentSlot(request.newSlot());
         appointment.setNotes("Rescheduled");
-        appointmentRepository.save(appointment);
+        // Same race as booking: flush now so the slot unique index catches a
+        // concurrent SLOT reschedule/booking into the same time, not at commit.
+        try {
+            appointmentRepository.saveAndFlush(appointment);
+        } catch (DataIntegrityViolationException e) {
+            if ("SLOT".equals(appointment.getBookingType())) {
+                throw new IllegalStateException("New slot is already booked");
+            }
+            throw e;
+        }
         log.info("appointment_reschedule tenantPublicId={} appointmentPublicId={} newSlot={}",
                 tenantPublicId,
                 appointmentPublicId,
@@ -1381,9 +1419,8 @@ public class PatientDomainService {
     // Doctor patient queue (upcoming appointments)
     @Transactional(readOnly = true)
     public List<PatientDtos.AppointmentEntityView> getDoctorPatientQueue(String tenantPublicId, String doctorPublicId) {
-        return appointmentRepository.findByTenantPublicIdAndDoctorPublicIdOrderByAppointmentSlotDesc(tenantPublicId, doctorPublicId)
+        return appointmentRepository.findByTenantPublicIdAndDoctorPublicIdAndAppointmentStatusOrderByAppointmentSlotDesc(tenantPublicId, doctorPublicId, "upcoming")
                 .stream()
-                .filter(a -> "upcoming".equals(a.getAppointmentStatus()))
                 .map(a -> new PatientDtos.AppointmentEntityView(
                         a.getAppointmentPublicId(),
                         a.getPatientPublicId(),
@@ -1400,12 +1437,14 @@ public class PatientDomainService {
 
     @Transactional(readOnly = true)
     public PatientDtos.DoctorQueueDayView getDoctorQueueForDate(String tenantPublicId, String doctorPublicId, LocalDate date) {
-        List<Appointment> doctorAppointments = appointmentRepository.findByTenantPublicIdAndDoctorPublicIdOrderByAppointmentSlotDesc(tenantPublicId, doctorPublicId);
-
-        List<Appointment> dayAppointments = doctorAppointments.stream()
-                .filter(appointment -> parseSlotDate(appointment.getAppointmentSlot())
-                        .map(slotDate -> slotDate.equals(date))
-                        .orElse(false))
+        // appointment_slot is "yyyy-MM-dd HH:mm", so a lexicographic BETWEEN is a
+        // chronological one — the day is cut in SQL, not by scanning the doctor's
+        // whole history. This is the dashboard the app polls every 20 seconds.
+        String dayStart = date + " 00:00";
+        String dayEnd = date + " 23:59";
+        List<Appointment> dayAppointments = appointmentRepository
+                .findByTenantPublicIdAndDoctorPublicIdAndAppointmentSlotBetween(tenantPublicId, doctorPublicId, dayStart, dayEnd)
+                .stream()
                 .sorted(Comparator.comparing(Appointment::getAppointmentSlot)
                         .thenComparing(a -> a.getTokenNumber() == null ? 0 : a.getTokenNumber()))
                 .toList();
@@ -1413,21 +1452,43 @@ public class PatientDomainService {
         // Batch-fetch patients and attachments for the whole day instead of one query per
         // appointment (this screen is the doctor's main dashboard, loaded constantly).
         List<String> patientIds = dayAppointments.stream().map(Appointment::getPatientPublicId).distinct().toList();
-        Map<String, Patient> patientsById = patientIds.isEmpty() ? Map.of() : patientRepository
-                .findByPatientPublicIdInAndTenantPublicId(patientIds, tenantPublicId)
+        // Projection, not entities: the facet needs only the patient's name, and
+        // this runs every 20s — pulling full Patient rows dragged base64 photos too.
+        Map<String, String> patientNameById = patientIds.isEmpty() ? Map.of() : patientRepository
+                .findCardsByPatientPublicIdInAndTenantPublicId(patientIds, tenantPublicId)
                 .stream()
-                .collect(Collectors.toMap(Patient::getPatientPublicId, p -> p, (a, b) -> a));
+                .collect(Collectors.toMap(
+                        PatientRepository.PatientCard::getPatientPublicId,
+                        PatientRepository.PatientCard::getFullName,
+                        (a, b) -> a));
 
+        // Attachment METADATA only — the bytes are not shipped in this 20s-polled
+        // payload, they are fetched on demand when the doctor opens an attachment
+        // (GET /patients/{t}/attachments/{id}). dataBase64 is left null here.
         List<String> dayAppointmentIds = dayAppointments.stream().map(Appointment::getAppointmentPublicId).toList();
-        Map<String, List<AppointmentAttachment>> attachmentsByAppointment = dayAppointmentIds.isEmpty() ? Map.of() : appointmentAttachmentRepository
-                .findByTenantPublicIdAndAppointmentPublicIdIn(tenantPublicId, dayAppointmentIds)
+        Map<String, List<PatientDtos.AttachmentView>> attachmentsByAppointment = dayAppointmentIds.isEmpty() ? Map.of() : appointmentAttachmentRepository
+                .findMetaByTenantPublicIdAndAppointmentPublicIdIn(tenantPublicId, dayAppointmentIds)
                 .stream()
-                .collect(Collectors.groupingBy(AppointmentAttachment::getAppointmentPublicId));
+                .collect(Collectors.groupingBy(
+                        AppointmentAttachmentRepository.AttachmentMeta::getAppointmentPublicId,
+                        Collectors.mapping(meta -> new PatientDtos.AttachmentView(
+                                meta.getAttachmentPublicId(),
+                                meta.getFileName(),
+                                meta.getMimeType(),
+                                null,
+                                meta.getUploadedBy()
+                        ), Collectors.toList())));
+
+        // Follow-up badge: which of today's patients has seen this doctor before —
+        // one batch query, instead of holding the full history in memory for it.
+        Set<String> patientsSeenBefore = patientIds.isEmpty() ? Set.of() : Set.copyOf(
+                appointmentRepository.findPatientIdsSeenBefore(tenantPublicId, doctorPublicId, patientIds, dayStart));
 
         List<PatientDtos.DoctorQueueFacetView> facets = dayAppointments.stream()
                 .map(appointment -> toDoctorQueueFacet(
-                        doctorPublicId, appointment, doctorAppointments, date,
-                        patientsById.get(appointment.getPatientPublicId()),
+                        doctorPublicId, appointment,
+                        patientsSeenBefore.contains(appointment.getPatientPublicId()),
+                        patientNameById.get(appointment.getPatientPublicId()),
                         attachmentsByAppointment.getOrDefault(appointment.getAppointmentPublicId(), List.of())))
                 .toList();
 
@@ -1456,13 +1517,27 @@ public class PatientDomainService {
         );
     }
 
+    // Fetch a single attachment's bytes on demand — the queue ships metadata only,
+    // so the doctor pulls the actual image just once, when they open it.
+    @Transactional(readOnly = true)
+    public PatientDtos.AttachmentView getAppointmentAttachment(String tenantPublicId, String attachmentPublicId) {
+        AppointmentAttachment a = appointmentAttachmentRepository
+                .findByTenantPublicIdAndAttachmentPublicId(tenantPublicId, attachmentPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("Attachment not found: " + attachmentPublicId));
+        return new PatientDtos.AttachmentView(
+                a.getAttachmentPublicId(),
+                a.getFileName(),
+                a.getMimeType(),
+                a.getDataBase64(),
+                a.getUploadedBy());
+    }
+
     private PatientDtos.DoctorQueueFacetView toDoctorQueueFacet(
             String doctorPublicId,
             Appointment appointment,
-            List<Appointment> allDoctorAppointments,
-            LocalDate selectedDate,
-            Patient patient,
-            List<AppointmentAttachment> appointmentAttachments
+            boolean followUp,
+            String patientName,
+            List<PatientDtos.AttachmentView> attachments
     ) {
         Optional<Prescription> linkedPrescription = resolvePrescriptionForAppointment(doctorPublicId, appointment);
 
@@ -1479,13 +1554,6 @@ public class PatientDomainService {
                         .toList())
                 .orElse(List.of());
 
-        boolean followUp = allDoctorAppointments.stream()
-                .filter(other -> !other.getAppointmentPublicId().equals(appointment.getAppointmentPublicId()))
-                .filter(other -> other.getPatientPublicId().equals(appointment.getPatientPublicId()))
-                .anyMatch(other -> parseSlotDate(other.getAppointmentSlot())
-                        .map(slotDate -> slotDate.isBefore(selectedDate))
-                        .orElse(false));
-
         String note = appointment.getNotes() == null ? "" : appointment.getNotes().trim();
         String symptoms = buildSymptoms(note, followUp);
         String diagnosis = linkedPrescription
@@ -1496,21 +1564,10 @@ public class PatientDomainService {
                 .map(Prescription::getNotes)
                 .orElse("");
 
-        List<PatientDtos.AttachmentView> attachments = appointmentAttachments
-                .stream()
-                .map(a -> new PatientDtos.AttachmentView(
-                        a.getAttachmentPublicId(),
-                        a.getFileName(),
-                        a.getMimeType(),
-                        a.getDataBase64(),
-                        a.getUploadedBy()
-                ))
-                .toList();
-
         return new PatientDtos.DoctorQueueFacetView(
                 appointment.getAppointmentPublicId(),
                 appointment.getPatientPublicId(),
-                patient == null ? appointment.getPatientPublicId() : patient.getFullName(),
+                (patientName == null || patientName.isBlank()) ? appointment.getPatientPublicId() : patientName,
                 appointment.getAppointmentSlot(),
                 appointment.getAppointmentStatus(),
                 followUp,

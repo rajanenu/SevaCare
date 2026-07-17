@@ -122,13 +122,14 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen>
       );
       if (mounted) setState(() => _homeData = data);
     } catch (e) {
-      if (mounted && !silent)
+      if (mounted && !silent) {
         setState(
           () => _error = extractErrorMessage(
             e,
             fallback: 'Failed to load dashboard.',
           ),
         );
+      }
     } finally {
       if (mounted && !silent) setState(() => _loading = false);
     }
@@ -903,8 +904,9 @@ class _JourneyCard extends ConsumerWidget {
       appt.slot,
     ).toLowerCase();
     if (s == 'completed') return 4;
-    if (s.contains('consult') || s == 'in_progress' || s == 'in progress')
+    if (s.contains('consult') || s == 'in_progress' || s == 'in progress') {
       return 2;
+    }
     if (s == 'confirmed') return 1;
     return 0;
   }
@@ -1310,11 +1312,12 @@ class _LiveQueueBannerState extends ConsumerState<_LiveQueueBanner>
   Future<void> _refreshStatus() async {
     final appt = _trackedAppointment;
     if (appt == null) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _status = null;
           _trackedAppointmentId = null;
         });
+      }
       return;
     }
     _trackedDoctorName = appt.doctorName;
@@ -1524,8 +1527,9 @@ class _AppointmentCountdownBannerState
         'cancelled',
         'canceled',
         'completed',
-      ].contains(appt.status.toLowerCase()))
+      ].contains(appt.status.toLowerCase())) {
         continue;
+      }
       try {
         final slot = DateTime.parse(appt.slot).toLocal();
         final diff = slot.difference(now);
@@ -1574,8 +1578,9 @@ class _AppointmentCountdownBannerState
 
   @override
   Widget build(BuildContext context) {
-    if (_next == null || _remaining.inSeconds <= 0)
+    if (_next == null || _remaining.inSeconds <= 0) {
       return const SizedBox.shrink();
+    }
     final color = _urgencyColor;
 
     return Container(

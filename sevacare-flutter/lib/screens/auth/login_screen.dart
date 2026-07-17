@@ -138,15 +138,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final tenantId = auth.tenantPublicId;
     final token = auth.token;
     final tenantScoped = role == UserRole.admin || role == UserRole.staff || role == UserRole.doctor;
+    final notifier = ref.read(authProvider.notifier);
     if (tenantScoped && tenantId != null && tenantId.isNotEmpty && token != null && token.isNotEmpty) {
       try {
         final caps = await ref.read(repositoryProvider).getCapabilities(tenantId, token);
-        ref.read(authProvider.notifier).setCapabilities(caps);
-        if (caps.isPharmacyOnly) return '/pharmacy';
+        notifier.setCapabilities(caps);
+        if (caps.isPharmacyOnly) {
+          await notifier.setHomePreference(true);
+          return '/pharmacy';
+        }
       } catch (_) {
         // No capabilities → fall back to the role home. A store owner can still
         // reach the counter from the admin dashboard's Pharmacy card.
       }
+    }
+    // Signed in at the hospital door — persist it so a restored admin/staff session
+    // isn't re-routed to a pharmacy the tenant merely also happens to have.
+    if (role == UserRole.admin || role == UserRole.staff) {
+      await notifier.setHomePreference(false);
     }
     return _routeForRole(role);
   }

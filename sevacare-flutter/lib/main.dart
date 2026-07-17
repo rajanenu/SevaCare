@@ -4,12 +4,39 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'providers/app_state.dart';
 
+/// Crash reporting DSN, injected at build time with
+/// `--dart-define=SENTRY_DSN=...`. Empty (the default, and every local build)
+/// means Sentry is never initialised — zero overhead, no account required.
+const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
 void main() async {
+  if (_sentryDsn.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = _sentryDsn;
+        // Crash reporting only — tracing samples cost quota and the free tier
+        // is sized for errors, which is the signal that matters here.
+        options.tracesSampleRate = 0;
+        // PHI discipline: never attach request bodies or screenshots; a crash
+        // report must not become a patient-data leak.
+        options.maxRequestBodySize = MaxRequestBodySize.never;
+        options.attachScreenshot = false;
+        options.sendDefaultPii = false;
+      },
+      appRunner: _run,
+    );
+  } else {
+    await _run();
+  }
+}
+
+Future<void> _run() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Portrait lock only makes sense on phones — skip on web (where `Platform`

@@ -69,6 +69,7 @@ dependencies:
 
   # Reading .xlsx directly, so a store need not "Save as CSV" first
   excel: ^4.0.6
+  sentry_flutter: ^8.14.2
 
 dev_dependencies:
   flutter_test:

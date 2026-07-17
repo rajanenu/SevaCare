@@ -183,9 +183,17 @@ for the window asked for — visits by status, new patients, prescriptions, the 
 hour, the day-by-day trend, and revenue as the sum of *the treating doctor's own fee* over
 completed visits (`consultation_fee` if stamped, else the digits of `doctor.fee`). The
 Reports tab used to read the all-time overview counters and multiply completed visits by a
-flat ₹500, so it showed the same numbers every day whichever period button was pressed;
-`overview()` is still all-time and is for the Dashboard, not for Reports. A doctor with no
-fee on file contributes 0, and the tab says so rather than inventing a number.
+flat ₹500, so it showed the same numbers every day whichever period button was pressed. A
+doctor with no fee on file contributes 0, and the tab says so rather than inventing a
+number.
+
+**Anything labelled with a time-word is counted for that window.** The Dashboard's
+"Today at a Glance" reads `report('today')` — the same counted path as Reports, so the two
+tabs cannot disagree. `overview()` is all-time and its labels now say so ("Total patients",
+"Upcoming appointments"). It called an all-time patient count **"Daily visits"**, which the
+dashboard rendered as "Today's Patients" under a LIVE badge: a hospital saw its lifetime
+total (18) where the truth was 0, and it never moved. Being all-time was fine; rendering it
+as *today* was the bug. Never source a today/this-week number from `overview()`.
 
 **A tenant accepts the Terms once, and it is recorded.** `tenant_registry.terms_version /
 _accepted_at / _accepted_by`, owned by `TermsService` (which also holds `CURRENT_VERSION`).
@@ -258,15 +266,80 @@ in memory: the directory is what every anonymous visitor hits first.
 per-`(doctor, date, session)` counter, and every channel funnels through
 `PatientDomainService.bookAppointment`. Put cross-channel behaviour there, once.
 
+**A slot is booked once, and the database says so.** The check-then-insert in
+`bookAppointment`/`rescheduleAppointment` ("is this slot free?" then insert) is a race —
+two parallel requests both read free and both insert. The real arbiter is a *partial
+unique index* (tenant `V13`) on `(doctor_public_id, appointment_slot)` `WHERE
+appointment_status = 'upcoming' AND booking_type = 'SLOT'`; the save is a `saveAndFlush`
+so the violation surfaces there (converted to "slot already booked"), not at commit. The
+index is scoped on purpose: **TOKEN bookings deliberately share a session-start slot
+string** (every morning token is `"<date> 09:00"`), so a naive unique index on
+`(doctor, slot)` would reject the second token of a session. A plain unique index here is
+a bug; keep the `booking_type='SLOT'` predicate.
+
 **Booking source is whitelisted.** `normalizeBookingSource` silently maps anything it
 doesn't recognise to `PATIENT_APP`. Add new sources to that switch or they vanish from
 the admin channel analytics.
 
 **Times are IST.** The JVM default is set in `SevaCareApiApplication` and Hikari runs
 `SET TIME ZONE 'Asia/Kolkata'` on every connection, because Cloud SQL defaults to UTC.
+That same `connection-init-sql` also sets `statement_timeout` / `lock_timeout` /
+`idle_in_transaction_session_timeout` (env-overridable) so one runaway query or a stuck
+lock cannot pin a pooled connection and starve every request. Raise them for a deliberately
+long migration/backfill; do not remove them. The app also runs `server.shutdown: graceful`
+so a Cloud Run SIGTERM lets an in-flight booking/sale finish instead of being severed.
+
+**The doctor's queue ships attachment metadata, never the bytes.** That day view is polled
+every 20 s; it used to re-send every patient-uploaded prescription's full base64 on every
+poll. The facet now carries only `AttachmentView` metadata (`dataBase64` null) via a closed
+projection (`AppointmentAttachmentRepository.findMeta…`), and the image is pulled once, on
+open, from `GET /patients/{t}/attachments/{id}` (Flutter `_AttachmentImage`, cached). Do not
+put the bytes back in the facet. For the same reason, list/queue reads use the photo-free
+`PatientRepository.PatientCard` projection — loading full `Patient` entities dragged the
+`photo_base64` TEXT column along too.
 
 **`appointment_slot` is a string** in `yyyy-MM-dd HH:mm` form, so a lexicographic
 comparison is also a chronological one — range queries in SQL are safe.
+
+**Uploaded files live in the database, never on disk.** Cloud Run's filesystem is
+per-instance and wiped on restart, so a file written there is unreadable from the next
+instance and gone after a deploy — onboarding documents used to vanish this way.
+`OnboardingDocumentService` stores bytes in `tenant_onboarding_document.file_bytes`
+(small one-time uploads; they ride the DB's own backups at no extra cost). Any new
+upload feature gets the same treatment until an object store is deliberately adopted.
+
+**`@Scheduled` does not run reliably on Cloud Run.** Request-based billing throttles
+CPU to near-zero between requests, so background timers fire late or never on a quiet
+instance. Every background job is therefore also runnable via
+`POST /internal/jobs/run` (shared-secret header `X-Jobs-Token` = `SEVACARE_JOBS_TOKEN`,
+unset → 404), driven by one free-tier Cloud Scheduler job every 5 minutes — see
+DEPLOYMENT.md. Double-running with the timers is safe (SKIP LOCKED claims, dedupe
+checks, idempotent prunes); a new background job must keep that property and be added
+to `InternalJobsController`. The endpoint is tenant-free: it is in
+`TenantHeaderFilter`'s skip list, and a path missing from that list that carries no
+`X-Tenant-Id` surfaces as a 401 (the 400 error-dispatches into the protected `/error`).
+
+**Boot skips tenant schemas that are already current.** `migrateAll` probes each
+schema's `flyway_tenant_history` max version with one cheap query and only runs full
+Flyway (connection + lock + validation, ~200ms each) for stale schemas — otherwise
+every instance start would pay one Flyway per tenant, turning scale-out during a spike
+into minutes of cold start. Anything doubtful takes the full path;
+`provisionTenant` always does.
+
+**Filter and window in SQL, never in memory.** The doctor's day queue
+(`getDoctorQueueForDate`, polled every 20s) is cut with a slot BETWEEN on
+`(doctor_public_id, appointment_slot)` (index in tenant V12), the follow-up badge is
+one batch `findPatientIdsSeenBefore` query, and the doctor's patient list is a SQL
+GROUP BY. Do not reintroduce `findByTenant…()`-then-filter — several of those loaded a
+tenant's entire appointment history per request.
+
+**Production logs are structured JSON** (`logging.structured.format.console: ecs` —
+`gcp` is NOT a valid Spring Boot format and crashes startup with "Unknown format 'gcp'";
+only `ecs`/`gelf`/`logstash` are built in), so
+Cloud Logging parses severity — log-based metrics/alerts (e.g. `cross_tenant_denied`)
+depend on it. Flutter crash reporting is Sentry, inert unless the build passes
+`--dart-define=SENTRY_DSN=…`; its init is crash-only and must never attach request
+bodies or screenshots (PHI).
 
 ## Flutter conventions
 

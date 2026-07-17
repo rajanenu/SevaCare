@@ -140,6 +140,7 @@ public final class AdminDtos {
             String mobileNumber,
             String gender,
             Integer age,
+            String bloodGroup,
             String lastAppointment   // "YYYY-MM-DD HH:MM" or null
     ) {
     }

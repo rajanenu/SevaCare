@@ -72,6 +72,63 @@ into connection-refused errors — a hard outage, not a slowdown. Hence:
   **then** raise `SEVACARE_DB_POOL_MAX` and `--max-instances` together (and
   the CPU quota if still capped), keeping the product under the new limit.
 
+## Background jobs (Cloud Scheduler → /internal/jobs/run)
+
+Cloud Run **throttles CPU to near-zero between requests**, so the `@Scheduled`
+timers (WhatsApp drain, event outbox, reminders, token/idempotency prunes) fire
+late or never on a quiet instance — the quiet hours are exactly when the prunes
+are due. The fix costs nothing: one Cloud Scheduler job (free tier: 3 jobs)
+POSTs to `/internal/jobs/run` every 5 minutes and the work runs inside a
+request, with full CPU. Double-running alongside the timers is safe by design
+(SKIP LOCKED claims, dedupe checks, idempotent DELETEs).
+
+One-time setup:
+
+```bash
+# 1) Mint a secret and add it to the backend env (Secret Manager / --set-env-vars)
+JOBS_TOKEN=$(openssl rand -hex 32)
+gcloud run services update sevacare-backend --region=asia-south1 \
+  --update-env-vars="SEVACARE_JOBS_TOKEN=${JOBS_TOKEN}"
+
+# 2) One scheduler job, every 5 minutes
+gcloud scheduler jobs create http sevacare-jobs --location=asia-south1 \
+  --schedule="*/5 * * * *" --time-zone="Asia/Kolkata" \
+  --uri="https://sevacare-backend-2glz4tgi3q-el.a.run.app/internal/jobs/run" \
+  --http-method=POST --headers="X-Jobs-Token=${JOBS_TOKEN}"
+```
+
+Unset `SEVACARE_JOBS_TOKEN` = the endpoint answers 404; a wrong token = 403.
+The nightly prunes only run on ticks that land in the 03:00 IST hour.
+
+## Observability on the free tier
+
+Production logs are **structured JSON (Elastic Common Schema)**
+(`logging.structured.format.console: ecs` in `application-production.yml`), so
+Cloud Logging parses them into `jsonPayload` with a `message` field — no Prometheus
+scraper or paid APM needed. (`gcp` is **not** a valid Spring Boot format — only
+`ecs`/`gelf`/`logstash` are built in — and setting it crashes startup.) Two things
+to set up once, both inside the free allotment:
+
+```bash
+# Log-based metric + alert on cross-tenant probes (this is a security pager,
+# no legitimate client can produce it — see TenantAccessFilter)
+gcloud logging metrics create cross_tenant_denied \
+  --description="Token replayed against another tenant" \
+  --log-filter='resource.type="cloud_run_revision" AND jsonPayload.message:"cross_tenant_denied"'
+# then: Monitoring → Alerting → create a policy on that metric (threshold > 0)
+```
+
+Flutter crash reporting is Sentry (free developer tier, ~5k errors/mo, covers
+Android **and** web). It is fully inert until a DSN is baked into the build:
+
+```bash
+flutter build apk ... --dart-define=SENTRY_DSN=<dsn from sentry.io project>
+```
+
+No DSN (every local build) = Sentry never initialises. The init is
+crash-only: no tracing samples, no screenshots, no request bodies — a crash
+report must not carry PHI.
+
 ## Redeploy frontend (after UI change or backend URL change)
 ```bash
 gcloud builds submit --config=sevacare-deploy/cb-frontend.yaml .  # bakes API_BASE_URL

@@ -44,6 +44,8 @@ class ApiConstants {
   static String bookAppointment(String tenantId, String patientId) => '/patients/$tenantId/$patientId/appointments';
   static String patientPrescriptions(String tenantId, String patientId) => '/patients/$tenantId/$patientId/prescriptions';
   static String patientMedicalHistory(String tenantId, String patientId) => '/patients/$tenantId/$patientId/medical-history';
+  // Single attachment's bytes, fetched on demand (the queue ships metadata only).
+  static String patientAttachment(String tenantId, String attachmentPublicId) => '/patients/$tenantId/attachments/$attachmentPublicId';
   static String patientRecord(String tenantId, String patientId) => '/patients/$tenantId/records/$patientId';
   static String patientRecords(String tenantId) => '/patients/$tenantId/records';
   static String patientAppointments(String tenantId) => '/patients/$tenantId/appointments';
@@ -123,6 +125,15 @@ class ApiConstants {
   static String deleteAdminOrStaffAccount(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/account';
   static String adminOrStaffPhoto(String tenantId, String adminId) => '/admin/$tenantId/users/$adminId/photo';
 
+  // ── IPD rooms ──
+  static String rooms(String tenantId) => '/admin/$tenantId/rooms';
+  static String room(String tenantId, int roomId) => '/admin/$tenantId/rooms/$roomId';
+  static String admissions(String tenantId, {String status = 'ADMITTED'}) =>
+      '/admin/$tenantId/admissions?status=$status';
+  static String admit(String tenantId) => '/admin/$tenantId/admissions';
+  static String discharge(String tenantId, int admissionId) =>
+      '/admin/$tenantId/admissions/$admissionId/discharge';
+
   // Leave Requests
   static String leaveRequests(String tenantId, String doctorId) => '/$tenantId/doctors/$doctorId/leave-requests';
   static String staffLeaveRequests(String tenantId, String staffId) => '/$tenantId/staff/$staffId/leave-requests';
@@ -186,6 +197,8 @@ class ApiConstants {
       '/pharmacy/$tenantId/sales/in-range?from=$from&to=$to&sortBy=$sortBy&limit=$limit';
   static String pharmacyLastSaleForMobile(String tenantId, String mobile) =>
       '/pharmacy/$tenantId/sales/last-for-mobile?mobile=${Uri.encodeComponent(mobile)}';
+  static String pharmacyCustomerHistory(String tenantId, String mobile, {int page = 0, int size = 5}) =>
+      '/pharmacy/$tenantId/sales/customer-history?mobile=${Uri.encodeComponent(mobile)}&page=$page&size=$size';
   static String pharmacyVoidSale(String tenantId, String salePublicId) =>
       '/pharmacy/$tenantId/sales/$salePublicId/void';
   static String pharmacyRecentReturns(String tenantId, {int limit = 20}) =>

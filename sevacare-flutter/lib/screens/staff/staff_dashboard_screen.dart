@@ -124,6 +124,7 @@ class _StaffDashboardScreenState extends ConsumerState<StaffDashboardScreen> {
                 _tabPage(const _DoctorsTab()),
                 _tabPage(_PatientsTab(onBookForPatient: _bookForExistingPatient)),
                 _tabPage(const _StaffRequestsTab()),
+                _tabPage(const _RoomsTab()),
               ],
             ),
           ),
@@ -290,6 +291,7 @@ class _TabBar extends StatelessWidget {
       (icon: Icons.medical_services_outlined, label: 'Doctors'),
       (icon: Icons.people_outline, label: 'Patients'),
       (icon: Icons.event_note_outlined, label: 'Requests'),
+      (icon: Icons.king_bed_outlined, label: 'Rooms'),
     ];
     return Row(
       children: List.generate(tabs.length, (i) {
@@ -320,13 +322,17 @@ class _TabBar extends StatelessWidget {
                         ? SevaCareColors.textOnPrimary
                         : SevaCareColors.textMuted,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    tabs[i].label,
-                    style: AppTextStyles.label(
-                      active
-                          ? SevaCareColors.textOnPrimary
-                          : SevaCareColors.textMuted,
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      tabs[i].label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.label(
+                        active
+                            ? SevaCareColors.textOnPrimary
+                            : SevaCareColors.textMuted,
+                      ),
                     ),
                   ),
                 ],
@@ -2441,6 +2447,10 @@ class _SortableHeader extends StatelessWidget {
   }
 }
 
+const List<String> _bloodGroups = [
+  'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
+];
+
 class _PatientsTab extends ConsumerStatefulWidget {
   final ValueChanged<PatientRecord> onBookForPatient;
   const _PatientsTab({required this.onBookForPatient});
@@ -2460,6 +2470,10 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
   bool _loading = false;
   bool _loadingMore = false;
   String? _error;
+
+  // Who is currently admitted, keyed by patientPublicId — so a row can show an
+  // "In Room X" badge and the detail sheet knows to offer Discharge over Admit.
+  Map<String, Admission> _admitted = {};
 
   String? _sortBy;
   String _sortDir = 'asc';
@@ -2524,11 +2538,13 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
   void initState() {
     super.initState();
     _load(reset: true);
+    _loadAdmitted();
     // Silent first-page refresh — skipped while searching or paged deeper,
     // so it never clobbers what the user is looking at.
     startAutoRefresh(() async {
       if (_page <= 1 && _searchCtrl.text.trim().isEmpty && _visitFrom == null && !_loadingMore) {
         await _load();
+        await _loadAdmitted();
       }
     });
   }
@@ -2601,6 +2617,26 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
     }
   }
 
+  // Current in-patients, so the list and the detail sheet can tell who is in a
+  // room. Best-effort: a tenant that never uses IPD simply has none, and the
+  // patient list must work regardless.
+  Future<void> _loadAdmitted() async {
+    try {
+      final auth = ref.read(authProvider);
+      final list = await ref.read(repositoryProvider).getAdmissions(
+            auth.tenantPublicId ?? '',
+            auth.token ?? '',
+          );
+      if (mounted) {
+        setState(() {
+          _admitted = {for (final a in list) a.patientPublicId: a};
+        });
+      }
+    } catch (_) {
+      // IPD unused or unreachable — leave the map as-is.
+    }
+  }
+
   Future<void> _loadMore() async {
     if (!_hasMore || _loadingMore) return;
     setState(() => _loadingMore = true);
@@ -2648,6 +2684,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
     final mc = TextEditingController(text: p.mobileNumber);
     final ac = TextEditingController(text: p.age?.toString() ?? '');
     String gender = p.gender ?? 'male';
+    String? bloodGroup = p.bloodGroup;
     bool saving = false;
     String? dlgErr;
 
@@ -2715,6 +2752,27 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Blood group',
+                      style: AppTextStyles.label(SevaCareColors.textMuted)),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final bg in _bloodGroups)
+                      _ToggleChip(
+                        label: bg,
+                        selected: bloodGroup == bg,
+                        // Tap again to clear — blood group is optional.
+                        onTap: () => setDlg(
+                            () => bloodGroup = bloodGroup == bg ? null : bg),
+                      ),
+                  ],
+                ),
                 if (dlgErr != null) ...[
                   const SizedBox(height: 10),
                   _Banner(msg: dlgErr!, isError: true),
@@ -2761,6 +2819,7 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
                                 status: 'active',
                                 gender: gender,
                                 age: int.tryParse(ac.text.trim()),
+                                bloodGroup: bloodGroup,
                               ),
                             );
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -2845,103 +2904,145 @@ class _PatientsTabState extends ConsumerState<_PatientsTab>
   }
 
   // ── Patient row ───────────────────────────────────────────────────────────
+  // Tap anywhere to open the detail sheet (edit, book, admit/discharge). The
+  // row itself stays lean: name, patient ID, and — if they are an in-patient —
+  // which room they are in.
   Widget _buildRow(PatientSummary p) {
     final apptLabel = _formatAppt(p.lastAppointment);
-    return Container(
-      decoration: BoxDecoration(
-        color: SevaCareColors.surface,
-        border: Border(
-          bottom: BorderSide(color: SevaCareColors.border, width: 0.8),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Name + mobile
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p.fullName,
-                  style: AppTextStyles.body(
-                    size: 13,
-                    weight: FontWeight.w600,
-                    color: SevaCareColors.text,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                MaskedText(
-                  p.mobileNumber,
-                  style: AppTextStyles.label(SevaCareColors.textMuted),
-                ),
-              ],
+    final admission = _admitted[p.patientPublicId];
+    return Material(
+      color: SevaCareColors.surface,
+      child: InkWell(
+        onTap: () => _openDetail(p, admission),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: SevaCareColors.border, width: 0.8),
             ),
           ),
-          // Age
-          SizedBox(
-            width: 36,
-            child: Text(
-              p.age != null ? '${p.age}y' : '—',
-              style: AppTextStyles.label(SevaCareColors.textMuted),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          // Last appointment
-          Expanded(
-            flex: 2,
-            child: Text(
-              apptLabel,
-              style: AppTextStyles.label(
-                apptLabel == '—'
-                    ? SevaCareColors.textMuted
-                    : SevaCareColors.primary,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-            ),
-          ),
-          // Actions
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _ActionIcon(
-                icon: Icons.calendar_month_outlined,
-                color: SevaCareColors.primary,
-                tooltip: 'Book',
-                onTap: () {
-                  final auth = ref.read(authProvider);
-                  widget.onBookForPatient(
-                    PatientRecord(
-                      patientPublicId: p.patientPublicId,
-                      tenantPublicId: auth.tenantPublicId ?? '',
-                      fullName: p.fullName,
-                      mobileNumber: p.mobileNumber,
-                      status: 'active',
-                      gender: p.gender,
-                      age: p.age,
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.fullName,
+                      style: AppTextStyles.body(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: SevaCareColors.text,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  );
-                },
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          p.patientPublicId,
+                          style: AppTextStyles.body(
+                            size: 11,
+                            weight: FontWeight.w500,
+                            color: SevaCareColors.textMuted,
+                          ),
+                        ),
+                        if (p.bloodGroup != null &&
+                            p.bloodGroup!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          _MiniChip(
+                            label: p.bloodGroup!,
+                            color: SevaCareColors.danger,
+                            icon: Icons.water_drop_outlined,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (admission != null) ...[
+                      const SizedBox(height: 4),
+                      _MiniChip(
+                        label: 'In ${admission.roomLabel ?? 'room'}',
+                        color: SevaCareColors.primary,
+                        icon: Icons.king_bed_outlined,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              _ActionIcon(
-                icon: Icons.edit_outlined,
-                color: SevaCareColors.textMuted,
-                tooltip: 'Edit',
-                onTap: () => _openEdit(p),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  p.age != null ? '${p.age}y' : '—',
+                  style: AppTextStyles.label(SevaCareColors.textMuted),
+                  textAlign: TextAlign.center,
+                ),
               ),
-              _ActionIcon(
-                icon: Icons.delete_outline,
-                color: SevaCareColors.danger,
-                tooltip: 'Delete',
-                onTap: () => _confirmDelete(p),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  apptLabel,
+                  style: AppTextStyles.label(
+                    apptLabel == '—'
+                        ? SevaCareColors.textMuted
+                        : SevaCareColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                ),
               ),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: SevaCareColors.textMuted),
             ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  // ── Patient detail sheet ──────────────────────────────────────────────────
+  // The single place a staffer manages one patient: their details, a shortcut
+  // to book, and the IPD admit/discharge action. Kept as a bottom sheet so it
+  // is one tap away and dismisses with a swipe.
+  void _openDetail(PatientSummary p, Admission? admission) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: SevaCareColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _PatientDetailSheet(
+        patient: p,
+        admission: admission,
+        onEdit: () {
+          Navigator.pop(ctx);
+          _openEdit(p);
+        },
+        onBook: () {
+          Navigator.pop(ctx);
+          final auth = ref.read(authProvider);
+          widget.onBookForPatient(PatientRecord(
+            patientPublicId: p.patientPublicId,
+            tenantPublicId: auth.tenantPublicId ?? '',
+            fullName: p.fullName,
+            mobileNumber: p.mobileNumber,
+            status: 'active',
+            gender: p.gender,
+            age: p.age,
+            bloodGroup: p.bloodGroup,
+          ));
+        },
+        onDelete: () {
+          Navigator.pop(ctx);
+          _confirmDelete(p);
+        },
+        onChanged: () {
+          _load(reset: true);
+          _loadAdmitted();
+        },
       ),
     );
   }
@@ -3642,6 +3743,897 @@ class _Banner extends StatelessWidget {
           Icon(icon, color: fg, size: 16),
           const SizedBox(width: 8),
           Expanded(child: Text(msg, style: AppTextStyles.label(fg))),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Small pill used in patient rows and room cards ────────────────────────────
+
+class _MiniChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData? icon;
+  const _MiniChip({required this.label, required this.color, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: AppTextStyles.body(
+                size: 10.5, weight: FontWeight.w600, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Patient detail sheet ──────────────────────────────────────────────────────
+// One patient, one place: their details, a shortcut to book, and the IPD
+// admit/discharge action. Admission state is kept locally so the sheet updates
+// the moment the staffer admits or discharges, without a full reload behind it.
+
+class _PatientDetailSheet extends ConsumerStatefulWidget {
+  final PatientSummary patient;
+  final Admission? admission;
+  final VoidCallback onEdit;
+  final VoidCallback onBook;
+  final VoidCallback onDelete;
+  final VoidCallback onChanged;
+  const _PatientDetailSheet({
+    required this.patient,
+    required this.admission,
+    required this.onEdit,
+    required this.onBook,
+    required this.onDelete,
+    required this.onChanged,
+  });
+
+  @override
+  ConsumerState<_PatientDetailSheet> createState() =>
+      _PatientDetailSheetState();
+}
+
+class _PatientDetailSheetState extends ConsumerState<_PatientDetailSheet> {
+  Admission? _admission;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _admission = widget.admission;
+  }
+
+  Future<void> _admit() async {
+    final selection = await showModalBottomSheet<({int roomId, String notes})>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: SevaCareColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AdmitRoomSheet(patientName: widget.patient.fullName),
+    );
+    if (selection == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final auth = ref.read(authProvider);
+      final adm = await ref.read(repositoryProvider).admitPatient(
+            auth.tenantPublicId ?? '',
+            auth.token ?? '',
+            widget.patient.patientPublicId,
+            selection.roomId,
+            selection.notes.isEmpty ? null : selection.notes,
+          );
+      if (!mounted) return;
+      setState(() {
+        _admission = adm;
+        _busy = false;
+      });
+      widget.onChanged();
+      AppSnack.success(context, 'Admitted to ${adm.roomLabel ?? 'room'}');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      AppSnack.error(context, extractErrorMessage(e, fallback: 'Could not admit'));
+    }
+  }
+
+  Future<void> _discharge() async {
+    final adm = _admission;
+    if (adm == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        title: Text('Discharge patient',
+            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        content: Text(
+          'Discharge ${widget.patient.fullName} from ${adm.roomLabel ?? 'the room'}? '
+          'The room becomes available.',
+          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.primary),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Discharge', style: AppTextStyles.label(Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final auth = ref.read(authProvider);
+      await ref.read(repositoryProvider).dischargePatient(
+            auth.tenantPublicId ?? '',
+            auth.token ?? '',
+            adm.admissionId,
+          );
+      if (!mounted) return;
+      setState(() {
+        _admission = null;
+        _busy = false;
+      });
+      widget.onChanged();
+      AppSnack.success(context, 'Discharged');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      AppSnack.error(
+          context, extractErrorMessage(e, fallback: 'Could not discharge'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.patient;
+    final adm = _admission;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 10,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: SevaCareColors.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(p.fullName,
+                style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text('Patient ID · ${p.patientPublicId}',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _detailPill(Icons.phone_outlined, p.mobileNumber),
+                if (p.age != null) _detailPill(Icons.cake_outlined, '${p.age} yrs'),
+                if (p.gender != null && p.gender!.isNotEmpty)
+                  _detailPill(Icons.person_outline, _capitalize(p.gender!)),
+                _detailPill(
+                    Icons.water_drop_outlined,
+                    (p.bloodGroup != null && p.bloodGroup!.isNotEmpty)
+                        ? p.bloodGroup!
+                        : 'Blood group —'),
+              ],
+            ),
+            if (adm != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: SevaCareColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: SevaCareColors.primary.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.king_bed_outlined,
+                        size: 18, color: SevaCareColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'In-patient · ${adm.roomLabel ?? 'room'}'
+                        '${adm.admittedAt != null ? '\nSince ${adm.admittedAt}' : ''}',
+                        style: AppTextStyles.bodyText(SevaCareColors.text),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            if (adm == null)
+              PrimaryButton(
+                label: 'Admit to a room',
+                isLoading: _busy,
+                onPressed: _busy ? null : _admit,
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SevaCareColors.danger,
+                    side: BorderSide(
+                        color: SevaCareColors.danger.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: Text(_busy ? 'Working…' : 'Discharge'),
+                  onPressed: _busy ? null : _discharge,
+                ),
+              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SevaCareColors.primary,
+                      side: const BorderSide(color: SevaCareColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 17),
+                    label: const Text('Edit'),
+                    onPressed: _busy ? null : widget.onEdit,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SevaCareColors.primary,
+                      side: const BorderSide(color: SevaCareColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.calendar_month_outlined, size: 17),
+                    label: const Text('Book'),
+                    onPressed: _busy ? null : widget.onBook,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: SevaCareColors.danger),
+                icon: const Icon(Icons.delete_outline, size: 17),
+                label: const Text('Delete patient'),
+                onPressed: _busy ? null : widget.onDelete,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailPill(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: SevaCareColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: SevaCareColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: SevaCareColors.textMuted),
+          const SizedBox(width: 5),
+          Text(text, style: AppTextStyles.label(SevaCareColors.text)),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+// ── Admit room picker ─────────────────────────────────────────────────────────
+// Lists only the rooms that are free right now, so a staffer can never admit
+// into an occupied one. Returns (roomId, notes) to the caller, which performs
+// the admit.
+
+class _AdmitRoomSheet extends ConsumerStatefulWidget {
+  final String patientName;
+  const _AdmitRoomSheet({required this.patientName});
+
+  @override
+  ConsumerState<_AdmitRoomSheet> createState() => _AdmitRoomSheetState();
+}
+
+class _AdmitRoomSheetState extends ConsumerState<_AdmitRoomSheet> {
+  List<Room> _rooms = [];
+  bool _loading = true;
+  String? _error;
+  int? _selectedRoomId;
+  final _notesCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final auth = ref.read(authProvider);
+      final rooms = await ref
+          .read(repositoryProvider)
+          .getRooms(auth.tenantPublicId ?? '', auth.token ?? '');
+      if (mounted) {
+        setState(() {
+          _rooms = rooms.where((r) => !r.isOccupied).toList();
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = extractErrorMessage(e, fallback: 'Could not load rooms');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 10,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: SevaCareColors.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Admit ${widget.patientName}',
+                style: AppTextStyles.sectionTitle(SevaCareColors.text),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text('Choose an available room',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+            const SizedBox(height: 14),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              _Banner(msg: _error!, isError: true)
+            else if (_rooms.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: SevaCareColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.meeting_room_outlined,
+                        color: SevaCareColors.textMuted),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No free rooms right now.\nAdd rooms in the Rooms tab first.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.38),
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final r in _rooms)
+                        _ToggleChip(
+                          label: (r.roomType != null && r.roomType!.isNotEmpty)
+                              ? '${r.label} · ${r.roomType}'
+                              : r.label,
+                          selected: _selectedRoomId == r.roomId,
+                          onTap: () =>
+                              setState(() => _selectedRoomId = r.roomId),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppFormField(
+                label: 'Notes (optional)',
+                placeholder: 'Reason for admission, ward notes…',
+                controller: _notesCtrl,
+              ),
+              const SizedBox(height: 14),
+              PrimaryButton(
+                label: 'Admit',
+                onPressed: _selectedRoomId == null
+                    ? null
+                    : () => Navigator.pop(
+                          context,
+                          (
+                            roomId: _selectedRoomId!,
+                            notes: _notesCtrl.text.trim()
+                          ),
+                        ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Rooms tab ─────────────────────────────────────────────────────────────────
+// The bed board: add rooms, see at a glance who is where, and discharge in one
+// tap. Admitting starts from a patient (Patients tab → detail sheet), because
+// that is where the staffer already is when a patient needs a bed.
+
+class _RoomsTab extends ConsumerStatefulWidget {
+  const _RoomsTab();
+
+  @override
+  ConsumerState<_RoomsTab> createState() => _RoomsTabState();
+}
+
+class _RoomsTabState extends ConsumerState<_RoomsTab> with AutoRefreshMixin {
+  List<Room> _rooms = [];
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(initial: true);
+    startAutoRefresh(() => _load());
+  }
+
+  Future<void> _load({bool initial = false}) async {
+    if (initial) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final auth = ref.read(authProvider);
+      final rooms = await ref
+          .read(repositoryProvider)
+          .getRooms(auth.tenantPublicId ?? '', auth.token ?? '');
+      if (mounted) {
+        setState(() {
+          _rooms = rooms;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = extractErrorMessage(e, fallback: 'Could not load rooms');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addRoom() async {
+    final labelCtrl = TextEditingController();
+    String? roomType;
+    bool saving = false;
+    String? err;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          backgroundColor: SevaCareColors.surface,
+          title:
+              Text('Add room', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppFormField(
+                  label: 'Room number / name',
+                  placeholder: 'e.g. 101, ICU-2',
+                  controller: labelCtrl,
+                  required: true,
+                ),
+                const SizedBox(height: 6),
+                Text('Type (optional)',
+                    style: AppTextStyles.label(SevaCareColors.textMuted)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final t in const ['General', 'Private', 'ICU', 'Ward'])
+                      _ToggleChip(
+                        label: t,
+                        selected: roomType == t,
+                        onTap: () =>
+                            setDlg(() => roomType = roomType == t ? null : t),
+                      ),
+                  ],
+                ),
+                if (err != null) ...[
+                  const SizedBox(height: 10),
+                  _Banner(msg: err!, isError: true),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel',
+                  style: AppTextStyles.label(SevaCareColors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: SevaCareColors.primary),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final label = labelCtrl.text.trim();
+                      if (label.isEmpty) {
+                        setDlg(() => err = 'Room number is required');
+                        return;
+                      }
+                      setDlg(() => saving = true);
+                      try {
+                        final auth = ref.read(authProvider);
+                        await ref.read(repositoryProvider).createRoom(
+                              auth.tenantPublicId ?? '',
+                              auth.token ?? '',
+                              label,
+                              roomType,
+                            );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _load(initial: true);
+                      } catch (e) {
+                        setDlg(() {
+                          err = extractErrorMessage(e,
+                              fallback: 'Could not add room');
+                          saving = false;
+                        });
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : Text('Add', style: AppTextStyles.label(Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteRoom(Room r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        title:
+            Text('Remove room', style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        content: Text('Remove ${r.label}? This cannot be undone.',
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Remove', style: AppTextStyles.label(Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final auth = ref.read(authProvider);
+      await ref.read(repositoryProvider).deleteRoom(
+          auth.tenantPublicId ?? '', auth.token ?? '', r.roomId);
+      _load(initial: true);
+    } catch (e) {
+      if (mounted) {
+        AppSnack.error(
+            context, extractErrorMessage(e, fallback: 'Could not remove room'));
+      }
+    }
+  }
+
+  Future<void> _discharge(Room r) async {
+    final admissionId = r.admissionId;
+    if (admissionId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SevaCareColors.surface,
+        title: Text('Discharge patient',
+            style: AppTextStyles.cardTitle(SevaCareColors.text)),
+        content: Text(
+          'Discharge ${r.occupantName ?? 'the patient'} from ${r.label}? '
+          'The room becomes available.',
+          style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: AppTextStyles.label(SevaCareColors.textMuted)),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: SevaCareColors.primary),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Discharge', style: AppTextStyles.label(Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final auth = ref.read(authProvider);
+      await ref.read(repositoryProvider).dischargePatient(
+          auth.tenantPublicId ?? '', auth.token ?? '', admissionId);
+      _load(initial: true);
+    } catch (e) {
+      if (mounted) {
+        AppSnack.error(
+            context, extractErrorMessage(e, fallback: 'Could not discharge'));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final available = _rooms.where((r) => !r.isOccupied).length;
+    final occupied = _rooms.length - available;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rooms',
+                    style: AppTextStyles.sectionTitle(SevaCareColors.text)),
+                if (!_loading && _error == null)
+                  Text(
+                    '${_rooms.length} room${_rooms.length == 1 ? '' : 's'}  ·  '
+                    '$available free  ·  $occupied occupied',
+                    style: AppTextStyles.label(SevaCareColors.textMuted),
+                  ),
+              ],
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.refresh,
+                  size: 18, color: SevaCareColors.textMuted),
+              tooltip: 'Refresh',
+              onPressed: () => _load(initial: true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: SevaCareColors.primary,
+              side:
+                  BorderSide(color: SevaCareColors.primary.withValues(alpha: 0.4)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add room'),
+            onPressed: _addRoom,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_loading)
+          const ShimmerList(count: 4, cardHeight: 64)
+        else if (_error != null)
+          _Banner(msg: _error!, isError: true)
+        else if (_rooms.isEmpty)
+          _emptyRooms()
+        else
+          ..._rooms.map(_roomCard),
+      ],
+    );
+  }
+
+  Widget _emptyRooms() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      decoration: BoxDecoration(
+        color: SevaCareColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.king_bed_outlined,
+              size: 32, color: SevaCareColors.textMuted),
+          const SizedBox(height: 10),
+          Text('No rooms yet',
+              style: AppTextStyles.cardTitle(SevaCareColors.text)),
+          const SizedBox(height: 4),
+          Text(
+            'Add your wards and rooms to start admitting in-patients.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyText(SevaCareColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roomCard(Room r) {
+    final occupied = r.isOccupied;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SevaCareColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: occupied
+              ? SevaCareColors.primary.withValues(alpha: 0.30)
+              : SevaCareColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: occupied
+                  ? SevaCareColors.primarySoft
+                  : SevaCareColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.king_bed_outlined,
+                color: occupied
+                    ? SevaCareColors.primary
+                    : SevaCareColors.textMuted),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(r.label,
+                          style: AppTextStyles.cardTitle(SevaCareColors.text),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (r.roomType != null && r.roomType!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      _MiniChip(
+                          label: r.roomType!, color: SevaCareColors.textMuted),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  occupied ? (r.occupantName ?? 'Occupied') : 'Available',
+                  style: AppTextStyles.label(
+                      occupied ? SevaCareColors.primary : SevaCareColors.mint),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (occupied)
+            _ActionIcon(
+              icon: Icons.logout,
+              color: SevaCareColors.danger,
+              tooltip: 'Discharge',
+              onTap: () => _discharge(r),
+            )
+          else
+            _ActionIcon(
+              icon: Icons.delete_outline,
+              color: SevaCareColors.textMuted,
+              tooltip: 'Remove',
+              onTap: () => _deleteRoom(r),
+            ),
         ],
       ),
     );

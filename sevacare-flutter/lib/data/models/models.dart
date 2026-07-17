@@ -580,6 +580,7 @@ class PatientRecord {
   final String? gender;
   final int? age;
   final String? address;
+  final String? bloodGroup;
 
   const PatientRecord({
     required this.patientPublicId,
@@ -591,6 +592,7 @@ class PatientRecord {
     this.gender,
     this.age,
     this.address,
+    this.bloodGroup,
   });
 
   factory PatientRecord.fromJson(Map<String, dynamic> json) => PatientRecord(
@@ -603,6 +605,7 @@ class PatientRecord {
     gender: json['gender'] as String?,
     age: json['age'] as int?,
     address: json['address'] as String?,
+    bloodGroup: json['bloodGroup'] as String?,
   );
 }
 
@@ -612,6 +615,7 @@ class PatientSummary {
   final String mobileNumber;
   final String? gender;
   final int? age;
+  final String? bloodGroup;
   final String? lastAppointment;
 
   const PatientSummary({
@@ -620,6 +624,7 @@ class PatientSummary {
     required this.mobileNumber,
     this.gender,
     this.age,
+    this.bloodGroup,
     this.lastAppointment,
   });
 
@@ -629,6 +634,7 @@ class PatientSummary {
     mobileNumber: json['mobileNumber'] as String? ?? '',
     gender: json['gender'] as String?,
     age: json['age'] as int?,
+    bloodGroup: json['bloodGroup'] as String?,
     lastAppointment: json['lastAppointment'] as String?,
   );
 }
@@ -641,6 +647,7 @@ class PatientUpsertRequest {
   final String? gender;
   final int? age;
   final String? address;
+  final String? bloodGroup;
 
   const PatientUpsertRequest({
     required this.fullName,
@@ -650,6 +657,7 @@ class PatientUpsertRequest {
     this.gender,
     this.age,
     this.address,
+    this.bloodGroup,
   });
 
   Map<String, dynamic> toJson() => {
@@ -660,7 +668,90 @@ class PatientUpsertRequest {
     if (gender != null) 'gender': gender,
     if (age != null) 'age': age,
     if (address != null && address!.isNotEmpty) 'address': address,
+    if (bloodGroup != null && bloodGroup!.isNotEmpty) 'bloodGroup': bloodGroup,
   };
+}
+
+// ── IPD rooms ─────────────────────────────────────────────────────────────────
+
+/// A room and, when occupied, who is in it. [occupantName]/[admissionId] are
+/// null for an available room.
+class Room {
+  final int roomId;
+  final String label;
+  final String? roomType;
+  final String status; // AVAILABLE | OCCUPIED
+  final String? occupantPatientId;
+  final String? occupantName;
+  final int? admissionId;
+  final String? admittedAt;
+
+  const Room({
+    required this.roomId,
+    required this.label,
+    required this.status,
+    this.roomType,
+    this.occupantPatientId,
+    this.occupantName,
+    this.admissionId,
+    this.admittedAt,
+  });
+
+  bool get isOccupied => status.toUpperCase() == 'OCCUPIED';
+
+  factory Room.fromJson(Map<String, dynamic> json) => Room(
+    roomId: (json['roomId'] as num?)?.toInt() ?? 0,
+    label: json['label'] as String? ?? '',
+    roomType: json['roomType'] as String?,
+    status: json['status'] as String? ?? 'AVAILABLE',
+    occupantPatientId: json['occupantPatientId'] as String?,
+    occupantName: json['occupantName'] as String?,
+    admissionId: (json['admissionId'] as num?)?.toInt(),
+    admittedAt: json['admittedAt'] as String?,
+  );
+}
+
+/// A live (or past) in-patient stay: who, where, since when.
+class Admission {
+  final int admissionId;
+  final String patientPublicId;
+  final String? patientName;
+  final String? mobileNumber;
+  final String? bloodGroup;
+  final int roomId;
+  final String? roomLabel;
+  final String status; // ADMITTED | DISCHARGED
+  final String? admittedAt;
+  final String? dischargedAt;
+  final String? notes;
+
+  const Admission({
+    required this.admissionId,
+    required this.patientPublicId,
+    required this.roomId,
+    required this.status,
+    this.patientName,
+    this.mobileNumber,
+    this.bloodGroup,
+    this.roomLabel,
+    this.admittedAt,
+    this.dischargedAt,
+    this.notes,
+  });
+
+  factory Admission.fromJson(Map<String, dynamic> json) => Admission(
+    admissionId: (json['admissionId'] as num?)?.toInt() ?? 0,
+    patientPublicId: json['patientPublicId'] as String? ?? '',
+    patientName: json['patientName'] as String?,
+    mobileNumber: json['mobileNumber'] as String?,
+    bloodGroup: json['bloodGroup'] as String?,
+    roomId: (json['roomId'] as num?)?.toInt() ?? 0,
+    roomLabel: json['roomLabel'] as String?,
+    status: json['status'] as String? ?? 'ADMITTED',
+    admittedAt: json['admittedAt'] as String?,
+    dischargedAt: json['dischargedAt'] as String?,
+    notes: json['notes'] as String?,
+  );
 }
 
 // ── Appointment ───────────────────────────────────────────────────────────────
@@ -2408,6 +2499,35 @@ class SaleSummary {
     itemCount: (json['itemCount'] as num?)?.toInt() ?? 0,
     totalPaise: (json['totalPaise'] as num?)?.toInt() ?? 0,
     status: json['status'] as String? ?? 'COMPLETED',
+  );
+}
+
+/// One page of a customer's past invoices at this counter — {@link totalCount}
+/// of 0 is the "New customer" signal, distinct from an empty page that's just
+/// past the last one.
+class CustomerHistoryPage {
+  final int totalCount;
+  final int page;
+  final int size;
+  final List<SaleSummary> sales;
+
+  const CustomerHistoryPage({
+    required this.totalCount,
+    required this.page,
+    required this.size,
+    required this.sales,
+  });
+
+  bool get isNewCustomer => totalCount == 0;
+  bool get hasMore => (page + 1) * size < totalCount;
+
+  factory CustomerHistoryPage.fromJson(Map<String, dynamic> json) => CustomerHistoryPage(
+    totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
+    page: (json['page'] as num?)?.toInt() ?? 0,
+    size: (json['size'] as num?)?.toInt() ?? 5,
+    sales: ((json['sales'] as List<dynamic>?) ?? const [])
+        .map((e) => SaleSummary.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 }
 

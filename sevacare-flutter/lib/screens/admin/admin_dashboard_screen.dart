@@ -346,7 +346,7 @@ class _DashboardTab extends ConsumerStatefulWidget {
 
 class _DashboardTabState extends ConsumerState<_DashboardTab>
     with AutoRefreshMixin {
-  AdminOverview? _overview;
+  HospitalReport? _today;
   List<DoctorRecord> _doctors = [];
   BookingChannelStats? _channelStats;
   bool _loading = true;
@@ -425,15 +425,20 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
         return;
       }
 
+      // "Today at a Glance" says today, so it is counted for today. The overview
+      // endpoint is all-time (total patients ever, every future booking) — read
+      // under a LIVE badge it showed a hospital its lifetime patient count and
+      // never moved. report('today') is the same counted path the Reports tab
+      // uses, so both tabs agree.
       final results = await Future.wait([
-        repo.getAdminOverview(tenantId, token),
+        repo.getHospitalReport(tenantId, token, 'today'),
         repo.listDoctorRecords(tenantId, token),
         repo.getBookingChannelStats(tenantId, token),
       ]);
 
       if (mounted) {
         setState(() {
-          _overview = results[0] as AdminOverview;
+          _today = results[0] as HospitalReport;
           _doctors = results[1] as List<DoctorRecord>;
           _channelStats = results[2] as BookingChannelStats;
           _loading = false;
@@ -486,7 +491,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
       );
     }
 
-    final overview = _overview;
+    final today = _today;
 
     // Patient visits segment labels
     final visitSegments = [
@@ -496,25 +501,12 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
       SegmentItem<int>(value: 3, label: 'This Year'),
     ];
 
-    // Derive "Today at a glance" numbers from metrics
-    final todayVisits =
-        int.tryParse(
-          overview?.metrics.isNotEmpty == true
-              ? overview!.metrics[0].value
-              : '0',
-        ) ??
-        0;
-    final upcomingBooked =
-        int.tryParse(
-          overview != null && overview.metrics.length > 1
-              ? overview.metrics[1].value
-              : '0',
-        ) ??
-        0;
+    // Every one of these is counted from today's own rows by the same query the
+    // Reports tab reads, so the two tabs can never disagree.
+    final todayVisits = today?.totalVisits ?? 0;
+    final upcomingBooked = today?.upcomingVisits ?? 0;
+    final completedToday = today?.completedVisits ?? 0;
     final activeDoctors = _doctors.where((d) => d.active).length;
-    // Pending leaves come from AdminRequests — approximate from overview if available
-    // (backend can expose this; we show 0 if not present yet)
-    const pendingLeaves = 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,11 +516,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab>
           todayVisits: todayVisits,
           upcomingBooked: upcomingBooked,
           activeDoctors: activeDoctors,
-          pendingLeaves: pendingLeaves,
-          onViewRequests: () {
-            // Navigate to Requests tab (tab index 1)
-            context.go('/admin');
-          },
+          completedToday: completedToday,
         ),
         const SizedBox(height: 24),
 
@@ -632,21 +620,17 @@ class _TodayGlanceSection extends StatelessWidget {
   final int todayVisits;
   final int upcomingBooked;
   final int activeDoctors;
-  final int pendingLeaves;
-  final VoidCallback onViewRequests;
+  final int completedToday;
 
   const _TodayGlanceSection({
     required this.todayVisits,
     required this.upcomingBooked,
     required this.activeDoctors,
-    required this.pendingLeaves,
-    required this.onViewRequests,
+    required this.completedToday,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasPending = pendingLeaves > 0;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -676,49 +660,6 @@ class _TodayGlanceSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-
-        // ── Action-needed alert (pending leaves) ──────────────────────────────
-        if (hasPending) ...[
-          Semantics(
-            label: '$pendingLeaves pending leave requests need your attention',
-            button: true,
-            child: GestureDetector(
-              onTap: onViewRequests,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: SevaCareColors.warningSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: SevaCareColors.warning.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: SevaCareColors.warning,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '$pendingLeaves leave request${pendingLeaves == 1 ? '' : 's'} awaiting approval',
-                        style: AppTextStyles.bodyText(SevaCareColors.warning),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 12,
-                      color: SevaCareColors.warning,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
 
         // ── Primary stat row ──────────────────────────────────────────────────
         Row(
@@ -762,17 +703,12 @@ class _TodayGlanceSection extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _GlanceTile(
-                icon: Icons.inbox_outlined,
-                label: 'Pending Leaves',
-                value: '$pendingLeaves',
-                color: pendingLeaves > 0
-                    ? SevaCareColors.danger
-                    : SevaCareColors.textMuted,
-                bg: pendingLeaves > 0
-                    ? SevaCareColors.errorSurface
-                    : SevaCareColors.surfaceMuted,
-                isActionable: pendingLeaves > 0,
-                onTap: pendingLeaves > 0 ? onViewRequests : null,
+                icon: Icons.task_alt_rounded,
+                label: 'Completed',
+                value: '$completedToday',
+                color: SevaCareColors.mintForeground,
+                bg: SevaCareColors.mintSoft,
+                isActionable: false,
               ),
             ),
           ],
@@ -789,7 +725,6 @@ class _GlanceTile extends StatelessWidget {
   final Color color;
   final Color bg;
   final bool isActionable;
-  final VoidCallback? onTap;
 
   const _GlanceTile({
     required this.icon,
@@ -798,63 +733,46 @@ class _GlanceTile extends StatelessWidget {
     required this.color,
     required this.bg,
     required this.isActionable,
-    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '$label: $value${isActionable ? ', tap to view' : ''}',
-      button: onTap != null,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: color.withValues(alpha: isActionable ? 0.35 : 0.15),
-              width: isActionable ? 1.5 : 1,
+      label: '$label: $value',
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: color.withValues(alpha: isActionable ? 0.35 : 0.15),
+            width: isActionable ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [Icon(icon, size: 16, color: color)]),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: color,
+                height: 1,
+              ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 16, color: color),
-                  if (isActionable) ...[
-                    const Spacer(),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 10,
-                      color: color.withValues(alpha: 0.6),
-                    ),
-                  ],
-                ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color.withValues(alpha: 0.75),
               ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: color.withValues(alpha: 0.75),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

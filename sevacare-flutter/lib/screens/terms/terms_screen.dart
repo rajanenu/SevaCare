@@ -42,12 +42,24 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
     try {
       final doc = await repo.getTerms();
       TermsAcceptance? acceptance;
-      if (auth.token != null && auth.tenantPublicId != null) {
+      // Only a tenant's own admin/staff has an acceptance to show, and only they
+      // carry a real tenant. A platform admin's tenant is the sentinel 'platform'
+      // (no schema), and a patient/doctor never accepted on the business's behalf
+      // — firing the tenant-scoped /terms/acceptance call for any of them errors,
+      // and the ApiClient's global 401 handler tears the whole session down
+      // (wipe + back to welcome) before this method's own catch can run. So the
+      // "Read the terms" link would silently sign a platform admin out. Guard it.
+      final isTenantOwner =
+          auth.role == UserRole.admin || auth.role == UserRole.staff;
+      final hasRealTenant = auth.tenantPublicId != null &&
+          auth.tenantPublicId!.isNotEmpty &&
+          auth.tenantPublicId != 'platform';
+      if (auth.token != null && isTenantOwner && hasRealTenant) {
         try {
           acceptance = await repo.getTermsAcceptance(auth.tenantPublicId!, auth.token!);
         } catch (_) {
-          // A patient or doctor has no acceptance of their own to show — the
-          // document still reads perfectly well without it.
+          // A pharmacy-only owner or a tenant without an acceptance row yet — the
+          // document still reads perfectly well without the acceptance card.
         }
       }
       if (mounted) {

@@ -20,6 +20,7 @@ const _kSubjectName = 'seva_subject_name';
 const _kUserType = 'seva_user_type';
 const _kHospitalId = 'seva_hospital_id';
 const _kTheme = 'seva_theme';
+const _kHomePref = 'seva_home_pref';
 
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -62,6 +63,14 @@ class AuthState {
   /// just after a biometric session restore), which callers treat as "unknown".
   final Capabilities? capabilities;
 
+  /// Which shell this session signed in at — `'pharmacy'` or `'hospital'`.
+  /// Persisted, *unlike* [capabilities], precisely because a cold restart drops
+  /// capabilities: for an owner who runs both a clinic and its pharmacy, the door
+  /// they came in through is the only thing left that says which home to restore,
+  /// so they aren't dumped on the hospital dashboard by default. A routing hint
+  /// only — the signed token, never this, authorizes anything.
+  final String? homePreference;
+
   const AuthState({
     this.token,
     this.tenantPublicId,
@@ -71,6 +80,7 @@ class AuthState {
     this.subjectName = '',
     this.userType = 'ADMIN',
     this.capabilities,
+    this.homePreference,
   });
 
   bool get isAuthenticated =>
@@ -78,6 +88,7 @@ class AuthState {
 
   bool get hasPharmacy => capabilities?.hasPharmacy ?? false;
   bool get isPharmacyOnly => capabilities?.isPharmacyOnly ?? false;
+  bool get prefersPharmacyHome => homePreference == 'pharmacy';
 
   static const unauthenticated = AuthState();
 }
@@ -278,6 +289,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.delete(key: _kIsGeneric);
       await _storage.delete(key: _kSubjectName);
       await _storage.delete(key: _kUserType);
+      await _storage.delete(key: _kHomePref);
     }
     // When wipeStorage is false, credentials stay encrypted in secure storage.
     // Only biometric auth can re-activate the session (via restore()).
@@ -296,8 +308,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
       subjectName: name,
       userType: state.userType,
       capabilities: state.capabilities,
+      homePreference: state.homePreference,
     );
     await _storage.write(key: _kSubjectName, value: name);
+  }
+
+  /// Remembers which shell this session signed in at, so a cold restart — which
+  /// carries no [capabilities] — restores an owner of a clinic-with-pharmacy to
+  /// the side they were actually using, rather than defaulting every admin to
+  /// the hospital dashboard. Persisted; consumed only by routing.
+  Future<void> setHomePreference(bool pharmacy) async {
+    final pref = pharmacy ? 'pharmacy' : 'hospital';
+    state = AuthState(
+      token: state.token,
+      tenantPublicId: state.tenantPublicId,
+      subjectPublicId: state.subjectPublicId,
+      role: state.role,
+      isGenericAdmin: state.isGenericAdmin,
+      subjectName: state.subjectName,
+      userType: state.userType,
+      capabilities: state.capabilities,
+      homePreference: pref,
+    );
+    await _storage.write(key: _kHomePref, value: pref);
   }
 
   /// Records what the tenant is, once fetched from `/capabilities`. Not persisted:
@@ -312,6 +345,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       subjectName: state.subjectName,
       userType: state.userType,
       capabilities: capabilities,
+      homePreference: state.homePreference,
     );
   }
 
@@ -338,6 +372,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       isGenericAdmin: all[_kIsGeneric] == '1',
       subjectName: all[_kSubjectName] ?? '',
       userType: userType,
+      homePreference: all[_kHomePref],
     );
     return true;
   }
@@ -357,6 +392,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       subjectName: state.subjectName,
       userType: state.userType,
       capabilities: state.capabilities,
+      homePreference: state.homePreference,
     );
     await _storage.write(key: _kToken, value: token);
     await _storage.write(key: _kRefreshToken, value: refreshToken);

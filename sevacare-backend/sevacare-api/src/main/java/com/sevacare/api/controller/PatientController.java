@@ -378,6 +378,21 @@ public class PatientController {
         return ContractResponse.of(patientDomainService.getQueueStatus(tenantPublicId, patientPublicId, appointmentPublicId));
     }
 
+    // A single patient-uploaded attachment's bytes, fetched on demand. The doctor's
+    // day queue ships attachment metadata only (no base64), so this is the one call
+    // that pulls the image — made once, when the doctor actually opens it.
+    @GetMapping("/{tenantPublicId}/attachments/{attachmentPublicId}")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ContractResponse<PatientDtos.AttachmentView> getAttachment(
+            @PathVariable String tenantPublicId,
+            @PathVariable String attachmentPublicId
+    ) {
+        if (!tenantPublicId.equals(TenantContext.tenantPublicId())) {
+            throw new IllegalArgumentException("Tenant mismatch");
+        }
+        return ContractResponse.of(patientDomainService.getAppointmentAttachment(tenantPublicId, attachmentPublicId));
+    }
+
     @GetMapping("/{tenantPublicId}/{patientPublicId}/medical-history")
     @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
     public ContractResponse<PatientDtos.MedicalHistoryView> getMedicalHistory(

@@ -1,12 +1,11 @@
 package com.sevacare.api.controller;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -174,19 +173,14 @@ public class DiscoveryController {
             public ResponseEntity<Resource> downloadOnboardingDocument(
                 @PathVariable String requestPublicId,
                 @PathVariable String documentPublicId
-            ) throws IOException {
+            ) {
             OnboardingDocumentService.StoredDocument document = onboardingDocumentService.mustGetDocument(requestPublicId, documentPublicId);
-            Resource resource = new UrlResource(document.storagePath().toUri());
-            if (!resource.exists() || !resource.isReadable()) {
-                throw new IllegalArgumentException("Document not found: " + documentPublicId);
-            }
-
+            Resource resource = new ByteArrayResource(document.content());
             MediaType mediaType = MediaType.parseMediaType(document.contentType());
-            long contentLength = Files.size(document.storagePath());
 
             return ResponseEntity.ok()
                 .contentType(mediaType)
-                .contentLength(contentLength)
+                .contentLength(document.content().length)
                 .header(
                     HttpHeaders.CONTENT_DISPOSITION,
                     ContentDisposition.attachment().filename(document.originalFileName()).build().toString()

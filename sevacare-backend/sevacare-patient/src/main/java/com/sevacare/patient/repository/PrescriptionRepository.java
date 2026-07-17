@@ -16,6 +16,13 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Stri
 
     List<Prescription> findByTenantPublicIdAndDoctorPublicId(String tenantPublicId, String doctorPublicId);
 
+    /**
+     * The doctor's prescriptions screen shows recent work, not an archive — cap
+     * the read so it stops growing with every consult the doctor has ever done.
+     */
+    List<Prescription> findTop200ByTenantPublicIdAndDoctorPublicIdOrderByCreatedAtDesc(
+            String tenantPublicId, String doctorPublicId);
+
     Optional<Prescription> findByTenantPublicIdAndDoctorPublicIdAndAppointmentPublicId(
             String tenantPublicId,
             String doctorPublicId,

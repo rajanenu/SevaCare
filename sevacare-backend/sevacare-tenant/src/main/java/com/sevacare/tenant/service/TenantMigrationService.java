@@ -2,6 +2,7 @@ package com.sevacare.tenant.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
@@ -10,6 +11,9 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -115,9 +119,24 @@ public class TenantMigrationService {
      * deployment down with it — on Cloud Run that would turn one broken hospital
      * into a total outage. Failures are logged at ERROR and reported to the
      * caller; healthy tenants keep serving.
+     *
+     * <p>Schemas already at the latest version are skipped on a one-query probe
+     * instead of paying a full Flyway load each: boot cost was one Flyway
+     * (connection, lock, validation) per tenant on <em>every</em> instance start,
+     * which turns a scale-out during a traffic spike into minutes of cold start
+     * once tenants number in the hundreds. Anything the probe cannot vouch for —
+     * missing schema, missing history table, stale version — takes the full,
+     * lock-protected path exactly as before.
      */
     public List<String> migrateAll(List<TenantRegistry> tenants) {
-        return tenants.stream()
+        int latest = latestAvailableVersion();
+        List<TenantRegistry> stale = tenants.stream()
+                .filter(tenant -> !isAtVersion(tenant, latest))
+                .toList();
+        if (stale.size() < tenants.size()) {
+            log.info("tenant_schema_sweep current={} stale={}", tenants.size() - stale.size(), stale.size());
+        }
+        return stale.stream()
                 .filter(tenant -> {
                     try {
                         migrate(tenant);
@@ -130,5 +149,53 @@ public class TenantMigrationService {
                 })
                 .map(TenantRegistry::getTenantPublicId)
                 .toList();
+    }
+
+    /**
+     * Cheap probe: is this schema's history already at {@code latest}? False on
+     * any doubt (no schema, no history table, unparseable versions) so the full
+     * Flyway path decides. The probe trades Flyway's checksum validation for
+     * boot speed — a hand-edited old migration file will not be caught here, but
+     * it would only have been caught by a boot that then failed anyway.
+     */
+    private boolean isAtVersion(TenantRegistry tenant, int latest) {
+        String schemaName = tenant.getTenantSchemaName();
+        if (schemaName == null || !SAFE_SCHEMA.matcher(schemaName).matches()) {
+            return false;
+        }
+        try {
+            Integer applied = jdbcTemplate.queryForObject(
+                    "SELECT MAX(CAST(version AS INTEGER)) FROM " + schemaName + "." + HISTORY_TABLE +
+                            " WHERE success AND version ~ '^[0-9]+$'",
+                    Integer.class);
+            return applied != null && applied >= latest;
+        } catch (DataAccessException e) {
+            return false;
+        }
+    }
+
+    /** Highest V<n> on the classpath; versions in db/tenant are plain integers. */
+    private int latestAvailableVersion() {
+        Pattern versioned = Pattern.compile("^V(\\d+)__.+\\.sql$");
+        try {
+            int latest = 0;
+            for (Resource resource : new PathMatchingResourcePatternResolver()
+                    .getResources("classpath*:db/tenant/V*.sql")) {
+                String name = resource.getFilename();
+                if (name == null) {
+                    continue;
+                }
+                Matcher matcher = versioned.matcher(name);
+                if (matcher.matches()) {
+                    latest = Math.max(latest, Integer.parseInt(matcher.group(1)));
+                }
+            }
+            if (latest == 0) {
+                throw new IllegalStateException("No versioned tenant migrations found on classpath");
+            }
+            return latest;
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not scan tenant migrations", e);
+        }
     }
 }

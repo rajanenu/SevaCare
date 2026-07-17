@@ -207,6 +207,18 @@ class SevaCareRepository {
     );
   }
 
+  /// One patient-uploaded attachment's bytes, fetched on demand — the doctor's
+  /// queue carries attachment metadata only, so the image is pulled just once,
+  /// when the doctor actually opens it, instead of on every 20s poll.
+  Future<AttachmentView> getAttachment(
+      String tenantId, String attachmentPublicId, String token) async {
+    return _client.get<AttachmentView>(
+      ApiConstants.patientAttachment(tenantId, attachmentPublicId),
+      fromJson: (d) => AttachmentView.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
   Future<BookingSetupView> getBookingSetup(String tenantId, String patientId, String token) async {
     return _client.get<BookingSetupView>(
       ApiConstants.bookingSetup(tenantId, patientId),
@@ -305,6 +317,73 @@ class SevaCareRepository {
   Future<void> deletePatient(String tenantId, String patientId, String token) async {
     await _client.delete<dynamic>(
       ApiConstants.adminDeletePatient(tenantId, patientId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  // ── IPD rooms ──────────────────────────────────────────────────────────────
+
+  Future<List<Room>> getRooms(String tenantId, String token) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.rooms(tenantId),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final list = data['rooms'] as List? ?? [];
+    return list.map((e) => Room.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Room> createRoom(
+      String tenantId, String token, String label, String? roomType) async {
+    return _client.post<Room>(
+      ApiConstants.rooms(tenantId),
+      body: {
+        'label': label,
+        if (roomType != null && roomType.isNotEmpty) 'roomType': roomType,
+      },
+      fromJson: (d) => Room.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> deleteRoom(String tenantId, String token, int roomId) async {
+    await _client.delete<dynamic>(
+      ApiConstants.room(tenantId, roomId),
+      fromJson: (d) => d,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<List<Admission>> getAdmissions(String tenantId, String token,
+      {String status = 'ADMITTED'}) async {
+    final data = await _client.get<Map<String, dynamic>>(
+      ApiConstants.admissions(tenantId, status: status),
+      fromJson: (d) => d as Map<String, dynamic>,
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+    final list = data['admissions'] as List? ?? [];
+    return list.map((e) => Admission.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Admission> admitPatient(String tenantId, String token,
+      String patientPublicId, int roomId, String? notes) async {
+    return _client.post<Admission>(
+      ApiConstants.admit(tenantId),
+      body: {
+        'patientPublicId': patientPublicId,
+        'roomId': roomId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+      fromJson: (d) => Admission.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
+  }
+
+  Future<void> dischargePatient(
+      String tenantId, String token, int admissionId) async {
+    await _client.post<dynamic>(
+      ApiConstants.discharge(tenantId, admissionId),
       fromJson: (d) => d,
       extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
     );
@@ -1411,6 +1490,15 @@ class SevaCareRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<CustomerHistoryPage> customerPurchaseHistory(
+      String tenantId, String token, String mobile, {int page = 0, int size = 5}) async {
+    return _client.get<CustomerHistoryPage>(
+      ApiConstants.pharmacyCustomerHistory(tenantId, mobile, page: page, size: size),
+      fromJson: (d) => CustomerHistoryPage.fromJson(d as Map<String, dynamic>),
+      extraHeaders: {'Authorization': 'Bearer $token', 'X-Tenant-Id': tenantId},
+    );
   }
 
   Future<void> voidSale(String tenantId, String token, String salePublicId) async {

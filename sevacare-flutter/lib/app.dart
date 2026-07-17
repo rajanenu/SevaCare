@@ -76,13 +76,22 @@ class SevaCareApp extends ConsumerStatefulWidget {
   ConsumerState<SevaCareApp> createState() => _SevaCareAppState();
 }
 
-class _SevaCareAppState extends ConsumerState<SevaCareApp> {
+class _SevaCareAppState extends ConsumerState<SevaCareApp>
+    with WidgetsBindingObserver {
   late final GoRouter _router;
   bool _showIntro = true;
 
   @override
   void initState() {
     super.initState();
+    // Force a repaint whenever the app is resumed. On some Android OEMs the
+    // engine's render surface is torn down while the process sits idle in the
+    // background, and on the way back the widget tree is intact but nothing is
+    // ever asked to paint — so the user stares at a black window until they
+    // force-stop and cold-start (which is why that "fixes" it). Rebuilding the
+    // root here schedules a frame and re-attaches the surface, so a long-idle
+    // resume comes back to the live screen instead of black.
+    WidgetsBinding.instance.addObserver(this);
     _router = _buildRouter();
     // Cinematic intro plays on a fresh launch — but never in front of a scanned
     // QR deep link (user expects the form immediately), and not when main.dart
@@ -123,7 +132,20 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && mounted) {
+      debugPrint('SevaCare lifecycle: resumed — forcing a repaint');
+      // Rebuild the root (cheap: same router/theme) and explicitly ask for a
+      // frame, so a resume that left the surface blank paints again.
+      setState(() {});
+      WidgetsBinding.instance.scheduleFrame();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
   }
@@ -453,6 +475,15 @@ class _SevaCareAppState extends ConsumerState<SevaCareApp> {
   // bouncing them to the hospital admin/staff dashboard instead.
   static String _roleHome(AuthState auth) {
     if (auth.isPharmacyOnly) return '/pharmacy';
+    // A cold restart (closed tab, OS-killed app) carries no capabilities, so for
+    // an owner of a clinic that *also* runs a pharmacy we can't tell the two
+    // shells apart from the token alone — isPharmacyOnly reads false and every
+    // admin lands on the hospital dashboard. The door they signed in at, persisted
+    // at login, is what puts a counter pharmacist back on the counter.
+    if (auth.prefersPharmacyHome &&
+        (auth.role == UserRole.admin || auth.role == UserRole.staff)) {
+      return '/pharmacy';
+    }
     return switch (auth.role!) {
       UserRole.patient => '/patient',
       UserRole.doctor => '/doctor',
